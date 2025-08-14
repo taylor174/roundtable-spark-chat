@@ -53,6 +53,33 @@ export type Database = {
           },
         ]
       }
+      chat_messages: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          message_type: string
+          table_id: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          message_type?: string
+          table_id: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          message_type?: string
+          table_id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       participants: {
         Row: {
           client_id: string
@@ -87,6 +114,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name: string
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       rounds: {
         Row: {
@@ -172,10 +223,12 @@ export type Database = {
           current_round_id: string | null
           default_suggest_sec: number
           default_vote_sec: number
+          description: string | null
           host_secret: string
           id: string
           phase_ends_at: string | null
           status: string
+          title: string | null
           updated_at: string
         }
         Insert: {
@@ -184,10 +237,12 @@ export type Database = {
           current_round_id?: string | null
           default_suggest_sec?: number
           default_vote_sec?: number
+          description?: string | null
           host_secret: string
           id?: string
           phase_ends_at?: string | null
           status?: string
+          title?: string | null
           updated_at?: string
         }
         Update: {
@@ -196,10 +251,12 @@ export type Database = {
           current_round_id?: string | null
           default_suggest_sec?: number
           default_vote_sec?: number
+          description?: string | null
           host_secret?: string
           id?: string
           phase_ends_at?: string | null
           status?: string
+          title?: string | null
           updated_at?: string
         }
         Relationships: []

@@ -1,117 +1,121 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { supabase } from '@/integrations/supabase/client';
-import { generateTableCode, generateHostToken } from '@/utils';
-import { getOrCreateClientId, storeHostSecret } from '@/utils/clientId';
-import { TableInsert, ParticipantInsert } from '@/types';
+import { Button } from '@/components/ui/button';
+import { Plus, Users, LogIn, LogOut } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { TableCreationDialog } from '@/components/TableCreationDialog';
 
-const Home = () => {
-  const [loading, setLoading] = useState(false);
+export default function Home() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, signOut, loading: authLoading } = useAuth();
 
-  const handleCreateTable = async () => {
-    try {
-      setLoading(true);
-      
-      const code = generateTableCode();
-      const hostSecret = generateHostToken();
-      const clientId = getOrCreateClientId();
-      
-      const tableData: TableInsert = {
-        code,
-        host_secret: hostSecret,
-        status: 'lobby',
-        default_suggest_sec: 120,
-        default_vote_sec: 60,
-      };
-
-      const { data: table, error: tableError } = await supabase
-        .from('tables')
-        .insert(tableData)
-        .select()
-        .single();
-
-      if (tableError) throw tableError;
-
-      // Create host participant
-      const participantData: ParticipantInsert = {
-        table_id: table.id,
-        display_name: 'Host',
-        client_id: clientId,
-        is_host: true,
-      };
-
-      const { error: participantError } = await supabase
-        .from('participants')
-        .insert(participantData);
-
-      if (participantError) throw participantError;
-
-      // Store host secret in localStorage
-      storeHostSecret(code, hostSecret);
-
-      // Navigate to table
-      navigate(`/t/${code}`);
-      
-    } catch (error) {
-      console.error('Error creating table:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create table. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
+  const handleSignOut = async () => {
+    await signOut();
   };
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-pulse text-lg">Loading...</div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-bold">RoundTable</CardTitle>
-          <CardDescription>
-            Create a collaborative discussion space for your group
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Button 
-            onClick={handleCreateTable}
-            disabled={loading}
-            className="w-full"
-            size="lg"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating Table...
-              </>
-            ) : (
-              'Open Table'
-            )}
-          </Button>
-          
-          <div className="text-center">
-            <p className="text-sm text-muted-foreground mb-2">
-              Or join an existing table
-            </p>
-            <Button 
-              variant="ghost" 
-              onClick={() => navigate('/t/SAMPLE/join')}
-              className="text-sm"
-            >
-              Enter table code
-            </Button>
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted">
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-12">
+          <div>
+            <h1 className="text-3xl font-bold">Agora</h1>
+            <p className="text-muted-foreground">Collaborative Decision Making</p>
           </div>
-        </CardContent>
-      </Card>
+          <div className="flex items-center gap-4">
+            {user ? (
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-muted-foreground">
+                  Welcome back!
+                </span>
+                <Button variant="outline" onClick={handleSignOut} size="sm">
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Sign Out
+                </Button>
+              </div>
+            ) : (
+              <Button onClick={() => navigate('/auth')} size="sm">
+                <LogIn className="h-4 w-4 mr-2" />
+                Sign In
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <div className="text-center mb-12">
+          <h2 className="text-4xl font-bold tracking-tight mb-4">
+            Collaborative Decision Making
+          </h2>
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            Host interactive sessions where participants suggest ideas, vote on proposals, 
+            and reach consensus together in real-time.
+          </p>
+        </div>
+
+        <div className="max-w-md mx-auto space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Plus className="h-5 w-5" />
+                Host a Session
+              </CardTitle>
+              <CardDescription>
+                Create a new collaborative table and invite participants
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {user ? (
+                <TableCreationDialog>
+                  <Button size="lg" className="w-full">
+                    Create New Table
+                  </Button>
+                </TableCreationDialog>
+              ) : (
+                <Button 
+                  size="lg" 
+                  className="w-full" 
+                  onClick={() => navigate('/auth')}
+                >
+                  Sign In to Create Table
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Join a Session
+              </CardTitle>
+              <CardDescription>
+                Enter a table code to participate in an existing session
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button 
+                variant="outline" 
+                size="lg" 
+                className="w-full"
+                onClick={() => navigate('/t/example/join')}
+              >
+                Join Table
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
-};
-
-export default Home;
+}
