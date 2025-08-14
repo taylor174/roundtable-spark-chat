@@ -14,7 +14,246 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      blocks: {
+        Row: {
+          created_at: string
+          id: string
+          round_id: string
+          table_id: string
+          text: string
+          winning_proposal_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          round_id: string
+          table_id: string
+          text: string
+          winning_proposal_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          round_id?: string
+          table_id?: string
+          text?: string
+          winning_proposal_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blocks_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blocks_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "tables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blocks_winning_proposal_id_fkey"
+            columns: ["winning_proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      participants: {
+        Row: {
+          display_name: string
+          id: string
+          is_host: boolean
+          joined_at: string
+          table_id: string
+        }
+        Insert: {
+          display_name: string
+          id?: string
+          is_host?: boolean
+          joined_at?: string
+          table_id: string
+        }
+        Update: {
+          display_name?: string
+          id?: string
+          is_host?: boolean
+          joined_at?: string
+          table_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "participants_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proposals: {
+        Row: {
+          created_at: string
+          id: string
+          participant_id: string
+          round_id: string
+          text: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          participant_id: string
+          round_id: string
+          text: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          participant_id?: string
+          round_id?: string
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposals_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposals_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "rounds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rounds: {
+        Row: {
+          ended_at: string | null
+          id: string
+          round_index: number
+          started_at: string
+          status: string
+          table_id: string
+        }
+        Insert: {
+          ended_at?: string | null
+          id?: string
+          round_index: number
+          started_at?: string
+          status?: string
+          table_id: string
+        }
+        Update: {
+          ended_at?: string | null
+          id?: string
+          round_index?: number
+          started_at?: string
+          status?: string
+          table_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rounds_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tables: {
+        Row: {
+          code: string
+          created_at: string
+          current_round_id: string | null
+          host_token: string
+          id: string
+          phase_ends_at: string | null
+          status: string
+          suggestion_seconds: number
+          updated_at: string
+          voting_seconds: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          current_round_id?: string | null
+          host_token: string
+          id?: string
+          phase_ends_at?: string | null
+          status?: string
+          suggestion_seconds?: number
+          updated_at?: string
+          voting_seconds?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          current_round_id?: string | null
+          host_token?: string
+          id?: string
+          phase_ends_at?: string | null
+          status?: string
+          suggestion_seconds?: number
+          updated_at?: string
+          voting_seconds?: number
+        }
+        Relationships: []
+      }
+      votes: {
+        Row: {
+          created_at: string
+          id: string
+          participant_id: string
+          proposal_id: string
+          round_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          participant_id: string
+          proposal_id: string
+          round_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          participant_id?: string
+          proposal_id?: string
+          round_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "votes_participant_id_fkey"
+            columns: ["participant_id"]
+            isOneToOne: false
+            referencedRelation: "participants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "votes_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "votes_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "rounds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
