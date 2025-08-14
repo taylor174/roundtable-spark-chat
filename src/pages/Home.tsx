@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { generateTableCode, generateHostToken } from '@/utils';
+import { getOrCreateClientId, storeHostSecret } from '@/utils/clientId';
 import { TableInsert, ParticipantInsert } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
@@ -18,14 +19,15 @@ const Home = () => {
       setLoading(true);
       
       const code = generateTableCode();
-      const hostToken = generateHostToken();
+      const hostSecret = generateHostToken();
+      const clientId = getOrCreateClientId();
       
       const tableData: TableInsert = {
         code,
-        host_token: hostToken,
-        status: 'waiting',
-        suggestion_seconds: 120,
-        voting_seconds: 60,
+        host_secret: hostSecret,
+        status: 'lobby',
+        default_suggest_sec: 120,
+        default_vote_sec: 60,
       };
 
       const { data: table, error: tableError } = await supabase
@@ -40,6 +42,7 @@ const Home = () => {
       const participantData: ParticipantInsert = {
         table_id: table.id,
         display_name: 'Host',
+        client_id: clientId,
         is_host: true,
       };
 
@@ -49,8 +52,11 @@ const Home = () => {
 
       if (participantError) throw participantError;
 
-      // Navigate to table with host token
-      navigate(`/t/${code}?host=${hostToken}`);
+      // Store host secret in localStorage
+      storeHostSecret(code, hostSecret);
+
+      // Navigate to table
+      navigate(`/t/${code}`);
       
     } catch (error) {
       console.error('Error creating table:', error);
@@ -96,7 +102,7 @@ const Home = () => {
             </p>
             <Button 
               variant="ghost" 
-              onClick={() => navigate('/join/SAMPLE')}
+              onClick={() => navigate('/t/SAMPLE/join')}
               className="text-sm"
             >
               Enter table code

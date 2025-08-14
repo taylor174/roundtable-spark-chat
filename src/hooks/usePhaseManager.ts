@@ -1,26 +1,27 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { advanceRound, getWinningProposals, getProposalsWithVotes } from '@/utils/roundLogic';
-import { Table, Round, Proposal, Vote } from '@/types';
+import { getSuggestionsWithVotes, getWinningSuggestions, endRound } from '@/utils/roundLogic';
+import { Table, Round, Suggestion, Vote } from '@/types';
 import { isTimeExpired } from '@/utils';
 
 export function usePhaseManager(
   table: Table | null,
   currentRound: Round | null,
-  proposals: Proposal[],
+  suggestions: Suggestion[],
   votes: Vote[],
   timeRemaining: number,
+  clientId: string,
   onRefresh?: () => void
 ) {
   const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
-    if (!table || !currentRound || isProcessing || table.status !== 'active') {
+    if (!table || !currentRound || isProcessing || table.status !== 'running') {
       return;
     }
 
     // Check if we need to advance the phase
-    const shouldAdvance = timeRemaining === 0 && table.phase_ends_at && isTimeExpired(table.phase_ends_at);
+    const shouldAdvance = timeRemaining === 0 && currentRound.ends_at && isTimeExpired(currentRound.ends_at);
     
     if (!shouldAdvance) return;
 
@@ -28,58 +29,43 @@ export function usePhaseManager(
       setIsProcessing(true);
       
       try {
-        if (currentRound.status === 'suggestions') {
-          // Move to voting phase if there are proposals
-          if (proposals.length > 0) {
-            await advanceRound(table.id, currentRound);
-          } else {
-            // No proposals, end the round
+        if (currentRound.status === 'suggest') {
+          // Move to voting phase if there are suggestions
+          if (suggestions.length > 0) {
+            const votingTime = table.default_vote_sec;
+            const endsAt = new Date(Date.now() + votingTime * 1000).toISOString();
+            
             await supabase
               .from('rounds')
-              .update({ 
-                status: 'results',
-                ended_at: new Date().toISOString(),
+              .update({
+                status: 'vote',
+                ends_at: endsAt,
               })
               .eq('id', currentRound.id);
-
-            await supabase
-              .from('tables')
-              .update({ phase_ends_at: null })
-              .eq('id', table.id);
+          } else {
+            // No suggestions, end the round
+            await endRound(currentRound.id, table.id, 'No suggestions submitted');
           }
-        } else if (currentRound.status === 'voting') {
+        } else if (currentRound.status === 'vote') {
           // Determine winner and move to results
-          const proposalsWithVotes = getProposalsWithVotes(proposals, votes);
-          const winningProposals = getWinningProposals(proposalsWithVotes);
+          const suggestionsWithVotes = await getSuggestionsWithVotes(currentRound.id, clientId);
+          const winningSuggestions = getWinningSuggestions(suggestionsWithVotes);
           
-          if (winningProposals.length === 1) {
+          if (winningSuggestions.length === 1) {
             // Clear winner, advance automatically
-            await advanceRound(table.id, currentRound, winningProposals[0].id);
-          } else if (winningProposals.length > 1) {
+            await endRound(currentRound.id, table.id, winningSuggestions[0].text);
+          } else if (winningSuggestions.length > 1) {
             // Tie - wait for host to break it
             await supabase
               .from('rounds')
-              .update({ status: 'results' })
-              .eq('id', currentRound.id);
-
-            await supabase
-              .from('tables')
-              .update({ phase_ends_at: null })
-              .eq('id', table.id);
-          } else {
-            // No votes, end round
-            await supabase
-              .from('rounds')
               .update({ 
-                status: 'results',
-                ended_at: new Date().toISOString(),
+                status: 'result',
+                ends_at: null 
               })
               .eq('id', currentRound.id);
-
-            await supabase
-              .from('tables')
-              .update({ phase_ends_at: null })
-              .eq('id', table.id);
+          } else {
+            // No votes, end round
+            await endRound(currentRound.id, table.id, 'No votes received');
           }
         }
 
@@ -95,7 +81,7 @@ export function usePhaseManager(
     const timeout = setTimeout(handlePhaseAdvancement, 1000);
     return () => clearTimeout(timeout);
 
-  }, [table, currentRound, proposals, votes, timeRemaining, isProcessing, onRefresh]);
+  }, [table, currentRound, suggestions, votes, timeRemaining, clientId, isProcessing, onRefresh]);
 
   return { isProcessing };
 }

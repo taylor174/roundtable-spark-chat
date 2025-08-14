@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
+import { getOrCreateClientId } from '@/utils/clientId';
 import { ParticipantInsert } from '@/types';
 import { isValidDisplayName, isValidTableCode } from '@/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -39,6 +40,7 @@ const Join = () => {
 
     try {
       setLoading(true);
+      const clientId = getOrCreateClientId();
 
       // Check if table exists
       const { data: table, error: tableError } = await supabase
@@ -56,15 +58,29 @@ const Join = () => {
         return;
       }
 
-      // Check if name is already taken
+      // Check if client already has a participant
       const { data: existingParticipant } = await supabase
+        .from('participants')
+        .select('id')
+        .eq('table_id', table.id)
+        .eq('client_id', clientId)
+        .single();
+
+      if (existingParticipant) {
+        // Already joined, just navigate to table
+        navigate(`/t/${code}`);
+        return;
+      }
+
+      // Check if name is already taken
+      const { data: nameExists } = await supabase
         .from('participants')
         .select('id')
         .eq('table_id', table.id)
         .eq('display_name', displayName.trim())
         .single();
 
-      if (existingParticipant) {
+      if (nameExists) {
         toast({
           title: "Error",
           description: "This name is already taken. Please choose another.",
@@ -77,6 +93,7 @@ const Join = () => {
       const participantData: ParticipantInsert = {
         table_id: table.id,
         display_name: displayName.trim(),
+        client_id: clientId,
         is_host: false,
       };
 

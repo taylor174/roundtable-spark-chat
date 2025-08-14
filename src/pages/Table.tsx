@@ -1,4 +1,4 @@
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useTableState } from '@/hooks/useTableState';
 import { usePhaseManager } from '@/hooks/usePhaseManager';
 import { Timer } from '@/components/Timer';
@@ -14,67 +14,82 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { 
-  getProposalsWithVotes, 
-  hasUserVoted, 
-  getWinningProposals,
+  getSuggestionsWithVotes, 
+  getWinningSuggestions,
   advanceRound,
-  startNextRound,
-  selectWinner 
+  endRound
 } from '@/utils/roundLogic';
 import { useToast } from '@/hooks/use-toast';
 import { MESSAGES } from '@/constants';
 import { Users, Clock, List, Play } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 const Table = () => {
   const { code } = useParams<{ code: string }>();
-  const [searchParams] = useSearchParams();
-  const hostToken = searchParams.get('host');
   
   const {
     table,
     participants,
     currentRound,
-    proposals,
+    suggestions,
     votes,
     blocks,
     currentParticipant,
+    clientId,
     isHost,
     timeRemaining,
     loading,
     error,
     currentPhase,
     refresh,
-  } = useTableState(code || '', hostToken || undefined);
+  } = useTableState(code || '');
   
+  const [suggestionsWithVotes, setSuggestionsWithVotes] = useState<any[]>([]);
+  const [winningSuggestions, setWinningSuggestions] = useState<any[]>([]);
   const { toast } = useToast();
   
-  // Derived state
-  const proposalsWithVotes = getProposalsWithVotes(
-    proposals,
-    votes,
-    currentParticipant?.id
-  );
+  // Load suggestions with votes
+  useEffect(() => {
+    const loadSuggestionsWithVotes = async () => {
+      if (!currentRound) {
+        setSuggestionsWithVotes([]);
+        return;
+      }
+      
+      try {
+        const data = await getSuggestionsWithVotes(currentRound.id, clientId);
+        setSuggestionsWithVotes(data);
+        setWinningSuggestions(getWinningSuggestions(data));
+      } catch (error) {
+        console.error('Error loading suggestions with votes:', error);
+        setSuggestionsWithVotes([]);
+      }
+    };
+
+    loadSuggestionsWithVotes();
+  }, [currentRound, suggestions, votes, clientId]);
   
   const userHasVoted = currentParticipant 
-    ? hasUserVoted(votes, currentParticipant.id)
+    ? votes.some(vote => vote.participant_id === currentParticipant.id)
     : false;
-    
-  const winningProposals = getWinningProposals(proposalsWithVotes);
   
   // Automatic phase management
-  usePhaseManager(table, currentRound, proposals, votes, timeRemaining, refresh);
+  usePhaseManager(table, currentRound, suggestions, votes, timeRemaining, clientId, refresh);
   
   // Event handlers
-  const handleWinnerSelected = async (proposalId: string) => {
+  const handleWinnerSelected = async (suggestionId: string) => {
     if (!table || !currentRound) return;
     
     try {
-      await selectWinner(table.id, currentRound.id, proposalId);
-      toast({
-        title: "Success",
-        description: "Winner selected!",
-      });
-      refresh();
+      const winningSuggestion = suggestionsWithVotes.find(s => s.id === suggestionId);
+      if (winningSuggestion) {
+        await endRound(currentRound.id, table.id, winningSuggestion.text);
+        toast({
+          title: "Success",
+          description: "Winner selected!",
+        });
+        refresh();
+      }
     } catch (error) {
       console.error('Error selecting winner:', error);
       toast({
@@ -89,7 +104,7 @@ const Table = () => {
     if (!table || !currentRound) return;
     
     try {
-      await startNextRound(table.id, currentRound.round_index);
+      await advanceRound(table.id, currentRound.number);
       toast({
         title: "Success", 
         description: "Next round started!",
@@ -156,11 +171,11 @@ const Table = () => {
                 participantCount={participants.length}
                 isHost={isHost}
               />
-              {currentPhase !== 'waiting' && (
+              {currentPhase !== 'lobby' && (
                 <Timer 
                   timeRemaining={timeRemaining}
                   phase={currentPhase}
-                  isActive={table.status === 'active'}
+                  isActive={table.status === 'running'}
                 />
               )}
             </div>
@@ -173,7 +188,7 @@ const Table = () => {
           {/* Main Content */}
           <div className="lg:col-span-3 space-y-6">
             {/* Current Phase Content */}
-            {currentPhase === 'waiting' && (
+            {currentPhase === 'lobby' && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
@@ -195,35 +210,32 @@ const Table = () => {
             )}
             
             {/* Suggestion Phase */}
-            {currentPhase === 'suggestions' && currentParticipant && currentRound && (
+            {currentPhase === 'suggest' && currentParticipant && currentRound && (
               <>
                 <SuggestionForm
                   roundId={currentRound.id}
                   participantId={currentParticipant.id}
-                  disabled={timeRemaining === 0}
                 />
                 <SuggestionList 
-                  proposals={proposalsWithVotes}
-                  showVoteCounts={false}
+                  suggestions={suggestionsWithVotes}
                 />
               </>
             )}
             
             {/* Voting Phase */}
-            {currentPhase === 'voting' && currentParticipant && currentRound && (
+            {currentPhase === 'vote' && currentParticipant && currentRound && (
               <VoteList
-                proposals={proposalsWithVotes}
+                suggestions={suggestionsWithVotes}
                 roundId={currentRound.id}
                 participantId={currentParticipant.id}
-                hasVoted={userHasVoted}
-                disabled={timeRemaining === 0}
+                userHasVoted={userHasVoted}
               />
             )}
             
             {/* Results Phase */}
-            {currentPhase === 'results' && winningProposals.length > 0 && (
+            {currentPhase === 'result' && winningSuggestions.length > 0 && (
               <ResultsPanel
-                winningProposals={winningProposals}
+                winningSuggestions={winningSuggestions}
                 isHost={isHost}
                 onWinnerSelected={handleWinnerSelected}
                 onNextRound={handleNextRound}
@@ -231,10 +243,9 @@ const Table = () => {
             )}
 
             {/* Show suggestions in voting and results phases */}
-            {(currentPhase === 'voting' || currentPhase === 'results') && (
+            {(currentPhase === 'vote' || currentPhase === 'result') && (
               <SuggestionList 
-                proposals={proposalsWithVotes}
-                showVoteCounts={currentPhase === 'results'}
+                suggestions={suggestionsWithVotes}
               />
             )}
           </div>
