@@ -30,7 +30,7 @@ export default function Home() {
         {/* Header */}
         <div className="flex justify-between items-center mb-12">
           <div>
-            <h1 className="text-3xl font-bold">Agora</h1>
+            <h1 className="text-3xl font-bold">RoundTable</h1>
             <p className="text-muted-foreground">Collaborative Decision Making</p>
           </div>
           <div className="flex items-center gap-4">
