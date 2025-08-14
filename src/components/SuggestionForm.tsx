@@ -1,30 +1,29 @@
 import { useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent } from '@/components/ui/card';
-import { supabase } from '@/integrations/supabase/client';
-import { ProposalInsert } from '@/types';
-import { isValidSuggestion } from '@/utils';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { SuggestionInsert } from '@/types';
+import { APP_CONFIG, MESSAGES } from '@/constants';
 import { useToast } from '@/hooks/use-toast';
-import { MESSAGES, APP_CONFIG } from '@/constants';
-import { Send, Loader2 } from 'lucide-react';
 
 interface SuggestionFormProps {
   roundId: string;
   participantId: string;
-  disabled?: boolean;
 }
 
-export function SuggestionForm({ roundId, participantId, disabled = false }: SuggestionFormProps) {
-  const [text, setText] = useState('');
+export function SuggestionForm({ roundId, participantId }: SuggestionFormProps) {
+  const [suggestion, setSuggestion] = useState('');
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleSubmit = async () => {
-    if (!isValidSuggestion(text)) {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (suggestion.trim().length === 0) {
       toast({
         title: "Error",
-        description: text.trim().length === 0 ? "Please enter a suggestion" : MESSAGES.SUGGESTION_TOO_LONG,
+        description: "Please enter a suggestion",
         variant: "destructive",
       });
       return;
@@ -32,25 +31,24 @@ export function SuggestionForm({ roundId, participantId, disabled = false }: Sug
 
     try {
       setLoading(true);
-
-      const proposalData: ProposalInsert = {
+      
+      const suggestionData: SuggestionInsert = {
         round_id: roundId,
         participant_id: participantId,
-        text: text.trim(),
+        text: suggestion.trim(),
       };
 
       const { error } = await supabase
-        .from('proposals')
-        .insert(proposalData);
+        .from('suggestions')
+        .insert(suggestionData);
 
       if (error) throw error;
 
-      setText('');
+      setSuggestion('');
       toast({
         title: "Success",
         description: MESSAGES.SUGGESTION_SUBMITTED,
       });
-
     } catch (error) {
       console.error('Error submitting suggestion:', error);
       toast({
@@ -63,55 +61,32 @@ export function SuggestionForm({ roundId, participantId, disabled = false }: Sug
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit();
-    }
-  };
-
-  const charactersLeft = APP_CONFIG.MAX_SUGGESTION_LENGTH - text.length;
-
   return (
     <Card>
-      <CardContent className="p-4">
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Textarea
-              placeholder="Enter your suggestion..."
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyPress={handleKeyPress}
-              disabled={disabled || loading}
-              maxLength={APP_CONFIG.MAX_SUGGESTION_LENGTH}
-              rows={3}
-            />
-            <div className="flex items-center justify-between">
-              <span className={`text-sm ${
-                charactersLeft < 20 ? 'text-destructive' : 'text-muted-foreground'
-              }`}>
-                {charactersLeft} characters left
-              </span>
-              <Button
-                onClick={handleSubmit}
-                disabled={disabled || loading || !isValidSuggestion(text)}
-                size="sm"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Submitting...
-                  </>
-                ) : (
-                  <>
-                    <Send className="mr-2 h-4 w-4" />
-                    Submit
-                  </>
-                )}
-              </Button>
-            </div>
+      <CardHeader>
+        <CardTitle>Share Your Suggestion</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="text-muted-foreground mb-4">
+          {MESSAGES.SUGGEST_PHASE}
+        </p>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Textarea
+            value={suggestion}
+            onChange={(e) => setSuggestion(e.target.value)}
+            placeholder="Enter your suggestion..."
+            maxLength={APP_CONFIG.MAX_SUGGESTION_LENGTH}
+            disabled={loading}
+          />
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-muted-foreground">
+              {APP_CONFIG.MAX_SUGGESTION_LENGTH - suggestion.length} characters remaining
+            </span>
+            <Button type="submit" disabled={loading || suggestion.trim().length === 0}>
+              {loading ? 'Submitting...' : 'Submit Suggestion'}
+            </Button>
           </div>
-        </div>
+        </form>
       </CardContent>
     </Card>
   );

@@ -1,17 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { TableState, Participant, Round, Proposal, Vote, Block, Table } from '@/types';
+import { TableState, Participant, Round, Suggestion, Vote, Block, Table } from '@/types';
 import { calculateTimeRemaining, getCurrentPhase } from '@/utils';
+import { getOrCreateClientId, getHostSecret } from '@/utils/clientId';
 
-export function useTableState(tableCode: string, hostToken?: string) {
+export function useTableState(tableCode: string) {
+  const clientId = getOrCreateClientId();
+  const hostSecret = getHostSecret(tableCode);
+  
   const [state, setState] = useState<TableState>({
     table: null,
     participants: [],
     currentRound: null,
-    proposals: [],
+    suggestions: [],
     votes: [],
     blocks: [],
     currentParticipant: null,
+    clientId,
     isHost: false,
     timeRemaining: 0,
     loading: true,
@@ -44,23 +49,28 @@ export function useTableState(tableCode: string, hostToken?: string) {
       if (participantsError) throw participantsError;
 
       // Get current round
-      const { data: currentRound, error: roundError } = await supabase
-        .from('rounds')
-        .select('*')
-        .eq('id', table.current_round_id || '')
-        .single();
+      let currentRound = null;
+      if (table.current_round_id) {
+        const { data, error: roundError } = await supabase
+          .from('rounds')
+          .select('*')
+          .eq('id', table.current_round_id)
+          .single();
 
-      // Get proposals for current round
-      let proposals: Proposal[] = [];
+        if (!roundError) currentRound = data;
+      }
+
+      // Get suggestions for current round
+      let suggestions: Suggestion[] = [];
       if (currentRound) {
-        const { data: proposalsData, error: proposalsError } = await supabase
-          .from('proposals')
+        const { data: suggestionsData, error: suggestionsError } = await supabase
+          .from('suggestions')
           .select('*')
           .eq('round_id', currentRound.id)
           .order('created_at', { ascending: true });
 
-        if (proposalsError) throw proposalsError;
-        proposals = proposalsData || [];
+        if (suggestionsError) throw suggestionsError;
+        suggestions = suggestionsData || [];
       }
 
       // Get votes for current round
@@ -85,17 +95,18 @@ export function useTableState(tableCode: string, hostToken?: string) {
       if (blocksError) throw blocksError;
 
       // Determine current participant and host status
-      const isHost = hostToken === table.host_token;
-      const currentParticipant = participants.find(p => p.is_host === isHost) || null;
+      const isHost = hostSecret === table.host_secret;
+      const currentParticipant = participants.find(p => p.client_id === clientId) || null;
 
       setState({
         table,
         participants: participants || [],
         currentRound: currentRound || null,
-        proposals,
+        suggestions,
         votes: votes || [],
         blocks: blocks || [],
         currentParticipant,
+        clientId,
         isHost,
         timeRemaining: 0,
         loading: false,
@@ -110,14 +121,14 @@ export function useTableState(tableCode: string, hostToken?: string) {
         error: error instanceof Error ? error.message : 'Failed to load table data',
       }));
     }
-  }, [tableCode, hostToken]);
+  }, [tableCode, clientId, hostSecret]);
 
   // Update timer
   const updateTimer = useCallback(() => {
     setState(prev => {
-      if (!prev.table?.phase_ends_at) return prev;
+      if (!prev.currentRound?.ends_at) return prev;
       
-      const remaining = calculateTimeRemaining(prev.table.phase_ends_at);
+      const remaining = calculateTimeRemaining(prev.currentRound.ends_at);
       return { ...prev, timeRemaining: remaining };
     });
   }, []);
@@ -143,7 +154,7 @@ export function useTableState(tableCode: string, hostToken?: string) {
         () => loadTableData()
       )
       .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'proposals' },
+        { event: '*', schema: 'public', table: 'suggestions' },
         () => loadTableData()
       )
       .on('postgres_changes',
@@ -185,7 +196,7 @@ export function useTableState(tableCode: string, hostToken?: string) {
     ...state,
     refresh: loadTableData,
     currentPhase: getCurrentPhase(
-      state.table?.status || 'waiting',
+      state.table?.status || 'lobby',
       state.currentRound?.status || null,
       state.timeRemaining
     ),

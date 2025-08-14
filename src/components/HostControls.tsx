@@ -6,18 +6,10 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import { Table, TableUpdate, RoundInsert } from '@/types';
+import { Table } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { APP_CONFIG } from '@/constants';
-import { 
-  Play, 
-  Settings, 
-  SkipForward, 
-  Plus, 
-  StopCircle, 
-  Loader2,
-  Crown
-} from 'lucide-react';
+import { startSuggestPhase } from '@/utils/roundLogic';
 
 interface HostControlsProps {
   table: Table;
@@ -35,8 +27,8 @@ export function HostControls({
   onRefresh 
 }: HostControlsProps) {
   const [loading, setLoading] = useState(false);
-  const [suggestionTime, setSuggestionTime] = useState(table.suggestion_seconds);
-  const [votingTime, setVotingTime] = useState(table.voting_seconds);
+  const [suggestionTime, setSuggestionTime] = useState(table.default_suggest_sec);
+  const [votingTime, setVotingTime] = useState(table.default_vote_sec);
   const { toast } = useToast();
 
   const handleStartTable = async () => {
@@ -44,37 +36,33 @@ export function HostControls({
       setLoading(true);
 
       // Create first round
-      const roundData: RoundInsert = {
-        table_id: table.id,
-        round_index: 1,
-        status: 'suggestions',
-      };
-
       const { data: round, error: roundError } = await supabase
         .from('rounds')
-        .insert(roundData)
+        .insert({
+          table_id: table.id,
+          number: 1,
+          status: 'lobby',
+        })
         .select()
         .single();
 
       if (roundError) throw roundError;
 
       // Update table status and current round
-      const phaseEndTime = new Date(Date.now() + suggestionTime * 1000);
-      
-      const tableUpdate: TableUpdate = {
-        status: 'active',
-        current_round_id: round.id,
-        phase_ends_at: phaseEndTime.toISOString(),
-        suggestion_seconds: suggestionTime,
-        voting_seconds: votingTime,
-      };
-
       const { error: tableError } = await supabase
         .from('tables')
-        .update(tableUpdate)
+        .update({
+          status: 'running',
+          current_round_id: round.id,
+          default_suggest_sec: suggestionTime,
+          default_vote_sec: votingTime,
+        })
         .eq('id', table.id);
 
       if (tableError) throw tableError;
+
+      // Start suggestion phase
+      await startSuggestPhase(round.id, suggestionTime);
 
       toast({
         title: "Success",
@@ -99,15 +87,22 @@ export function HostControls({
     try {
       setLoading(true);
 
-      const currentEndTime = new Date(table.phase_ends_at || '');
-      const newEndTime = new Date(currentEndTime.getTime() + 15000); // +15 seconds
+      if (table.current_round_id) {
+        const { data: round } = await supabase
+          .from('rounds')
+          .select('ends_at')
+          .eq('id', table.current_round_id)
+          .single();
 
-      const { error } = await supabase
-        .from('tables')
-        .update({ phase_ends_at: newEndTime.toISOString() })
-        .eq('id', table.id);
-
-      if (error) throw error;
+        if (round?.ends_at) {
+          const newEndsAt = new Date(new Date(round.ends_at).getTime() + 15000).toISOString();
+          
+          await supabase
+            .from('rounds')
+            .update({ ends_at: newEndsAt })
+            .eq('id', table.current_round_id);
+        }
+      }
 
       toast({
         title: "Success",
@@ -132,13 +127,12 @@ export function HostControls({
     try {
       setLoading(true);
 
-      // Set phase end time to now
-      const { error } = await supabase
-        .from('tables')
-        .update({ phase_ends_at: new Date().toISOString() })
-        .eq('id', table.id);
-
-      if (error) throw error;
+      if (table.current_round_id) {
+        await supabase
+          .from('rounds')
+          .update({ ends_at: new Date().toISOString() })
+          .eq('id', table.current_round_id);
+      }
 
       toast({
         title: "Success",
@@ -166,8 +160,7 @@ export function HostControls({
       const { error } = await supabase
         .from('tables')
         .update({ 
-          status: 'ended',
-          phase_ends_at: null,
+          status: 'closed',
         })
         .eq('id', table.id);
 
@@ -199,8 +192,8 @@ export function HostControls({
       const { error } = await supabase
         .from('tables')
         .update({
-          suggestion_seconds: suggestionTime,
-          voting_seconds: votingTime,
+          default_suggest_sec: suggestionTime,
+          default_vote_sec: votingTime,
         })
         .eq('id', table.id);
 
@@ -226,17 +219,14 @@ export function HostControls({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <Crown className="h-5 w-5" />
-          <span>Host Controls</span>
-        </CardTitle>
+        <CardTitle>Host Controls</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         
         {/* Status */}
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">Status:</span>
-          <Badge variant={table.status === 'active' ? 'default' : 'secondary'}>
+          <Badge variant={table.status === 'running' ? 'default' : 'secondary'}>
             {table.status}
           </Badge>
         </div>
@@ -249,7 +239,7 @@ export function HostControls({
         <Separator />
 
         {/* Timer Settings */}
-        {table.status === 'waiting' && (
+        {table.status === 'lobby' && (
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="suggestion-time">Suggestion Time (seconds)</Label>
@@ -259,7 +249,7 @@ export function HostControls({
                 min="30"
                 max="600"
                 value={suggestionTime}
-                onChange={(e) => setSuggestionTime(parseInt(e.target.value) || APP_CONFIG.DEFAULT_SUGGESTION_SECONDS)}
+                onChange={(e) => setSuggestionTime(parseInt(e.target.value) || APP_CONFIG.DEFAULT_SUGGEST_SEC)}
               />
             </div>
             <div className="space-y-2">
@@ -270,7 +260,7 @@ export function HostControls({
                 min="30"
                 max="300"
                 value={votingTime}
-                onChange={(e) => setVotingTime(parseInt(e.target.value) || APP_CONFIG.DEFAULT_VOTING_SECONDS)}
+                onChange={(e) => setVotingTime(parseInt(e.target.value) || APP_CONFIG.DEFAULT_VOTE_SEC)}
               />
             </div>
             <Button
@@ -280,7 +270,6 @@ export function HostControls({
               size="sm"
               className="w-full"
             >
-              <Settings className="mr-2 h-4 w-4" />
               Update Settings
             </Button>
             <Separator />
@@ -290,28 +279,18 @@ export function HostControls({
         {/* Actions */}
         <div className="space-y-2">
           
-          {table.status === 'waiting' && (
+          {table.status === 'lobby' && (
             <Button
               onClick={handleStartTable}
               disabled={loading || !canStart}
               className="w-full"
               size="lg"
             >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Starting...
-                </>
-              ) : (
-                <>
-                  <Play className="mr-2 h-4 w-4" />
-                  Start Table
-                </>
-              )}
+              {loading ? 'Starting...' : 'Start Table'}
             </Button>
           )}
 
-          {table.status === 'active' && (
+          {table.status === 'running' && (
             <>
               <Button
                 onClick={handleAddTime}
@@ -319,7 +298,6 @@ export function HostControls({
                 variant="outline"
                 className="w-full"
               >
-                <Plus className="mr-2 h-4 w-4" />
                 Add +15s
               </Button>
 
@@ -329,7 +307,6 @@ export function HostControls({
                 variant="outline"
                 className="w-full"
               >
-                <SkipForward className="mr-2 h-4 w-4" />
                 Skip to Next Phase
               </Button>
 
@@ -339,7 +316,6 @@ export function HostControls({
                 variant="destructive"
                 className="w-full"
               >
-                <StopCircle className="mr-2 h-4 w-4" />
                 End Table
               </Button>
             </>

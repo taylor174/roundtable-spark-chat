@@ -1,210 +1,175 @@
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  Proposal, 
-  Vote, 
-  WinningProposal, 
-  ProposalWithVotes, 
-  RoundInsert, 
-  RoundUpdate, 
-  BlockInsert, 
-  TableUpdate 
-} from '@/types';
+import { Suggestion, Vote, Round } from '@/types';
 
 /**
- * Get proposals with vote counts and user vote status
+ * Get suggestions with vote counts for display
  */
-export function getProposalsWithVotes(
-  proposals: Proposal[], 
-  votes: Vote[], 
-  currentParticipantId?: string
-): ProposalWithVotes[] {
-  return proposals.map(proposal => {
-    const proposalVotes = votes.filter(vote => vote.proposal_id === proposal.id);
-    const hasUserVoted = currentParticipantId 
-      ? proposalVotes.some(vote => vote.participant_id === currentParticipantId)
-      : false;
+export async function getSuggestionsWithVotes(
+  roundId: string,
+  clientId: string
+): Promise<Array<Suggestion & { voteCount: number; hasUserVoted: boolean }>> {
+  // Get suggestions
+  const { data: suggestions, error: suggestionsError } = await supabase
+    .from('suggestions')
+    .select('*')
+    .eq('round_id', roundId)
+    .order('created_at', { ascending: true });
 
+  if (suggestionsError) throw suggestionsError;
+
+  // Get votes for this round
+  const { data: votes, error: votesError } = await supabase
+    .from('votes')
+    .select('*')
+    .eq('round_id', roundId);
+
+  if (votesError) throw votesError;
+
+  // Count votes and check if user voted
+  return (suggestions || []).map(suggestion => {
+    const suggestionVotes = votes?.filter(v => v.suggestion_id === suggestion.id) || [];
+    const hasUserVoted = votes?.some(v => v.participant_id === clientId && v.suggestion_id === suggestion.id) || false;
+    
     return {
-      ...proposal,
-      voteCount: proposalVotes.length,
+      ...suggestion,
+      voteCount: suggestionVotes.length,
       hasUserVoted,
     };
   });
 }
 
 /**
- * Check if user has voted in the current round
+ * Get winning suggestions (handling ties)
  */
-export function hasUserVoted(votes: Vote[], participantId: string): boolean {
-  return votes.some(vote => vote.participant_id === participantId);
+export function getWinningSuggestions(
+  suggestions: Array<Suggestion & { voteCount: number }>
+): Array<Suggestion & { voteCount: number }> {
+  if (suggestions.length === 0) return [];
+  
+  const maxVotes = Math.max(...suggestions.map(s => s.voteCount));
+  return suggestions.filter(s => s.voteCount === maxVotes);
 }
 
 /**
- * Get winning proposals (handles ties)
+ * Advance to next round
  */
-export function getWinningProposals(proposals: ProposalWithVotes[]): WinningProposal[] {
-  if (proposals.length === 0) return [];
+export async function advanceRound(tableId: string, currentRoundNumber: number): Promise<Round> {
+  const nextRoundNumber = currentRoundNumber + 1;
+  
+  // Create new round
+  const { data: newRound, error } = await supabase
+    .from('rounds')
+    .insert({
+      table_id: tableId,
+      number: nextRoundNumber,
+      status: 'lobby',
+    })
+    .select()
+    .single();
 
-  const maxVotes = Math.max(...proposals.map(p => p.voteCount));
-  return proposals
-    .filter(p => p.voteCount === maxVotes)
-    .map(p => ({
-      ...p,
-      voteCount: p.voteCount,
-    }));
+  if (error) throw error;
+
+  // Update table to point to new round
+  await supabase
+    .from('tables')
+    .update({ current_round_id: newRound.id })
+    .eq('id', tableId);
+
+  return newRound;
 }
 
 /**
- * Advance round to next phase or create new round
+ * Start suggestion phase with timer
  */
-export async function advanceRound(
+export async function startSuggestPhase(roundId: string, defaultSuggestSec: number): Promise<void> {
+  const endsAt = new Date(Date.now() + defaultSuggestSec * 1000).toISOString();
+  
+  await supabase
+    .from('rounds')
+    .update({
+      status: 'suggest',
+      ends_at: endsAt,
+    })
+    .eq('id', roundId);
+}
+
+/**
+ * Start vote phase with timer
+ */
+export async function startVotePhase(roundId: string, defaultVoteSec: number): Promise<void> {
+  const endsAt = new Date(Date.now() + defaultVoteSec * 1000).toISOString();
+  
+  await supabase
+    .from('rounds')
+    .update({
+      status: 'vote',
+      ends_at: endsAt,
+    })
+    .eq('id', roundId);
+}
+
+/**
+ * End round and create block with winning suggestion
+ */
+export async function endRound(
+  roundId: string,
   tableId: string,
-  currentRound: any,
-  winningProposalId?: string
+  winningSuggestionText: string
 ): Promise<void> {
-  if (currentRound.status === 'suggestions') {
-    // Move to voting phase
-    const table = await supabase
-      .from('tables')
-      .select('voting_seconds')
-      .eq('id', tableId)
-      .single();
+  // Update round to result phase
+  await supabase
+    .from('rounds')
+    .update({
+      status: 'result',
+      ends_at: null,
+    })
+    .eq('id', roundId);
 
-    if (table.error) throw table.error;
+  // Create block entry
+  await supabase
+    .from('blocks')
+    .insert({
+      table_id: tableId,
+      round_id: roundId,
+      text: winningSuggestionText,
+    });
+}
 
-    const phaseEndTime = new Date(Date.now() + (table.data.voting_seconds * 1000));
+/**
+ * Add time to current phase
+ */
+export async function addTimeToPhase(roundId: string, additionalSeconds: number): Promise<void> {
+  const { data: round } = await supabase
+    .from('rounds')
+    .select('ends_at')
+    .eq('id', roundId)
+    .single();
 
+  if (round?.ends_at) {
+    const newEndsAt = new Date(new Date(round.ends_at).getTime() + additionalSeconds * 1000).toISOString();
+    
     await supabase
       .from('rounds')
-      .update({ status: 'voting' })
-      .eq('id', currentRound.id);
-
-    await supabase
-      .from('tables')
-      .update({ phase_ends_at: phaseEndTime.toISOString() })
-      .eq('id', tableId);
-
-  } else if (currentRound.status === 'voting') {
-    // Move to results phase and create block
-    await supabase
-      .from('rounds')
-      .update({ 
-        status: 'results',
-        ended_at: new Date().toISOString(),
-      })
-      .eq('id', currentRound.id);
-
-    // Create block if winning proposal is specified
-    if (winningProposalId) {
-      const { data: winningProposal } = await supabase
-        .from('proposals')
-        .select('text')
-        .eq('id', winningProposalId)
-        .single();
-
-      if (winningProposal) {
-        const blockData: BlockInsert = {
-          table_id: tableId,
-          round_id: currentRound.id,
-          winning_proposal_id: winningProposalId,
-          text: winningProposal.text,
-        };
-
-        await supabase
-          .from('blocks')
-          .insert(blockData);
-      }
-    }
-
-    // Clear phase end time
-    await supabase
-      .from('tables')
-      .update({ phase_ends_at: null })
-      .eq('id', tableId);
+      .update({ ends_at: newEndsAt })
+      .eq('id', roundId);
   }
 }
 
 /**
- * Start next round
+ * Skip to next phase
  */
-export async function startNextRound(tableId: string, currentRoundIndex: number): Promise<void> {
-  const table = await supabase
-    .from('tables')
-    .select('suggestion_seconds')
-    .eq('id', tableId)
-    .single();
-
-  if (table.error) throw table.error;
-
-  // Create new round
-  const roundData: RoundInsert = {
-    table_id: tableId,
-    round_index: currentRoundIndex + 1,
-    status: 'suggestions',
-  };
-
-  const { data: newRound, error: roundError } = await supabase
+export async function skipToNextPhase(roundId: string, tableId: string, defaultVoteSec: number): Promise<void> {
+  const { data: round } = await supabase
     .from('rounds')
-    .insert(roundData)
-    .select()
+    .select('status')
+    .eq('id', roundId)
     .single();
 
-  if (roundError) throw roundError;
+  if (!round) return;
 
-  // Update table with new round and phase end time
-  const phaseEndTime = new Date(Date.now() + (table.data.suggestion_seconds * 1000));
-
-  const tableUpdate: TableUpdate = {
-    current_round_id: newRound.id,
-    phase_ends_at: phaseEndTime.toISOString(),
-  };
-
-  await supabase
-    .from('tables')
-    .update(tableUpdate)
-    .eq('id', tableId);
-}
-
-/**
- * Select winner from tied proposals
- */
-export async function selectWinner(
-  tableId: string,
-  roundId: string,
-  winningProposalId: string
-): Promise<void> {
-  const { data: winningProposal } = await supabase
-    .from('proposals')
-    .select('text')
-    .eq('id', winningProposalId)
-    .single();
-
-  if (!winningProposal) throw new Error('Winning proposal not found');
-
-  // Create block
-  const blockData: BlockInsert = {
-    table_id: tableId,
-    round_id: roundId,
-    winning_proposal_id: winningProposalId,
-    text: winningProposal.text,
-  };
-
-  await supabase
-    .from('blocks')
-    .insert(blockData);
-
-  // Update round status
-  await supabase
-    .from('rounds')
-    .update({ 
-      status: 'results',
-      ended_at: new Date().toISOString(),
-    })
-    .eq('id', roundId);
-
-  // Clear phase end time
-  await supabase
-    .from('tables')
-    .update({ phase_ends_at: null })
-    .eq('id', tableId);
+  if (round.status === 'suggest') {
+    await startVotePhase(roundId, defaultVoteSec);
+  } else if (round.status === 'vote') {
+    await endRound(roundId, tableId, 'No winner selected');
+  }
 }

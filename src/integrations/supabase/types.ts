@@ -21,7 +21,6 @@ export type Database = {
           round_id: string
           table_id: string
           text: string
-          winning_proposal_id: string
         }
         Insert: {
           created_at?: string
@@ -29,7 +28,6 @@ export type Database = {
           round_id: string
           table_id: string
           text: string
-          winning_proposal_id: string
         }
         Update: {
           created_at?: string
@@ -37,7 +35,6 @@ export type Database = {
           round_id?: string
           table_id?: string
           text?: string
-          winning_proposal_id?: string
         }
         Relationships: [
           {
@@ -54,17 +51,11 @@ export type Database = {
             referencedRelation: "tables"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "blocks_winning_proposal_id_fkey"
-            columns: ["winning_proposal_id"]
-            isOneToOne: false
-            referencedRelation: "proposals"
-            referencedColumns: ["id"]
-          },
         ]
       }
       participants: {
         Row: {
+          client_id: string
           display_name: string
           id: string
           is_host: boolean
@@ -72,6 +63,7 @@ export type Database = {
           table_id: string
         }
         Insert: {
+          client_id: string
           display_name: string
           id?: string
           is_host?: boolean
@@ -79,6 +71,7 @@ export type Database = {
           table_id: string
         }
         Update: {
+          client_id?: string
           display_name?: string
           id?: string
           is_host?: boolean
@@ -95,7 +88,45 @@ export type Database = {
           },
         ]
       }
-      proposals: {
+      rounds: {
+        Row: {
+          ended_at: string | null
+          ends_at: string | null
+          id: string
+          number: number
+          started_at: string
+          status: string
+          table_id: string
+        }
+        Insert: {
+          ended_at?: string | null
+          ends_at?: string | null
+          id?: string
+          number: number
+          started_at?: string
+          status?: string
+          table_id: string
+        }
+        Update: {
+          ended_at?: string | null
+          ends_at?: string | null
+          id?: string
+          number?: number
+          started_at?: string
+          status?: string
+          table_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rounds_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suggestions: {
         Row: {
           created_at: string
           id: string
@@ -134,77 +165,42 @@ export type Database = {
           },
         ]
       }
-      rounds: {
-        Row: {
-          ended_at: string | null
-          id: string
-          round_index: number
-          started_at: string
-          status: string
-          table_id: string
-        }
-        Insert: {
-          ended_at?: string | null
-          id?: string
-          round_index: number
-          started_at?: string
-          status?: string
-          table_id: string
-        }
-        Update: {
-          ended_at?: string | null
-          id?: string
-          round_index?: number
-          started_at?: string
-          status?: string
-          table_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "rounds_table_id_fkey"
-            columns: ["table_id"]
-            isOneToOne: false
-            referencedRelation: "tables"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       tables: {
         Row: {
           code: string
           created_at: string
           current_round_id: string | null
-          host_token: string
+          default_suggest_sec: number
+          default_vote_sec: number
+          host_secret: string
           id: string
           phase_ends_at: string | null
           status: string
-          suggestion_seconds: number
           updated_at: string
-          voting_seconds: number
         }
         Insert: {
           code: string
           created_at?: string
           current_round_id?: string | null
-          host_token: string
+          default_suggest_sec?: number
+          default_vote_sec?: number
+          host_secret: string
           id?: string
           phase_ends_at?: string | null
           status?: string
-          suggestion_seconds?: number
           updated_at?: string
-          voting_seconds?: number
         }
         Update: {
           code?: string
           created_at?: string
           current_round_id?: string | null
-          host_token?: string
+          default_suggest_sec?: number
+          default_vote_sec?: number
+          host_secret?: string
           id?: string
           phase_ends_at?: string | null
           status?: string
-          suggestion_seconds?: number
           updated_at?: string
-          voting_seconds?: number
         }
         Relationships: []
       }
@@ -213,22 +209,22 @@ export type Database = {
           created_at: string
           id: string
           participant_id: string
-          proposal_id: string
           round_id: string
+          suggestion_id: string
         }
         Insert: {
           created_at?: string
           id?: string
           participant_id: string
-          proposal_id: string
           round_id: string
+          suggestion_id: string
         }
         Update: {
           created_at?: string
           id?: string
           participant_id?: string
-          proposal_id?: string
           round_id?: string
+          suggestion_id?: string
         }
         Relationships: [
           {
@@ -240,9 +236,9 @@ export type Database = {
           },
           {
             foreignKeyName: "votes_proposal_id_fkey"
-            columns: ["proposal_id"]
+            columns: ["suggestion_id"]
             isOneToOne: false
-            referencedRelation: "proposals"
+            referencedRelation: "suggestions"
             referencedColumns: ["id"]
           },
           {

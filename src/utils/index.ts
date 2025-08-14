@@ -31,7 +31,8 @@ export function formatTime(seconds: number): string {
 /**
  * Calculate time remaining from server timestamp
  */
-export function calculateTimeRemaining(endTime: string): number {
+export function calculateTimeRemaining(endTime: string | null): number {
+  if (!endTime) return 0;
   const now = new Date().getTime();
   const end = new Date(endTime).getTime();
   const remaining = Math.max(0, Math.floor((end - now) / 1000));
@@ -75,14 +76,14 @@ export function getCurrentPhase(
   tableStatus: string,
   roundStatus: string | null,
   timeRemaining: number
-): 'waiting' | 'suggestions' | 'voting' | 'results' {
-  if (tableStatus === 'waiting') return 'waiting';
-  if (tableStatus === 'ended') return 'results';
+): 'lobby' | 'suggest' | 'vote' | 'result' {
+  if (tableStatus === 'lobby') return 'lobby';
+  if (tableStatus === 'closed') return 'result';
   
-  if (!roundStatus) return 'waiting';
+  if (!roundStatus) return 'lobby';
   
-  if (roundStatus === 'suggestions') return timeRemaining > 0 ? 'suggestions' : 'voting';
-  if (roundStatus === 'voting') return timeRemaining > 0 ? 'voting' : 'results';
+  if (roundStatus === 'suggest') return timeRemaining > 0 ? 'suggest' : 'vote';
+  if (roundStatus === 'vote') return timeRemaining > 0 ? 'vote' : 'result';
   
-  return 'results';
+  return 'result';
 }

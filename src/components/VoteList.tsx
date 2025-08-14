@@ -1,49 +1,35 @@
 import { useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
-import { supabase } from '@/integrations/supabase/client';
-import { ProposalWithVotes, VoteInsert } from '@/types';
-import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
+import { Check } from 'lucide-react';
+import { SuggestionWithVotes } from '@/types';
 import { MESSAGES } from '@/constants';
-import { CheckCircle, Loader2, Vote } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface VoteListProps {
-  proposals: ProposalWithVotes[];
   roundId: string;
   participantId: string;
-  hasVoted: boolean;
-  disabled?: boolean;
+  suggestions: SuggestionWithVotes[];
+  userHasVoted: boolean;
 }
 
-export function VoteList({ proposals, roundId, participantId, hasVoted, disabled = false }: VoteListProps) {
-  const [selectedProposalId, setSelectedProposalId] = useState<string>('');
-  const [loading, setLoading] = useState(false);
+export function VoteList({ roundId, participantId, suggestions, userHasVoted }: VoteListProps) {
+  const [voting, setVoting] = useState(false);
   const { toast } = useToast();
 
-  const handleVote = async () => {
-    if (!selectedProposalId) {
-      toast({
-        title: "Error",
-        description: "Please select a suggestion to vote for.",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const handleVote = async (suggestionId: string) => {
     try {
-      setLoading(true);
-
-      const voteData: VoteInsert = {
-        round_id: roundId,
-        participant_id: participantId,
-        proposal_id: selectedProposalId,
-      };
+      setVoting(true);
 
       const { error } = await supabase
         .from('votes')
-        .insert(voteData);
+        .insert({
+          round_id: roundId,
+          participant_id: participantId,
+          suggestion_id: suggestionId,
+        });
 
       if (error) throw error;
 
@@ -51,7 +37,6 @@ export function VoteList({ proposals, roundId, participantId, hasVoted, disabled
         title: "Success",
         description: MESSAGES.VOTE_SUBMITTED,
       });
-
     } catch (error) {
       console.error('Error submitting vote:', error);
       toast({
@@ -60,33 +45,19 @@ export function VoteList({ proposals, roundId, participantId, hasVoted, disabled
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setVoting(false);
     }
   };
 
-  if (proposals.length === 0) {
-    return (
-      <Card>
-        <CardContent className="p-8 text-center">
-          <Vote className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-          <p className="text-muted-foreground">No suggestions to vote on yet.</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (hasVoted) {
+  if (suggestions.length === 0) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2 text-green-600">
-            <CheckCircle className="h-5 w-5" />
-            <span>Vote Submitted!</span>
-          </CardTitle>
+          <CardTitle>Vote for Your Favorite</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">
-            You have successfully voted. Waiting for other participants...
+          <p className="text-center text-muted-foreground">
+            No suggestions to vote on.
           </p>
         </CardContent>
       </Card>
@@ -96,57 +67,40 @@ export function VoteList({ proposals, roundId, participantId, hasVoted, disabled
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <Vote className="h-5 w-5" />
-          <span>Vote for your favorite suggestion</span>
-        </CardTitle>
+        <CardTitle>Vote for Your Favorite</CardTitle>
+        <p className="text-muted-foreground">
+          {userHasVoted ? "You've voted ✓" : MESSAGES.VOTE_PHASE}
+        </p>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <RadioGroup
-          value={selectedProposalId}
-          onValueChange={setSelectedProposalId}
-          disabled={disabled || loading}
-        >
-          <div className="space-y-3">
-            {proposals.map((proposal) => (
-              <div
-                key={proposal.id}
-                className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors"
-              >
-                <RadioGroupItem
-                  value={proposal.id}
-                  id={proposal.id}
-                  className="mt-1"
-                />
-                <Label
-                  htmlFor={proposal.id}
-                  className="flex-1 cursor-pointer text-sm leading-relaxed"
-                >
-                  {proposal.text}
-                </Label>
-              </div>
-            ))}
-          </div>
-        </RadioGroup>
-
-        <Button
-          onClick={handleVote}
-          disabled={disabled || loading || !selectedProposalId}
-          className="w-full"
-          size="lg"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Submitting Vote...
-            </>
-          ) : (
-            <>
-              <Vote className="mr-2 h-4 w-4" />
-              Submit Vote
-            </>
-          )}
-        </Button>
+      <CardContent>
+        <div className="space-y-3">
+          {suggestions.map((suggestion) => (
+            <Card key={suggestion.id} className="relative">
+              <CardContent className="pt-4">
+                <div className="flex justify-between items-start gap-3">
+                  <p className="flex-1">{suggestion.text}</p>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant="secondary">
+                      {suggestion.voteCount} {suggestion.voteCount === 1 ? 'vote' : 'votes'}
+                    </Badge>
+                    {!userHasVoted && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleVote(suggestion.id)}
+                        disabled={voting}
+                      >
+                        Vote
+                      </Button>
+                    )}
+                    {suggestion.hasUserVoted && (
+                      <Check className="h-5 w-5 text-green-600" />
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </CardContent>
     </Card>
   );

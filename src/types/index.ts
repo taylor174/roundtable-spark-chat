@@ -13,8 +13,8 @@ export type Round = Tables['rounds']['Row'];
 export type RoundInsert = Tables['rounds']['Insert'];
 export type RoundUpdate = Tables['rounds']['Update'];
 
-export type Proposal = Tables['proposals']['Row'];
-export type ProposalInsert = Tables['proposals']['Insert'];
+export type Suggestion = Tables['suggestions']['Row'];
+export type SuggestionInsert = Tables['suggestions']['Insert'];
 
 export type Vote = Tables['votes']['Row'];
 export type VoteInsert = Tables['votes']['Insert'];
@@ -26,25 +26,26 @@ export interface TableState {
   table: Table | null;
   participants: Participant[];
   currentRound: Round | null;
-  proposals: Proposal[];
+  suggestions: Suggestion[];
   votes: Vote[];
   blocks: Block[];
   currentParticipant: Participant | null;
+  clientId: string;
   isHost: boolean;
   timeRemaining: number;
   loading: boolean;
   error: string | null;
 }
 
-export interface ProposalWithVotes extends Proposal {
+export interface SuggestionWithVotes extends Suggestion {
   voteCount: number;
   hasUserVoted: boolean;
 }
 
-export interface WinningProposal extends Proposal {
+export interface WinningSuggestion extends Suggestion {
   voteCount: number;
 }
 
-export type PhaseType = 'waiting' | 'suggestions' | 'voting' | 'results';
-export type TableStatusType = 'waiting' | 'active' | 'ended';
-export type RoundStatusType = 'suggestions' | 'voting' | 'results';
+export type PhaseType = 'lobby' | 'suggest' | 'vote' | 'result';
+export type TableStatusType = 'lobby' | 'running' | 'closed';
+export type RoundStatusType = 'lobby' | 'suggest' | 'vote' | 'result';

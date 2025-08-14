@@ -5,18 +5,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { WinningProposal } from '@/types';
+import { WinningSuggestion } from '@/types';
 import { Trophy, Crown, Users } from 'lucide-react';
 
 interface ResultsPanelProps {
-  winningProposals: WinningProposal[];
+  winningSuggestions: WinningSuggestion[];
   isHost: boolean;
-  onWinnerSelected?: (proposalId: string) => void;
+  onWinnerSelected?: (suggestionId: string) => void;
   onNextRound?: () => void;
 }
 
 export function ResultsPanel({ 
-  winningProposals, 
+  winningSuggestions, 
   isHost, 
   onWinnerSelected, 
   onNextRound 
@@ -24,8 +24,8 @@ export function ResultsPanel({
   const [showTieBreaker, setShowTieBreaker] = useState(false);
   const [selectedWinner, setSelectedWinner] = useState<string>('');
 
-  const isTie = winningProposals.length > 1;
-  const winner = winningProposals[0];
+  const isTie = winningSuggestions.length > 1;
+  const winner = winningSuggestions[0];
 
   const handleTieBreak = () => {
     if (selectedWinner && onWinnerSelected) {
@@ -50,11 +50,11 @@ export function ResultsPanel({
             </p>
             
             <div className="space-y-3">
-              {winningProposals.map((proposal) => (
-                <div key={proposal.id} className="p-3 border rounded-lg">
-                  <p className="text-sm">{proposal.text}</p>
+              {winningSuggestions.map((suggestion) => (
+                <div key={suggestion.id} className="p-3 border rounded-lg">
+                  <p className="text-sm">{suggestion.text}</p>
                   <Badge variant="secondary" className="mt-2">
-                    {proposal.voteCount} votes
+                    {suggestion.voteCount} votes
                   </Badge>
                 </div>
               ))}
@@ -82,20 +82,20 @@ export function ResultsPanel({
                 onValueChange={setSelectedWinner}
               >
                 <div className="space-y-3">
-                  {winningProposals.map((proposal) => (
-                    <div key={proposal.id} className="flex items-start space-x-3">
+                  {winningSuggestions.map((suggestion) => (
+                    <div key={suggestion.id} className="flex items-start space-x-3">
                       <RadioGroupItem
-                        value={proposal.id}
-                        id={`tie-${proposal.id}`}
+                        value={suggestion.id}
+                        id={`tie-${suggestion.id}`}
                         className="mt-1"
                       />
                       <Label
-                        htmlFor={`tie-${proposal.id}`}
+                        htmlFor={`tie-${suggestion.id}`}
                         className="flex-1 cursor-pointer text-sm"
                       >
-                        {proposal.text}
+                        {suggestion.text}
                         <Badge variant="secondary" className="ml-2">
-                          {proposal.voteCount} votes
+                          {suggestion.voteCount} votes
                         </Badge>
                       </Label>
                     </div>
@@ -132,11 +132,11 @@ export function ResultsPanel({
             There's a tie between multiple suggestions. Waiting for host to break the tie...
           </p>
           <div className="space-y-2">
-            {winningProposals.map((proposal) => (
-              <div key={proposal.id} className="p-3 border rounded-lg">
-                <p className="text-sm">{proposal.text}</p>
+            {winningSuggestions.map((suggestion) => (
+              <div key={suggestion.id} className="p-3 border rounded-lg">
+                <p className="text-sm">{suggestion.text}</p>
                 <Badge variant="secondary" className="mt-2">
-                  {proposal.voteCount} votes
+                  {suggestion.voteCount} votes
                 </Badge>
               </div>
             ))}
