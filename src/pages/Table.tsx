@@ -1,9 +1,29 @@
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useTableState } from '@/hooks/useTableState';
+import { usePhaseManager } from '@/hooks/usePhaseManager';
+import { Timer } from '@/components/Timer';
+import { SuggestionForm } from '@/components/SuggestionForm';
+import { SuggestionList } from '@/components/SuggestionList';
+import { VoteList } from '@/components/VoteList';
+import { ResultsPanel } from '@/components/ResultsPanel';
+import { Timeline } from '@/components/Timeline';
+import { HostControls } from '@/components/HostControls';
+import { TableInfo } from '@/components/TableInfo';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Users, Clock, List } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { 
+  getProposalsWithVotes, 
+  hasUserVoted, 
+  getWinningProposals,
+  advanceRound,
+  startNextRound,
+  selectWinner 
+} from '@/utils/roundLogic';
+import { useToast } from '@/hooks/use-toast';
+import { MESSAGES } from '@/constants';
+import { Users, Clock, List, Play } from 'lucide-react';
 
 const Table = () => {
   const { code } = useParams<{ code: string }>();
@@ -23,7 +43,67 @@ const Table = () => {
     loading,
     error,
     currentPhase,
+    refresh,
   } = useTableState(code || '', hostToken || undefined);
+  
+  const { toast } = useToast();
+  
+  // Derived state
+  const proposalsWithVotes = getProposalsWithVotes(
+    proposals,
+    votes,
+    currentParticipant?.id
+  );
+  
+  const userHasVoted = currentParticipant 
+    ? hasUserVoted(votes, currentParticipant.id)
+    : false;
+    
+  const winningProposals = getWinningProposals(proposalsWithVotes);
+  
+  // Automatic phase management
+  usePhaseManager(table, currentRound, proposals, votes, timeRemaining, refresh);
+  
+  // Event handlers
+  const handleWinnerSelected = async (proposalId: string) => {
+    if (!table || !currentRound) return;
+    
+    try {
+      await selectWinner(table.id, currentRound.id, proposalId);
+      toast({
+        title: "Success",
+        description: "Winner selected!",
+      });
+      refresh();
+    } catch (error) {
+      console.error('Error selecting winner:', error);
+      toast({
+        title: "Error",
+        description: "Failed to select winner. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleNextRound = async () => {
+    if (!table || !currentRound) return;
+    
+    try {
+      await startNextRound(table.id, currentRound.round_index);
+      toast({
+        title: "Success", 
+        description: "Next round started!",
+      });
+      refresh();
+    } catch (error) {
+      console.error('Error starting next round:', error);
+      toast({
+        title: "Error",
+        description: "Failed to start next round. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   if (loading) {
     return (
@@ -70,12 +150,20 @@ const Table = () => {
               </p>
             </div>
             
-            {currentPhase !== 'waiting' && (
-              <div className="flex items-center space-x-2 text-lg font-mono">
-                <Clock className="h-5 w-5" />
-                <span>{Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}</span>
-              </div>
-            )}
+            <div className="flex items-center space-x-4">
+              <TableInfo
+                tableCode={table.code}
+                participantCount={participants.length}
+                isHost={isHost}
+              />
+              {currentPhase !== 'waiting' && (
+                <Timer 
+                  timeRemaining={timeRemaining}
+                  phase={currentPhase}
+                  isActive={table.status === 'active'}
+                />
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -84,69 +172,70 @@ const Table = () => {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-3 space-y-6">
-            
             {/* Current Phase Content */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <span>Current Phase: {currentPhase}</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {currentPhase === 'waiting' && (
-                  <div className="text-center py-8">
-                    <p className="text-lg mb-4">Waiting for host to start the table...</p>
-                    {isHost && (
-                      <p className="text-muted-foreground">You are the host. Use the controls on the right to start.</p>
-                    )}
-                  </div>
-                )}
-                
-                {currentPhase === 'suggestions' && (
-                  <div className="space-y-4">
-                    <p className="text-lg">Share your suggestions!</p>
-                    {/* Suggestion form will go here */}
-                  </div>
-                )}
-                
-                {currentPhase === 'voting' && (
-                  <div className="space-y-4">
-                    <p className="text-lg">Vote for your favorite suggestion</p>
-                    {/* Voting interface will go here */}
-                  </div>
-                )}
-                
-                {currentPhase === 'results' && (
-                  <div className="space-y-4">
-                    <p className="text-lg">Round complete!</p>
-                    {/* Results display will go here */}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Suggestions List */}
-            {proposals.length > 0 && (
+            {currentPhase === 'waiting' && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
-                    <List className="h-5 w-5" />
-                    <span>Suggestions ({proposals.length})</span>
+                    <Play className="h-5 w-5" />
+                    <span>Waiting to Start</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-2">
-                    {proposals.map((proposal) => (
-                      <div key={proposal.id} className="p-3 border rounded-lg">
-                        <p>{proposal.text}</p>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {votes.filter(v => v.proposal_id === proposal.id).length} votes
-                        </p>
-                      </div>
-                    ))}
+                  <div className="text-center py-8">
+                    <p className="text-lg mb-4">{MESSAGES.WAITING_FOR_HOST}</p>
+                    {isHost && (
+                      <p className="text-muted-foreground">
+                        Use the host controls on the right to configure and start the table.
+                      </p>
+                    )}
                   </div>
                 </CardContent>
               </Card>
+            )}
+            
+            {/* Suggestion Phase */}
+            {currentPhase === 'suggestions' && currentParticipant && currentRound && (
+              <>
+                <SuggestionForm
+                  roundId={currentRound.id}
+                  participantId={currentParticipant.id}
+                  disabled={timeRemaining === 0}
+                />
+                <SuggestionList 
+                  proposals={proposalsWithVotes}
+                  showVoteCounts={false}
+                />
+              </>
+            )}
+            
+            {/* Voting Phase */}
+            {currentPhase === 'voting' && currentParticipant && currentRound && (
+              <VoteList
+                proposals={proposalsWithVotes}
+                roundId={currentRound.id}
+                participantId={currentParticipant.id}
+                hasVoted={userHasVoted}
+                disabled={timeRemaining === 0}
+              />
+            )}
+            
+            {/* Results Phase */}
+            {currentPhase === 'results' && winningProposals.length > 0 && (
+              <ResultsPanel
+                winningProposals={winningProposals}
+                isHost={isHost}
+                onWinnerSelected={handleWinnerSelected}
+                onNextRound={handleNextRound}
+              />
+            )}
+
+            {/* Show suggestions in voting and results phases */}
+            {(currentPhase === 'voting' || currentPhase === 'results') && (
+              <SuggestionList 
+                proposals={proposalsWithVotes}
+                showVoteCounts={currentPhase === 'results'}
+              />
             )}
           </div>
 
@@ -179,36 +268,17 @@ const Table = () => {
 
             {/* Host Controls */}
             {isHost && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Host Controls</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    Host controls will be implemented here
-                  </p>
-                </CardContent>
-              </Card>
+              <HostControls
+                table={table}
+                canStart={participants.length >= 2}
+                currentPhase={currentPhase}
+                participantCount={participants.length}
+                onRefresh={refresh}
+              />
             )}
 
             {/* Timeline */}
-            {blocks.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Timeline</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {blocks.map((block, index) => (
-                      <div key={block.id} className="text-sm">
-                        <span className="font-medium">Round {index + 1}:</span>
-                        <p className="text-muted-foreground">{block.text}</p>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            <Timeline blocks={blocks} />
           </div>
         </div>
       </div>

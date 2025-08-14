@@ -91,9 +91,16 @@ const Home = () => {
           </Button>
           
           <div className="text-center">
-            <p className="text-sm text-muted-foreground">
-              Or join an existing table with a code
+            <p className="text-sm text-muted-foreground mb-2">
+              Or join an existing table
             </p>
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate('/join/SAMPLE')}
+              className="text-sm"
+            >
+              Enter table code
+            </Button>
           </div>
         </CardContent>
       </Card>
