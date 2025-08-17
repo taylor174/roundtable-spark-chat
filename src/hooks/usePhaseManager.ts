@@ -20,8 +20,8 @@ export function usePhaseManager(
       return;
     }
 
-    // Check if we need to advance the phase - use a small buffer to handle timing
-    const shouldAdvance = timeRemaining <= 1 && currentRound.ends_at && isTimeExpired(currentRound.ends_at);
+    // Check if we need to advance the phase
+    const shouldAdvance = timeRemaining === 0 && currentRound.ends_at && isTimeExpired(currentRound.ends_at);
     
     if (!shouldAdvance) return;
 
