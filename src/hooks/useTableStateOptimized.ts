@@ -100,16 +100,6 @@ export function useTableState(tableCode: string) {
       // Determine current participant and host status
       const isHost = hostSecret === table.host_secret;
       const currentParticipant = participants.find(p => p.client_id === clientId) || null;
-      
-      // Calculate initial time remaining
-      const timeRemaining = currentRound?.ends_at ? calculateTimeRemaining(currentRound.ends_at) : 0;
-      console.log('loadTableData - Initial timer setup:', {
-        roundId: currentRound?.id,
-        status: currentRound?.status,
-        ends_at: currentRound?.ends_at,
-        timeRemaining,
-        currentTime: new Date().toISOString()
-      });
 
       setState({
         table,
@@ -121,7 +111,7 @@ export function useTableState(tableCode: string) {
         currentParticipant,
         clientId,
         isHost,
-        timeRemaining,
+        timeRemaining: 0,
         loading: false,
         error: null,
       });
@@ -149,17 +139,7 @@ export function useTableState(tableCode: string) {
   }, [clientId]);
 
   const updateRound = useCallback((newRound: Round) => {
-    setState(prev => {
-      const timeRemaining = newRound.ends_at ? calculateTimeRemaining(newRound.ends_at) : 0;
-      console.log('updateRound called:', {
-        roundId: newRound.id,
-        status: newRound.status,
-        ends_at: newRound.ends_at,
-        timeRemaining,
-        currentTime: new Date().toISOString()
-      });
-      return { ...prev, currentRound: newRound, timeRemaining };
-    });
+    setState(prev => ({ ...prev, currentRound: newRound }));
   }, []);
 
   const updateSuggestions = useCallback((newSuggestions: Suggestion[]) => {
@@ -202,13 +182,6 @@ export function useTableState(tableCode: string) {
       if (!prev.currentRound?.ends_at) return prev;
       
       const remaining = calculateTimeRemaining(prev.currentRound.ends_at);
-      console.log('updateTimer called:', {
-        roundId: prev.currentRound.id,
-        status: prev.currentRound.status,
-        ends_at: prev.currentRound.ends_at,
-        remaining,
-        currentTime: new Date().toISOString()
-      });
       return { ...prev, timeRemaining: remaining };
     });
   }, []);
