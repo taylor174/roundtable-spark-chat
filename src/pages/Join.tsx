@@ -17,6 +17,7 @@ const Join = () => {
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
   const [tableId, setTableId] = useState<string | null>(null);
+  const [tableTitle, setTableTitle] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -28,12 +29,13 @@ const Join = () => {
       try {
         const { data: table } = await supabase
           .from('tables')
-          .select('id, status')
+          .select('id, status, title')
           .eq('code', code)
           .single();
 
         if (table) {
           setTableId(table.id);
+          setTableTitle(table.title);
           
           // If table is already running, we can optionally show a different message
           if (table.status === 'running') {
@@ -113,7 +115,7 @@ const Join = () => {
       // Check if table exists and store tableId for realtime subscriptions
       const { data: table, error: tableError } = await supabase
         .from('tables')
-        .select('id, status')
+        .select('id, status, title')
         .eq('code', code)
         .single();
 
@@ -178,7 +180,10 @@ const Join = () => {
         .from('participants')
         .insert(participantData);
 
-      if (participantError) throw participantError;
+       if (participantError) {
+        console.error('join error:', participantError.code, participantError.message);
+        throw participantError;
+      }
 
       toast({
         title: "Success",
@@ -188,11 +193,11 @@ const Join = () => {
       // Navigate to table
       navigate(`/t/${code}`);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error joining table:', error);
       toast({
         title: "Error",
-        description: "Failed to join table. Please try again.",
+        description: error?.message || "Failed to join table. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -200,10 +205,9 @@ const Join = () => {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleJoin();
-    }
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleJoin();
   };
 
   return (
@@ -212,39 +216,43 @@ const Join = () => {
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Join Session</CardTitle>
           <CardDescription>
-            Session Code: <span className="font-mono font-bold text-lg">{code}</span>
+            {tableTitle || 'Loading session...'}
+            <div className="text-sm text-muted-foreground mt-1">
+              You're about to join this session.
+            </div>
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="displayName">Display Name</Label>
-            <Input
-              id="displayName"
-              type="text"
-              placeholder="Enter your name"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              onKeyPress={handleKeyPress}
-              maxLength={50}
-              disabled={loading}
-            />
-          </div>
-          
-          <Button 
-            onClick={handleJoin}
-            disabled={loading || !displayName.trim()}
-            className="w-full"
-            size="lg"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Joining...
-              </>
-            ) : (
-              'Join Session'
-            )}
-          </Button>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="displayName">Display Name</Label>
+              <Input
+                id="displayName"
+                type="text"
+                placeholder="Enter your name"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                maxLength={50}
+                disabled={loading}
+              />
+            </div>
+            
+            <Button 
+              type="submit"
+              disabled={loading || !displayName.trim()}
+              className="w-full"
+              size="lg"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Joining...
+                </>
+              ) : (
+                'Join Session'
+              )}
+            </Button>
+          </form>
           
           <div className="text-center">
             <Button 
