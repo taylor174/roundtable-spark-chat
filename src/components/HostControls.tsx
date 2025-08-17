@@ -382,6 +382,15 @@ export function HostControls({
   };
 
 
+  console.log('🎮 HostControls DEBUG:', { 
+    tableStatus: table.status,
+    isLobby: table.status === 'lobby',
+    isWaiting: table.status === 'waiting',
+    shouldShowStart: table.status === 'lobby' || table.status === 'waiting',
+    participantCount,
+    loading
+  });
+
   return (
     <Card>
       <CardHeader>
