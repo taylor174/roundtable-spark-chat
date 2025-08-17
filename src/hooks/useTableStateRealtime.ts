@@ -352,37 +352,44 @@ export function useTableStateRealtime(tableCode: string) {
                     table: 'suggestions',
                     filter: `round_id=eq.${newRoundId}`
                   },
-                  (payload) => {
-                    console.log('💡 Suggestions change event:', payload.eventType, payload);
-                    trackRealtimeEvent('suggestion_update');
-                    
-                    if (payload.eventType === 'INSERT' && payload.new) {
-                      setState(prev => {
-                        const newSuggestion = payload.new as any;
-                        const exists = prev.suggestions.some(s => s.id === newSuggestion.id);
-                        if (!exists) {
-                          console.log('✅ Adding new suggestion to state:', newSuggestion.text);
-                          return { ...prev, suggestions: [...prev.suggestions, newSuggestion] };
-                        }
-                        return prev;
-                      });
-                    } else if (payload.eventType === 'UPDATE' && payload.new) {
-                      setState(prev => {
-                        const updatedSuggestion = payload.new as any;
-                        const existingIndex = prev.suggestions.findIndex(s => s.id === updatedSuggestion.id);
-                        if (existingIndex >= 0) {
-                          console.log('✅ Updating existing suggestion:', updatedSuggestion.text);
-                          const newSuggestions = [...prev.suggestions];
-                          newSuggestions[existingIndex] = updatedSuggestion;
-                          return { ...prev, suggestions: newSuggestions };
-                        } else {
-                          // Handle race condition: UPDATE received before INSERT
-                          console.log('✅ Adding suggestion via UPDATE (race condition):', updatedSuggestion.text);
-                          return { ...prev, suggestions: [...prev.suggestions, updatedSuggestion] };
-                        }
-                      });
-                    }
-                  }
+        (payload) => {
+          console.log('💡 Suggestions change event:', payload.eventType, payload.table, payload);
+          
+          // Validate this is actually a suggestions table event
+          if (payload.table !== 'suggestions') {
+            console.warn('❌ Suggestions handler received event for wrong table:', payload.table);
+            return;
+          }
+          
+          trackRealtimeEvent('suggestion_update');
+          
+          if (payload.eventType === 'INSERT' && payload.new) {
+            setState(prev => {
+              const newSuggestion = payload.new as any;
+              const exists = prev.suggestions.some(s => s.id === newSuggestion.id);
+              if (!exists) {
+                console.log('✅ Adding new suggestion to state:', newSuggestion.text);
+                return { ...prev, suggestions: [...prev.suggestions, newSuggestion] };
+              }
+              return prev;
+            });
+          } else if (payload.eventType === 'UPDATE' && payload.new) {
+            setState(prev => {
+              const updatedSuggestion = payload.new as any;
+              const existingIndex = prev.suggestions.findIndex(s => s.id === updatedSuggestion.id);
+              if (existingIndex >= 0) {
+                console.log('✅ Updating existing suggestion:', updatedSuggestion.text);
+                const newSuggestions = [...prev.suggestions];
+                newSuggestions[existingIndex] = updatedSuggestion;
+                return { ...prev, suggestions: newSuggestions };
+              } else {
+                // Handle race condition: UPDATE received before INSERT
+                console.log('✅ Adding suggestion via UPDATE (race condition):', updatedSuggestion.text);
+                return { ...prev, suggestions: [...prev.suggestions, updatedSuggestion] };
+              }
+            });
+          }
+        }
                 );
                 
                 // Add votes subscription
@@ -394,22 +401,29 @@ export function useTableStateRealtime(tableCode: string) {
                     table: 'votes',
                     filter: `round_id=eq.${newRoundId}`
                   },
-                  (payload) => {
-                    console.log('🗳️ Votes change event:', payload.eventType, payload);
-                    trackRealtimeEvent('vote_update');
-                    
-                    if (payload.eventType === 'INSERT' && payload.new) {
-                      setState(prev => {
-                        const newVote = payload.new as any;
-                        const exists = prev.votes.some(v => v.id === newVote.id);
-                        if (!exists) {
-                          console.log('✅ Adding new vote to state:', newVote);
-                          return { ...prev, votes: [...prev.votes, newVote] };
-                        }
-                        return prev;
-                      });
-                    }
-                  }
+        (payload) => {
+          console.log('🗳️ Votes change event:', payload.eventType, payload.table, payload);
+          
+          // Validate this is actually a votes table event
+          if (payload.table !== 'votes') {
+            console.warn('❌ Votes handler received event for wrong table:', payload.table);
+            return;
+          }
+          
+          trackRealtimeEvent('vote_update');
+          
+          if (payload.eventType === 'INSERT' && payload.new) {
+            setState(prev => {
+              const newVote = payload.new as any;
+              const exists = prev.votes.some(v => v.id === newVote.id);
+              if (!exists) {
+                console.log('✅ Adding new vote to state:', newVote);
+                return { ...prev, votes: [...prev.votes, newVote] };
+              }
+              return prev;
+            });
+          }
+        }
                 );
                 
                 roundSubscriptionsRef.current = newRoundId;
@@ -460,7 +474,14 @@ export function useTableStateRealtime(tableCode: string) {
           filter: `round_id=eq.${roundId}`
         },
         (payload) => {
-          console.log('💡 Suggestions change event:', payload.eventType, payload);
+          console.log('💡 Suggestions change event:', payload.eventType, payload.table, payload);
+          
+          // Validate this is actually a suggestions table event
+          if (payload.table !== 'suggestions') {
+            console.warn('❌ Suggestions handler received event for wrong table:', payload.table);
+            return;
+          }
+          
           trackRealtimeEvent('suggestion_update');
           
           if (payload.eventType === 'INSERT' && payload.new) {
@@ -502,7 +523,14 @@ export function useTableStateRealtime(tableCode: string) {
           filter: `round_id=eq.${roundId}`
         },
         (payload) => {
-          console.log('🗳️ Votes change event:', payload.eventType, payload);
+          console.log('🗳️ Votes change event:', payload.eventType, payload.table, payload);
+          
+          // Validate this is actually a votes table event
+          if (payload.table !== 'votes') {
+            console.warn('❌ Votes handler received event for wrong table:', payload.table);
+            return;
+          }
+          
           trackRealtimeEvent('vote_update');
           
           if (payload.eventType === 'INSERT' && payload.new) {
