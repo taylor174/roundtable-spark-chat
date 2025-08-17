@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,8 +16,72 @@ const Join = () => {
   const { code } = useParams<{ code: string }>();
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [tableId, setTableId] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Load table data on mount to set up realtime subscriptions
+  useEffect(() => {
+    const loadTableData = async () => {
+      if (!code || !isValidTableCode(code)) return;
+
+      try {
+        const { data: table } = await supabase
+          .from('tables')
+          .select('id, status')
+          .eq('code', code)
+          .single();
+
+        if (table) {
+          setTableId(table.id);
+          
+          // If table is already running, we can optionally show a different message
+          if (table.status === 'running') {
+            toast({
+              title: "Session in Progress",
+              description: "This session is currently active. Join to participate!",
+            });
+          }
+        }
+      } catch (error) {
+        // Silently fail - table validation will happen on join
+        console.log('Table lookup failed on join page:', error);
+      }
+    };
+
+    loadTableData();
+  }, [code, toast]);
+
+  // Set up realtime listener to auto-redirect when session starts
+  useEffect(() => {
+    if (!code || !tableId) return;
+
+    const channel = supabase
+      .channel(`join_page_${tableId}`)
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'tables', filter: `id=eq.${tableId}` },
+        (payload) => {
+          const newTable = payload.new as any;
+          console.log('Table update received on join page:', newTable);
+          
+          // If table status changed to running, auto-redirect to table
+          if (newTable.status === 'running') {
+            toast({
+              title: "Session Started!",
+              description: "Redirecting to the session...",
+            });
+            setTimeout(() => {
+              navigate(`/t/${code}`);
+            }, 1000);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [code, tableId, navigate, toast]);
 
   const handleJoin = async () => {
     if (!code || !isValidTableCode(code)) {
@@ -42,7 +106,7 @@ const Join = () => {
       setLoading(true);
       const clientId = getOrCreateClientId();
 
-      // Check if table exists
+      // Check if table exists and store tableId for realtime subscriptions
       const { data: table, error: tableError } = await supabase
         .from('tables')
         .select('id, status')
@@ -55,6 +119,15 @@ const Join = () => {
           description: MESSAGES.INVALID_CODE,
           variant: "destructive",
         });
+        return;
+      }
+
+      // Store table ID for realtime subscriptions
+      setTableId(table.id);
+
+      // If table is already running, redirect immediately
+      if (table.status === 'running') {
+        navigate(`/t/${code}`);
         return;
       }
 

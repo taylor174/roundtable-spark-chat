@@ -8,8 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { Table } from '@/types';
 import { useToast } from '@/hooks/use-toast';
-import { APP_CONFIG } from '@/constants';
-import { startSuggestPhase } from '@/utils/roundLogic';
 import { getOrCreateClientId } from '@/utils/clientId';
 
 interface HostControlsProps {
@@ -70,41 +68,22 @@ export function HostControls({
     try {
       setLoading(true);
 
-      // Create first round
-      const { data: round, error: roundError } = await supabase
-        .from('rounds')
-        .insert({
-          table_id: table.id,
-          number: 1,
-          status: 'lobby',
-        })
-        .select()
-        .single();
+      // Use atomic RPC function to start table session
+      const { data, error } = await supabase.rpc('start_table_session', {
+        p_table_id: table.id,
+        p_suggest_sec: suggestionTime,
+        p_vote_sec: votingTime,
+      });
 
-      if (roundError) throw roundError;
-
-      // Update table status and current round
-      const { error: tableError } = await supabase
-        .from('tables')
-        .update({
-          status: 'running',
-          current_round_id: round.id,
-          default_suggest_sec: suggestionTime,
-          default_vote_sec: votingTime,
-        })
-        .eq('id', table.id);
-
-      if (tableError) throw tableError;
-
-      // Start suggestion phase
-      await startSuggestPhase(round.id, suggestionTime);
+      if (error) throw error;
 
       toast({
         title: "Success",
         description: "Table started! Suggestion phase is now active.",
       });
 
-      onRefresh?.();
+      // The realtime subscriptions will handle the updates automatically
+      // No need to call onRefresh since realtime will update the state
 
     } catch (error) {
       console.error('Error starting table:', error);

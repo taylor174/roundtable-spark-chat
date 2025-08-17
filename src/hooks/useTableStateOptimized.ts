@@ -197,11 +197,21 @@ export function useTableState(tableCode: string) {
 
     const channel = supabase
       .channel(`table_${state.table.id}`)
-      // Table updates
+      // Table updates - critical for detecting when table starts
       .on('postgres_changes', 
-        { event: 'UPDATE', schema: 'public', table: 'tables', filter: `id=eq.${state.table.id}` },
+        { event: '*', schema: 'public', table: 'tables', filter: `id=eq.${state.table.id}` },
         (payload) => {
-          updateTable(payload.new as Table);
+          console.log('Table update received:', payload);
+          if (payload.eventType === 'UPDATE') {
+            const newTable = payload.new as Table;
+            updateTable(newTable);
+            
+            // Check if table just started running - trigger immediate phase detection
+            if (newTable.status === 'running' && state.table?.status === 'lobby') {
+              console.log('Table started - triggering immediate state refresh');
+              setTimeout(loadTableData, 100); // Small delay to ensure round is created
+            }
+          }
         }
       )
       // Participant changes
@@ -235,12 +245,19 @@ export function useTableState(tableCode: string) {
           });
         }
       )
-      // Round changes
+      // Round changes - critical for detecting phase transitions
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'rounds', filter: `table_id=eq.${state.table.id}` },
         (payload) => {
+          console.log('Round update received:', payload);
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            updateRound(payload.new as Round);
+            const newRound = payload.new as Round;
+            updateRound(newRound);
+            
+            // If this is the current round, update immediately
+            if (state.table?.current_round_id === newRound.id) {
+              console.log('Current round updated - phase may have changed');
+            }
           }
         }
       )
@@ -253,6 +270,20 @@ export function useTableState(tableCode: string) {
             setState(prev => ({
               ...prev,
               suggestions: [...prev.suggestions, newSuggestion]
+            }));
+          }
+        }
+      )
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'suggestions' },
+        (payload) => {
+          const updatedSuggestion = payload.new as Suggestion;
+          if (state.currentRound && updatedSuggestion.round_id === state.currentRound.id) {
+            setState(prev => ({
+              ...prev,
+              suggestions: prev.suggestions.map(s => 
+                s.id === updatedSuggestion.id ? updatedSuggestion : s
+              )
             }));
           }
         }
@@ -290,7 +321,7 @@ export function useTableState(tableCode: string) {
         channelRef.current = null;
       }
     };
-  }, [state.table?.id, state.currentRound?.id, clientId, updateTable, updateRound, toast]);
+  }, [state.table?.id, state.currentRound?.id, clientId, updateTable, updateRound, toast, loadTableData]);
 
   // Set up timer interval
   useEffect(() => {
