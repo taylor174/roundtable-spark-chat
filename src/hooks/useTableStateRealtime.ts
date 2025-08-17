@@ -27,6 +27,7 @@ export function useTableStateRealtime(tableCode: string) {
   const tableIdRef = useRef<string | null>(null);
   const currentRoundIdRef = useRef<string | null>(null);
   const subscriptionStateRef = useRef<{[key: string]: boolean}>({});
+  const roundSubscriptionsRef = useRef<string | null>(null); // Track which round has active subscriptions
 
   // Debug logging helper
   const logSubscriptionState = useCallback(() => {
@@ -332,12 +333,12 @@ export function useTableStateRealtime(tableCode: string) {
             const newRound = payload.new as any;
             setState(prev => ({ ...prev, currentRound: newRound }));
             
-            // Update round ref and set up subscriptions for new round
+            // Update round ref - separate effect will handle subscriptions
             const newRoundId = newRound.id;
             if (newRoundId && newRoundId !== currentRoundIdRef.current) {
               console.log('🔄 Round changed from', currentRoundIdRef.current, 'to', newRoundId);
               currentRoundIdRef.current = newRoundId;
-              setupRoundSubscriptions(channel, newRoundId);
+              // Separate effect will handle round subscriptions
             }
           }
         }
@@ -365,68 +366,7 @@ export function useTableStateRealtime(tableCode: string) {
         }
       )
 
-    // Function to set up round-specific subscriptions
-    const setupRoundSubscriptions = (channel: any, roundId: string) => {
-      if (!roundId) return;
-      
-      console.log('🎯 Setting up round-specific subscriptions for round:', roundId);
-      
-      // Add suggestions subscription with INSERT and UPDATE handling
-      channel.on(
-        'postgres_changes',
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'suggestions',
-          filter: `round_id=eq.${roundId}`
-        },
-        (payload) => {
-          console.log('💡 Suggestions change event:', payload.eventType, payload);
-          trackRealtimeEvent('suggestion_update');
-          
-          // Direct state update for suggestions
-          if (payload.eventType === 'INSERT' && payload.new) {
-            setState(prev => {
-              const newSuggestion = payload.new as any;
-              const exists = prev.suggestions.some(s => s.id === newSuggestion.id);
-              return exists ? prev : { ...prev, suggestions: [...prev.suggestions, newSuggestion] };
-            });
-          }
-        }
-      );
-      
-      // Add votes subscription with INSERT and UPDATE handling
-      channel.on(
-        'postgres_changes',
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'votes',
-          filter: `round_id=eq.${roundId}`
-        },
-        (payload) => {
-          console.log('🗳️ Votes change event:', payload.eventType, payload);
-          trackRealtimeEvent('vote_update');
-          
-          // Direct state update for votes
-          if (payload.eventType === 'INSERT' && payload.new) {
-            setState(prev => {
-              const newVote = payload.new as any;
-              const exists = prev.votes.some(v => v.id === newVote.id);
-              return exists ? prev : { ...prev, votes: [...prev.votes, newVote] };
-            });
-          }
-        }
-      );
-      
-      subscriptionStateRef.current.suggestions = true;
-      subscriptionStateRef.current.votes = true;
-    };
-
-    // Set up initial round subscriptions if we have a current round
-    if (currentRoundIdRef.current) {
-      setupRoundSubscriptions(channel, currentRoundIdRef.current);
-    }
+    // Initial round subscriptions are now handled by separate effect
 
     // Subscribe to channel
     channel.subscribe((status) => {
@@ -446,6 +386,95 @@ export function useTableStateRealtime(tableCode: string) {
       }
     };
   }, [tableCode, state.table?.id, trackRealtimeEvent, toast]);
+
+  // Separate effect for round subscriptions - triggers immediately when round becomes available
+  useEffect(() => {
+    const currentRoundId = state.currentRound?.id;
+    
+    if (!currentRoundId || !channelRef.current || roundSubscriptionsRef.current === currentRoundId) {
+      return; // No round, no channel, or already subscribed to this round
+    }
+
+    console.log('🎯 Setting up round subscriptions for round:', currentRoundId);
+    
+    const channel = channelRef.current;
+    
+    // Function to set up round-specific subscriptions
+    const setupRoundSubscriptions = (roundId: string) => {
+      console.log('🔄 Adding suggestions and votes subscriptions for round:', roundId);
+      
+      // Add suggestions subscription
+      channel.on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'suggestions',
+          filter: `round_id=eq.${roundId}`
+        },
+        (payload) => {
+          console.log('💡 Suggestions change event:', payload.eventType, payload);
+          trackRealtimeEvent('suggestion_update');
+          
+          if (payload.eventType === 'INSERT' && payload.new) {
+            setState(prev => {
+              const newSuggestion = payload.new as any;
+              const exists = prev.suggestions.some(s => s.id === newSuggestion.id);
+              if (!exists) {
+                console.log('✅ Adding new suggestion to state:', newSuggestion.text);
+                return { ...prev, suggestions: [...prev.suggestions, newSuggestion] };
+              }
+              return prev;
+            });
+          }
+        }
+      );
+      
+      // Add votes subscription
+      channel.on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'votes',
+          filter: `round_id=eq.${roundId}`
+        },
+        (payload) => {
+          console.log('🗳️ Votes change event:', payload.eventType, payload);
+          trackRealtimeEvent('vote_update');
+          
+          if (payload.eventType === 'INSERT' && payload.new) {
+            setState(prev => {
+              const newVote = payload.new as any;
+              const exists = prev.votes.some(v => v.id === newVote.id);
+              if (!exists) {
+                console.log('✅ Adding new vote to state:', newVote);
+                return { ...prev, votes: [...prev.votes, newVote] };
+              }
+              return prev;
+            });
+          }
+        }
+      );
+      
+      subscriptionStateRef.current.suggestions = true;
+      subscriptionStateRef.current.votes = true;
+    };
+
+    // Set up subscriptions for the current round
+    setupRoundSubscriptions(currentRoundId);
+    roundSubscriptionsRef.current = currentRoundId;
+    
+    console.log('✅ Round subscriptions ready for round:', currentRoundId);
+
+  }, [state.currentRound?.id, trackRealtimeEvent]);
+
+  // Clean up round subscriptions ref when table changes
+  useEffect(() => {
+    if (!state.table?.id) {
+      roundSubscriptionsRef.current = null;
+    }
+  }, [state.table?.id]);
 
   // Timer for countdown
   useEffect(() => {
