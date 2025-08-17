@@ -110,6 +110,7 @@ export function useTableStateRealtime(tableCode: string) {
         votes: votes.length 
       });
 
+
     } catch (error) {
       console.error('❌ Error loading table data:', error);
       setState(prev => ({ ...prev, error: 'Failed to load table data', loading: false }));
@@ -298,28 +299,27 @@ export function useTableStateRealtime(tableCode: string) {
       });
     };
 
-    // Set up subscriptions when we have the data
-    if (state.table?.id) {
-      setupTableSubscriptions(state.table.id);
-    }
-    if (state.currentRound?.id) {
-      setupRoundSubscriptions(state.currentRound.id);
-    }
-
-    // Subscribe to channel
+    // Subscribe to channel first
     channel.subscribe((status) => {
       console.log('📡 Subscription status:', status);
       
-      // Set up subscriptions when channel is ready and we have data
+      // Set up subscriptions when channel is ready
       if (status === 'SUBSCRIBED') {
-        if (state.table?.id) {
-          console.log('🔄 Channel subscribed, setting up table subscriptions');
-          setupTableSubscriptions(state.table.id);
-        }
-        if (state.currentRound?.id) {
-          console.log('🔄 Channel subscribed, setting up round subscriptions');
-          setupRoundSubscriptions(state.currentRound.id);
-        }
+        console.log('🔄 Channel subscribed, loading initial data');
+        loadTableData().then(() => {
+          // After data loads, set up subscriptions if we have the necessary IDs
+          setTimeout(() => {
+            if (state.table?.id) {
+              console.log('🔄 Setting up table subscriptions after data load');
+              setupTableSubscriptions(state.table.id);
+              
+              if (state.currentRound?.id) {
+                console.log('🔄 Setting up round subscriptions after data load');
+                setupRoundSubscriptions(state.currentRound.id);
+              }
+            }
+          }, 100);
+        });
       }
     });
 
