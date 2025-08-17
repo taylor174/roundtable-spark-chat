@@ -141,10 +141,10 @@ const Table = () => {
         description: "Next round started!",
       });
       
-      // Don't call refresh immediately - let real-time updates handle it
+      // Extended transition time to handle all real-time updates
       setTimeout(() => {
         setIsTransitioning(false);
-      }, 2000); // Give time for transitions to complete
+      }, 3000);
       
     } catch (error) {
       console.error('Error starting next round:', error);
@@ -224,10 +224,20 @@ const Table = () => {
         </div>
       </header>
 
-      <div className="max-w-5xl mx-auto px-4 md:px-6 py-4">
+      <div className="max-w-5xl mx-auto px-4 md:px-6 py-4 relative">
+        {/* Loading Overlay */}
+        {isTransitioning && (
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+            <div className="text-center space-y-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              <p className="text-muted-foreground">Transitioning to next round...</p>
+            </div>
+          </div>
+        )}
+        
         <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-4 md:gap-6">
           {/* Main Content */}
-          <div className={`space-y-6 transition-all duration-500 ${isTransitioning ? 'opacity-50 pointer-events-none' : ''}`}>
+          <div className={`space-y-6 transition-all duration-300 ${isTransitioning ? 'opacity-30' : ''}`}>
             {/* Current Phase Content */}
             {currentPhase === 'lobby' && (
               <Card className="animate-fade-in">
@@ -304,7 +314,7 @@ const Table = () => {
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6">
+          <div className={`space-y-6 transition-all duration-300 ${isTransitioning ? 'opacity-30' : ''}`}>
             {/* Discussion Context Card */}
             {table.description && (
               <DiscussionContextCard description={table.description} />
