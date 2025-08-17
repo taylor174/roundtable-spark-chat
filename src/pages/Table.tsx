@@ -6,7 +6,6 @@ import { Timer } from '@/components/Timer';
 import { SuggestionForm } from '@/components/SuggestionForm';
 import { SuggestionList } from '@/components/SuggestionList';
 import { VoteList } from '@/components/VoteList';
-import { HostVoteList } from '@/components/HostVoteList';
 import { ResultsPanel } from '@/components/ResultsPanel';
 import { Timeline } from '@/components/Timeline';
 import { HostControls } from '@/components/HostControls';
@@ -93,10 +92,6 @@ const Table = () => {
     ? votes.some(vote => vote.participant_id === currentParticipant.id)
     : false;
     
-  // Check if host has voted (using temporary host participant ID)
-  const hostHasVoted = isHost && table
-    ? votes.some(vote => vote.participant_id === `host_${table.id}`)
-    : false;
   
   // Automatic phase management
   usePhaseManager(table, currentRound, suggestions, votes, timeRemaining, clientId, refresh);
@@ -262,14 +257,6 @@ const Table = () => {
                     roundId={currentRound.id}
                     participantId={currentParticipant.id}
                     userHasVoted={userHasVoted}
-                  />
-                )}
-                {isHost && currentRound && table && (
-                  <HostVoteList
-                    suggestions={suggestionsWithVotes}
-                    roundId={currentRound.id}
-                    tableId={table.id}
-                    hostHasVoted={hostHasVoted}
                   />
                 )}
               </>
