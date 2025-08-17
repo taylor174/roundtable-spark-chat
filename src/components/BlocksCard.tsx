@@ -2,25 +2,25 @@ import { Block } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Clock } from 'lucide-react';
+import { BookOpen } from 'lucide-react';
 
-interface TimelineProps {
+interface BlocksCardProps {
   blocks: Block[];
 }
 
-export function Timeline({ blocks }: TimelineProps) {
+export function BlocksCard({ blocks }: BlocksCardProps) {
   if (blocks.length === 0) {
     return (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
-            <Clock className="h-5 w-5" />
-            <span>Timeline</span>
+            <BookOpen className="h-5 w-5" />
+            <span>Story Blocks</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground text-sm">
-            Completed rounds will appear here...
+            Winning suggestions become building blocks of your collaborative story...
           </p>
         </CardContent>
       </Card>
@@ -31,8 +31,8 @@ export function Timeline({ blocks }: TimelineProps) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center space-x-2">
-          <Clock className="h-5 w-5" />
-          <span>Timeline ({blocks.length})</span>
+          <BookOpen className="h-5 w-5" />
+          <span>Story Blocks ({blocks.length})</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
@@ -48,8 +48,8 @@ export function Timeline({ blocks }: TimelineProps) {
                     {index + 1}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">Round {index + 1}</p>
-                    <p className="text-sm text-muted-foreground leading-relaxed mt-1">
+                    <p className="text-sm font-medium">Block {index + 1}</p>
+                    <p className="text-sm text-foreground leading-relaxed mt-1 font-medium">
                       {block.text}
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">

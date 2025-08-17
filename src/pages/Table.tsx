@@ -7,7 +7,7 @@ import { SuggestionForm } from '@/components/SuggestionForm';
 import { SuggestionList } from '@/components/SuggestionList';
 import { VoteList } from '@/components/VoteList';
 import { ResultsPanel } from '@/components/ResultsPanel';
-import { Timeline } from '@/components/Timeline';
+import { BlocksCard } from '@/components/BlocksCard';
 import { HostControls } from '@/components/HostControls';
 import { TableInfo } from '@/components/TableInfo';
 import { DiscussionContextCard } from '@/components/DiscussionContextCard';
@@ -368,8 +368,8 @@ const Table = () => {
               />
             )}
 
-            {/* Timeline */}
-            <Timeline blocks={blocks} />
+            {/* Story Blocks */}
+            <BlocksCard blocks={blocks} />
           </div>
         </div>
       </div>
