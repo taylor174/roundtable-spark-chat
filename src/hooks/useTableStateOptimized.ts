@@ -139,7 +139,10 @@ export function useTableState(tableCode: string) {
   }, [clientId]);
 
   const updateRound = useCallback((newRound: Round) => {
-    setState(prev => ({ ...prev, currentRound: newRound }));
+    setState(prev => {
+      const timeRemaining = newRound.ends_at ? calculateTimeRemaining(newRound.ends_at) : 0;
+      return { ...prev, currentRound: newRound, timeRemaining };
+    });
   }, []);
 
   const updateSuggestions = useCallback((newSuggestions: Suggestion[]) => {
