@@ -134,8 +134,8 @@ export function TableCreationDialog({ children }: TableCreationDialogProps) {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional: What topic will you be exploring?"
-              rows={3}
-              maxLength={500}
+              rows={4}
+              className="resize-y"
             />
           </div>
 

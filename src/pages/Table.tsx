@@ -177,7 +177,12 @@ const Table = () => {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-semibold leading-tight break-words">{table.title || `Session ${table.code}`}</h1>
-              <p className="text-lg text-muted-foreground">
+              {table.description && (
+                <p className="text-sm sm:text-base text-muted-foreground mt-2 whitespace-pre-wrap break-words">
+                  {table.description}
+                </p>
+              )}
+              <p className="text-lg text-muted-foreground mt-1">
                 {currentPhase === 'lobby' ? 'Waiting to start' : 
                  currentPhase === 'suggest' ? 'Suggestion Phase' :
                  currentPhase === 'vote' ? 'Voting Phase' : 'Results'} • {participants.length} participants
