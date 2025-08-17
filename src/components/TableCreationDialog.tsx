@@ -81,6 +81,19 @@ export function TableCreationDialog({ children }: TableCreationDialogProps) {
       // Store host secret
       storeHostSecret(tableCode, hostSecret);
 
+      // Automatically add host as participant
+      const { getOrCreateClientId } = await import('@/utils/clientId');
+      const clientId = getOrCreateClientId();
+
+      await supabase
+        .from('participants')
+        .insert({
+          table_id: table.id,
+          client_id: clientId,
+          display_name: 'Host',
+          is_host: true,
+        });
+
       toast({
         title: "Table created successfully!",
         description: `Table code: ${tableCode}`,

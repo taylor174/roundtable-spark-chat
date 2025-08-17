@@ -54,9 +54,8 @@ export function HostControls({
   ];
 
   const handleStartTable = async () => {
-    // Check if there's at least 1 non-host participant
-    const nonHostParticipants = participants.filter(p => !p.is_host);
-    if (nonHostParticipants.length === 0) {
+    // Check if there's at least 1 participant (including host)
+    if (participants.length === 0) {
       toast({
         title: "Cannot start",
         description: "At least one participant must join before starting.",
@@ -237,40 +236,6 @@ export function HostControls({
     }
   };
 
-  const handleJoinAsParticipant = async () => {
-    try {
-      setLoading(true);
-      const clientId = getOrCreateClientId();
-
-      const { error } = await supabase
-        .from('participants')
-        .insert({
-          table_id: table.id,
-          client_id: clientId,
-          display_name: 'Host',
-          is_host: true,
-        });
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "You can now participate in voting and suggestions.",
-      });
-
-      onRefresh?.();
-
-    } catch (error) {
-      console.error('Error joining as participant:', error);
-      toast({
-        title: "Error",
-        description: "Failed to join as participant. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <Card>
@@ -340,20 +305,6 @@ export function HostControls({
           </div>
         )}
 
-        {/* Host Participation */}
-        {!currentParticipant && table.status === 'running' && (
-          <div className="space-y-2">
-            <Button
-              onClick={handleJoinAsParticipant}
-              disabled={loading}
-              variant="outline"
-              className="w-full md:w-auto"
-            >
-              Join as Participant
-            </Button>
-            <Separator />
-          </div>
-        )}
 
         {/* Actions */}
         <div className="space-y-2">
