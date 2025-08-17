@@ -111,7 +111,7 @@ export function useTableState(tableCode: string) {
         currentParticipant,
         clientId,
         isHost,
-        timeRemaining: 0,
+        timeRemaining: currentRound?.ends_at ? calculateTimeRemaining(currentRound.ends_at) : 0,
         loading: false,
         error: null,
       });
@@ -139,7 +139,14 @@ export function useTableState(tableCode: string) {
   }, [clientId]);
 
   const updateRound = useCallback((newRound: Round) => {
-    setState(prev => ({ ...prev, currentRound: newRound }));
+    setState(prev => {
+      const updated = { ...prev, currentRound: newRound };
+      // Immediately calculate time remaining for new round
+      if (newRound?.ends_at) {
+        updated.timeRemaining = calculateTimeRemaining(newRound.ends_at);
+      }
+      return updated;
+    });
   }, []);
 
   const updateSuggestions = useCallback((newSuggestions: Suggestion[]) => {
