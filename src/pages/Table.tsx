@@ -78,9 +78,15 @@ const Table = () => {
       return;
     }
     
+    // Ensure suggestions and votes are arrays (add null safety)
+    const safeSuggestions = Array.isArray(suggestions) ? suggestions : [];
+    const safeVotes = Array.isArray(votes) ? votes : [];
+    
+    console.log('🔍 Processing suggestions:', safeSuggestions.length, 'votes:', safeVotes.length);
+    
     // Calculate vote counts and user voting status from realtime state
-    const suggestionsWithVotesData = suggestions.map(suggestion => {
-      const suggestionVotes = votes.filter(vote => vote.suggestion_id === suggestion.id);
+    const suggestionsWithVotesData = safeSuggestions.map(suggestion => {
+      const suggestionVotes = safeVotes.filter(vote => vote.suggestion_id === suggestion.id);
       const voteCount = suggestionVotes.length;
       const hasUserVoted = currentParticipant 
         ? suggestionVotes.some(vote => vote.participant_id === currentParticipant.id)
