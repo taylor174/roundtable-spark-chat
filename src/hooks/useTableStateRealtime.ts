@@ -182,8 +182,24 @@ export function useTableStateRealtime(tableCode: string) {
           filter: `id=eq.${tableIdRef.current}`
         },
         (payload) => {
-          console.log('Table change:', payload);
+          console.log('Tables change event:', payload.eventType, payload);
           trackRealtimeEvent();
+          
+          // Broadcast phase transition for immediate UI updates
+          if (payload.new && payload.old && 
+              (payload.new as any).status && (payload.old as any).status && 
+              (payload.new as any).status !== (payload.old as any).status) {
+            channel.send({
+              type: 'broadcast',
+              event: 'phase_transition',
+              payload: { 
+                tableId: tableIdRef.current, 
+                phase: (payload.new as any).status, 
+                roundId: (payload.new as any).current_round_id 
+              }
+            });
+          }
+          
           loadTableData();
         }
       )
@@ -196,7 +212,7 @@ export function useTableStateRealtime(tableCode: string) {
           filter: `table_id=eq.${tableIdRef.current}`
         },
         (payload) => {
-          console.log('Participants change:', payload);
+          console.log('Participants change event:', payload.eventType, payload);
           trackRealtimeEvent();
           loadTableData();
         }
@@ -210,17 +226,24 @@ export function useTableStateRealtime(tableCode: string) {
           filter: `table_id=eq.${tableIdRef.current}`
         },
         (payload) => {
-          console.log('Rounds change:', payload);
+          console.log('Rounds change event:', payload.eventType, payload);
           trackRealtimeEvent();
           
-          // If current_round_id changed, we need to re-subscribe to suggestions/votes
-          if (payload.new && 'current_round_id' in payload.new) {
-            const newRoundId = payload.new.current_round_id;
-            if (newRoundId !== currentRoundIdRef.current) {
-              console.log('Round changed, re-subscribing to round-specific data');
-              currentRoundIdRef.current = newRoundId;
-              setTimeout(() => setupRoundSubscriptions(), 100);
-            }
+          // Clean re-subscription for round-specific data
+          const newRoundId = payload.new && (payload.new as any).id ? (payload.new as any).id : null;
+          if (newRoundId && newRoundId !== currentRoundIdRef.current) {
+            console.log('Round changed from', currentRoundIdRef.current, 'to', newRoundId);
+            currentRoundIdRef.current = newRoundId;
+            
+            // Clean up existing round subscriptions and add new ones
+            setupRoundSubscriptions(channel, newRoundId);
+            
+            // Broadcast round change
+            channel.send({
+              type: 'broadcast',
+              event: 'round_change',
+              payload: { tableId: tableIdRef.current, roundId: newRoundId }
+            });
           }
           
           loadTableData();
@@ -235,48 +258,63 @@ export function useTableStateRealtime(tableCode: string) {
           filter: `table_id=eq.${tableIdRef.current}`
         },
         (payload) => {
-          console.log('Blocks change:', payload);
+          console.log('Blocks change event:', payload.eventType, payload);
+          trackRealtimeEvent();
+          loadTableData();
+        }
+      )
+      .on('broadcast', { event: 'phase_transition' }, (payload) => {
+        console.log('Received phase transition broadcast:', payload);
+        trackRealtimeEvent();
+      })
+      .on('broadcast', { event: 'round_change' }, (payload) => {
+        console.log('Received round change broadcast:', payload);
+        trackRealtimeEvent();
+      });
+
+    // Function to set up round-specific subscriptions
+    const setupRoundSubscriptions = (channel: any, roundId: string) => {
+      if (!roundId) return;
+      
+      console.log('Setting up round-specific subscriptions for round:', roundId);
+      
+      // Add suggestions subscription
+      channel.on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'suggestions',
+          filter: `round_id=eq.${roundId}`
+        },
+        (payload) => {
+          console.log('Suggestions change event:', payload.eventType, payload);
           trackRealtimeEvent();
           loadTableData();
         }
       );
-
-    // Subscribe to round-specific data
-    const setupRoundSubscriptions = () => {
-      if (currentRoundIdRef.current) {
-        channel
-          .on(
-            'postgres_changes',
-            { 
-              event: '*', 
-              schema: 'public', 
-              table: 'suggestions',
-              filter: `round_id=eq.${currentRoundIdRef.current}`
-            },
-            (payload) => {
-              console.log('Suggestions change:', payload);
-              trackRealtimeEvent();
-              loadTableData();
-            }
-          )
-          .on(
-            'postgres_changes',
-            { 
-              event: '*', 
-              schema: 'public', 
-              table: 'votes',
-              filter: `round_id=eq.${currentRoundIdRef.current}`
-            },
-            (payload) => {
-              console.log('Votes change:', payload);
-              trackRealtimeEvent();
-              loadTableData();
-            }
-          );
-      }
+      
+      // Add votes subscription
+      channel.on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'votes',
+          filter: `round_id=eq.${roundId}`
+        },
+        (payload) => {
+          console.log('Votes change event:', payload.eventType, payload);
+          trackRealtimeEvent();
+          loadTableData();
+        }
+      );
     };
 
-    setupRoundSubscriptions();
+    // Set up initial round subscriptions if we have a current round
+    if (currentRoundIdRef.current) {
+      setupRoundSubscriptions(channel, currentRoundIdRef.current);
+    }
 
     // Subscribe to channel
     channel.subscribe((status) => {
