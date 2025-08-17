@@ -10,7 +10,7 @@ import { ParticipantInsert } from '@/types';
 import { isValidDisplayName, isValidTableCode } from '@/utils';
 import { useToast } from '@/hooks/use-toast';
 import { MESSAGES } from '@/constants';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ExternalLink } from 'lucide-react';
 
 const Join = () => {
   const { code } = useParams<{ code: string }>();
@@ -20,6 +20,8 @@ const Join = () => {
   const [loading, setLoading] = useState(false);
   const [tableId, setTableId] = useState<string | null>(null);
   const [tableTitle, setTableTitle] = useState<string | null>(null);
+  const [redirecting, setRedirecting] = useState(false);
+  const [showManualLink, setShowManualLink] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -95,7 +97,13 @@ const Join = () => {
               title: "Session Started!",
               description: "Redirecting to the session...",
             });
-            navigate(`/t/${code}`);
+            setRedirecting(true);
+            
+            // Use window.location for more reliable navigation
+            setTimeout(() => {
+              console.log('🔄 REALTIME: Using window.location.href for navigation');
+              window.location.href = `/t/${code}`;
+            }, 500);
           }
         }
       )
@@ -174,7 +182,16 @@ const Join = () => {
       // If table is already running, redirect immediately
       if (table.status === 'running') {
         console.log('✅ Table is running, redirecting immediately');
-        navigate(`/t/${code}`);
+        setRedirecting(true);
+        toast({
+          title: "Redirecting...",
+          description: "Taking you to the active session",
+        });
+        
+        setTimeout(() => {
+          console.log('🔄 EXISTING: Using window.location.href for navigation');
+          window.location.href = `/t/${code}`;
+        }, 500);
         return;
       }
 
@@ -194,7 +211,16 @@ const Join = () => {
       if (existingParticipant) {
         // Already joined, just navigate to table
         console.log('✅ Already joined, navigating to table');
-        navigate(`/t/${code}`);
+        setRedirecting(true);
+        toast({
+          title: "Welcome back!",
+          description: "Taking you to your session",
+        });
+        
+        setTimeout(() => {
+          console.log('🔄 EXISTING PARTICIPANT: Using window.location.href for navigation');
+          window.location.href = `/t/${code}`;
+        }, 500);
         return;
       }
       
@@ -247,14 +273,16 @@ const Join = () => {
 
       console.log('✅ Participant created successfully:', insertedParticipant);
 
+      setRedirecting(true);
+      
       toast({
-        title: "Success",
-        description: MESSAGES.JOIN_SUCCESS,
+        title: "Successfully Joined!",
+        description: "Taking you to the session...",
       });
 
       // Small delay to ensure participant is fully inserted before navigation
       console.log('⏳ Waiting briefly before navigation...');
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 300));
 
       // Verify participant was created before navigating
       const { data: verifyParticipant } = await supabase
@@ -270,7 +298,18 @@ const Join = () => {
       }
 
       console.log('✅ Participant verified, navigating to table:', `/t/${code}`);
-      navigate(`/t/${code}`);
+      
+      // Use reliable navigation with fallback
+      setTimeout(() => {
+        console.log('🔄 JOIN SUCCESS: Using window.location.href for navigation');
+        window.location.href = `/t/${code}`;
+      }, 500);
+      
+      // Show manual link after 3 seconds if navigation doesn't work
+      setTimeout(() => {
+        setShowManualLink(true);
+        setRedirecting(false);
+      }, 3000);
       
     } catch (error: any) {
       console.error('❌ Join process failed:', error);
@@ -325,7 +364,7 @@ const Join = () => {
             
             <Button 
               type="submit"
-              disabled={loading || !displayName.trim()}
+              disabled={loading || !displayName.trim() || redirecting}
               className="w-full"
               size="lg"
             >
@@ -334,17 +373,38 @@ const Join = () => {
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Joining...
                 </>
+              ) : redirecting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Redirecting...
+                </>
               ) : (
                 'Join Session'
               )}
             </Button>
           </form>
           
-          <div className="text-center">
+          {showManualLink && (
+            <div className="mt-4 p-4 bg-muted rounded-lg text-center">
+              <p className="text-sm text-muted-foreground mb-3">
+                Having trouble? Click below to continue manually:
+              </p>
+              <Button 
+                onClick={() => window.location.href = `/t/${code}`}
+                variant="outline"
+                className="w-full"
+              >
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Continue to Session
+              </Button>
+            </div>
+          )}
+          
+          <div className="text-center mt-4">
             <Button 
               variant="ghost" 
               onClick={() => navigate('/')}
-              disabled={loading}
+              disabled={loading || redirecting}
             >
               Back to Home
             </Button>
