@@ -93,7 +93,7 @@ export function VoteList({ roundId, participantId, suggestions, userHasVoted }: 
                       </Button>
                     )}
                     {suggestion.hasUserVoted && (
-                      <Check className="h-5 w-5 text-green-600" />
+                      <Check className="h-5 w-5 text-emerald-600" />
                     )}
                   </div>
                 </div>

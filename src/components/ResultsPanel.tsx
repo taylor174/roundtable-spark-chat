@@ -98,10 +98,10 @@ export function ResultsPanel({
       <>
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2 text-orange-600">
-              <Users className="h-5 w-5" />
-              <span>Tie Breaking Required</span>
-            </CardTitle>
+          <CardTitle className="flex items-center space-x-2 text-amber-600">
+            <Users className="h-5 w-5" />
+            <span>Tie Breaking Required</span>
+          </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-muted-foreground">
@@ -181,10 +181,10 @@ export function ResultsPanel({
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2 text-orange-600">
-            <Users className="h-5 w-5" />
-            <span>Tie!</span>
-          </CardTitle>
+        <CardTitle className="flex items-center space-x-2 text-amber-600">
+          <Users className="h-5 w-5" />
+          <span>Tie!</span>
+        </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground mb-4">
@@ -208,13 +208,13 @@ export function ResultsPanel({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center space-x-2 text-yellow-600">
-          <Trophy className="h-5 w-5" />
-          <span>Round {roundNumber} — Winner!</span>
-        </CardTitle>
+      <CardTitle className="flex items-center space-x-2 text-amber-600">
+        <Trophy className="h-5 w-5" />
+        <span>Round {roundNumber} — Winner!</span>
+      </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="p-4 border-2 border-yellow-200 bg-yellow-50 rounded-lg">
+        <div className="p-4 border-2 border-amber-200 bg-amber-50 rounded-lg">
           <p className="font-medium text-lg">{winner.text}</p>
           <Badge variant="secondary" className="mt-2">
             {winner.voteCount} votes

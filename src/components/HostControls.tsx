@@ -67,7 +67,7 @@ export function HostControls({
 
     try {
       setLoading(true);
-      console.log('Starting table session for:', table.id);
+      // Starting table session
 
       // Use atomic RPC function to start table session
       const { data, error } = await supabase.rpc('start_table_session', {
@@ -79,7 +79,7 @@ export function HostControls({
         throw error;
       }
 
-      console.log('Table session started successfully:', data);
+      // Table session started successfully
 
       toast({
         title: "Table Started!",
@@ -88,7 +88,7 @@ export function HostControls({
 
       // Set up fallback timeout in case realtime doesn't arrive
       setTimeout(() => {
-        console.log('Fallback: refreshing state after start');
+        // Fallback: refreshing state after start
         onRefresh?.();
       }, 1500);
 

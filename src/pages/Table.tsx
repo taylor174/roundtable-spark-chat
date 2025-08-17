@@ -22,6 +22,7 @@ import {
   advanceRound,
   endRound
 } from '@/utils/roundLogic';
+import { SuggestionWithVotes, WinningSuggestion } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { MESSAGES } from '@/constants';
 import { Users, Clock, List, Play } from 'lucide-react';
@@ -49,8 +50,8 @@ const Table = () => {
     refresh,
   } = useTableState(code || '');
   
-  const [suggestionsWithVotes, setSuggestionsWithVotes] = useState<any[]>([]);
-  const [winningSuggestions, setWinningSuggestions] = useState<any[]>([]);
+  const [suggestionsWithVotes, setSuggestionsWithVotes] = useState<SuggestionWithVotes[]>([]);
+  const [winningSuggestions, setWinningSuggestions] = useState<WinningSuggestion[]>([]);
   const { toast } = useToast();
 
   // Redirect non-hosts to join page if they don't have a participant record

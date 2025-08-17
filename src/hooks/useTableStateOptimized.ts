@@ -195,7 +195,7 @@ export function useTableState(tableCode: string) {
       supabase.removeChannel(channelRef.current);
     }
 
-    console.log('Setting up realtime subscriptions for table:', state.table.id);
+    // Setting up realtime subscriptions
 
     const channel = supabase
       .channel(`table_${state.table.id}`)

@@ -24,7 +24,7 @@ export function Timer({ timeRemaining, phase, isActive = true }: TimerProps) {
       <div className="text-right">
         <div className={`text-4xl sm:text-5xl font-bold font-mono tracking-wide ${
           isVeryLowTime ? 'text-destructive animate-pulse' : 
-          isLowTime ? 'text-orange-500' : 
+          isLowTime ? 'text-amber-500' : 
           'text-foreground'
         }`}>
           {isActive ? formatTime(displayTime) : '--:--'}
