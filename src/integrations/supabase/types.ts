@@ -332,14 +332,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      resolve_tie: {
-        Args: {
-          p_round_id: string
-          p_suggestion_id: string
-          p_table_id: string
-        }
-        Returns: undefined
-      }
       start_table_session: {
         Args: { p_table_id: string }
         Returns: {

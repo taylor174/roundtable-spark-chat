@@ -10,54 +10,30 @@ import { ParticipantInsert } from '@/types';
 import { isValidDisplayName, isValidTableCode } from '@/utils';
 import { useToast } from '@/hooks/use-toast';
 import { MESSAGES } from '@/constants';
-import { Loader2, ExternalLink } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 const Join = () => {
   const { code } = useParams<{ code: string }>();
-  console.log('🔍 JOIN: Component rendered with code:', code);
-  
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
   const [tableId, setTableId] = useState<string | null>(null);
-  const [tableTitle, setTableTitle] = useState<string | null>(null);
-  const [redirecting, setRedirecting] = useState(false);
-  const [showManualLink, setShowManualLink] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   // Load table data on mount to set up realtime subscriptions
   useEffect(() => {
-    console.log('🔍 JOIN: useEffect triggered with code:', code);
-    
     const loadTableData = async () => {
-      if (!code) {
-        console.log('🔍 JOIN: No code provided');
-        return;
-      }
-      
-      if (!isValidTableCode(code)) {
-        console.log('🔍 JOIN: Invalid code format:', code);
-        return;
-      }
+      if (!code || !isValidTableCode(code)) return;
 
-      console.log('🔍 JOIN: Loading table data for code:', code);
-      
       try {
-        const { data: table, error } = await supabase
+        const { data: table } = await supabase
           .from('tables')
-          .select('id, status, title')
+          .select('id, status')
           .eq('code', code)
           .single();
 
-        if (error) {
-          console.log('🔍 JOIN: Error loading table:', error);
-          return;
-        }
-
         if (table) {
-          console.log('🔍 JOIN: Table found:', table);
           setTableId(table.id);
-          setTableTitle(table.title);
           
           // If table is already running, we can optionally show a different message
           if (table.status === 'running') {
@@ -69,7 +45,7 @@ const Join = () => {
         }
       } catch (error) {
         // Silently fail - table validation will happen on join
-        console.log('🔍 JOIN: Table lookup failed on join page:', error);
+        console.log('Table lookup failed on join page:', error);
       }
     };
 
@@ -97,13 +73,7 @@ const Join = () => {
               title: "Session Started!",
               description: "Redirecting to the session...",
             });
-            setRedirecting(true);
-            
-            // Use window.location for more reliable navigation
-            setTimeout(() => {
-              console.log('🔄 REALTIME: Using window.location.href for navigation');
-              window.location.href = `/t/${code}`;
-            }, 500);
+            navigate(`/t/${code}`);
           }
         }
       )
@@ -118,10 +88,7 @@ const Join = () => {
   }, [code, tableId, navigate, toast]);
 
   const handleJoin = async () => {
-    console.log('🚀 Starting join process with code:', code, 'displayName:', displayName);
-    
     if (!code || !isValidTableCode(code)) {
-      console.error('❌ Invalid table code:', code);
       toast({
         title: "Error",
         description: MESSAGES.INVALID_CODE,
@@ -131,7 +98,6 @@ const Join = () => {
     }
 
     if (!isValidDisplayName(displayName)) {
-      console.error('❌ Invalid display name:', displayName);
       toast({
         title: "Error", 
         description: MESSAGES.NAME_REQUIRED,
@@ -142,30 +108,16 @@ const Join = () => {
 
     try {
       setLoading(true);
-      
-      // Generate client ID with fallback for older browsers
-      let clientId: string;
-      try {
-        clientId = getOrCreateClientId();
-        console.log('✅ Client ID generated:', clientId);
-      } catch (error) {
-        console.error('❌ Failed to generate client ID:', error);
-        // Fallback UUID generation
-        clientId = 'client_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-        localStorage.setItem('table_client_id', clientId);
-        console.log('✅ Fallback client ID generated:', clientId);
-      }
+      const clientId = getOrCreateClientId();
 
       // Check if table exists and store tableId for realtime subscriptions
-      console.log('🔍 Looking up table with code:', code);
       const { data: table, error: tableError } = await supabase
         .from('tables')
-        .select('id, status, title')
+        .select('id, status')
         .eq('code', code)
         .single();
 
       if (tableError || !table) {
-        console.error('❌ Table lookup failed:', tableError?.message, tableError?.code);
         toast({
           title: "Error",
           description: MESSAGES.INVALID_CODE,
@@ -173,74 +125,39 @@ const Join = () => {
         });
         return;
       }
-      
-      console.log('✅ Table found:', { id: table.id, status: table.status, title: table.title });
 
       // Store table ID for realtime subscriptions
       setTableId(table.id);
 
       // If table is already running, redirect immediately
       if (table.status === 'running') {
-        console.log('✅ Table is running, redirecting immediately');
-        setRedirecting(true);
-        toast({
-          title: "Redirecting...",
-          description: "Taking you to the active session",
-        });
-        
-        setTimeout(() => {
-          console.log('🔄 EXISTING: Using window.location.href for navigation');
-          window.location.href = `/t/${code}`;
-        }, 500);
+        navigate(`/t/${code}`);
         return;
       }
 
       // Check if client already has a participant
-      console.log('🔍 Checking for existing participant with client_id:', clientId);
-      const { data: existingParticipant, error: existingError } = await supabase
+      const { data: existingParticipant } = await supabase
         .from('participants')
         .select('id')
         .eq('table_id', table.id)
         .eq('client_id', clientId)
         .single();
 
-      if (existingError && existingError.code !== 'PGRST116') {
-        console.error('❌ Error checking existing participant:', existingError);
-      }
-
       if (existingParticipant) {
         // Already joined, just navigate to table
-        console.log('✅ Already joined, navigating to table');
-        setRedirecting(true);
-        toast({
-          title: "Welcome back!",
-          description: "Taking you to your session",
-        });
-        
-        setTimeout(() => {
-          console.log('🔄 EXISTING PARTICIPANT: Using window.location.href for navigation');
-          window.location.href = `/t/${code}`;
-        }, 500);
+        navigate(`/t/${code}`);
         return;
       }
-      
-      console.log('✅ No existing participant found, proceeding with join');
 
       // Check if name is already taken
-      console.log('🔍 Checking if display name is taken:', displayName.trim());
-      const { data: nameExists, error: nameCheckError } = await supabase
+      const { data: nameExists } = await supabase
         .from('participants')
         .select('id')
         .eq('table_id', table.id)
         .eq('display_name', displayName.trim())
         .single();
 
-      if (nameCheckError && nameCheckError.code !== 'PGRST116') {
-        console.error('❌ Error checking name availability:', nameCheckError);
-      }
-
       if (nameExists) {
-        console.error('❌ Display name already taken:', displayName.trim());
         toast({
           title: "Error",
           description: "This name is already taken. Please choose another.",
@@ -248,8 +165,6 @@ const Join = () => {
         });
         return;
       }
-      
-      console.log('✅ Display name is available');
 
       // Create participant
       const participantData: ParticipantInsert = {
@@ -259,70 +174,25 @@ const Join = () => {
         is_host: false,
       };
 
-      console.log('📝 Creating participant with data:', participantData);
-      const { data: insertedParticipant, error: participantError } = await supabase
+      const { error: participantError } = await supabase
         .from('participants')
-        .insert(participantData)
-        .select('id')
-        .single();
+        .insert(participantData);
 
-      if (participantError) {
-        console.error('❌ Participant creation failed:', participantError.code, participantError.message, participantError.details);
-        throw participantError;
-      }
+      if (participantError) throw participantError;
 
-      console.log('✅ Participant created successfully:', insertedParticipant);
-
-      setRedirecting(true);
-      
       toast({
-        title: "Successfully Joined!",
-        description: "Taking you to the session...",
+        title: "Success",
+        description: MESSAGES.JOIN_SUCCESS,
       });
 
-      // Small delay to ensure participant is fully inserted before navigation
-      console.log('⏳ Waiting briefly before navigation...');
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      // Verify participant was created before navigating
-      const { data: verifyParticipant } = await supabase
-        .from('participants')
-        .select('id')
-        .eq('table_id', table.id)
-        .eq('client_id', clientId)
-        .single();
-
-      if (!verifyParticipant) {
-        console.error('❌ Participant verification failed - participant not found after creation');
-        throw new Error('Failed to verify participant creation');
-      }
-
-      console.log('✅ Participant verified, navigating to table:', `/t/${code}`);
+      // Navigate to table
+      navigate(`/t/${code}`);
       
-      // Use reliable navigation with fallback
-      setTimeout(() => {
-        console.log('🔄 JOIN SUCCESS: Using window.location.href for navigation');
-        window.location.href = `/t/${code}`;
-      }, 500);
-      
-      // Show manual link after 3 seconds if navigation doesn't work
-      setTimeout(() => {
-        setShowManualLink(true);
-        setRedirecting(false);
-      }, 3000);
-      
-    } catch (error: any) {
-      console.error('❌ Join process failed:', error);
-      console.error('❌ Error details:', {
-        message: error?.message,
-        code: error?.code,
-        details: error?.details,
-        hint: error?.hint
-      });
-      
+    } catch (error) {
+      console.error('Error joining table:', error);
       toast({
         title: "Error",
-        description: error?.message || "Failed to join table. Please try again.",
+        description: "Failed to join table. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -330,9 +200,10 @@ const Join = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    handleJoin();
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleJoin();
+    }
   };
 
   return (
@@ -341,70 +212,45 @@ const Join = () => {
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Join Session</CardTitle>
           <CardDescription>
-            {tableTitle || 'Loading session...'}
-            <div className="text-sm text-muted-foreground mt-1">
-              You're about to join this session.
-            </div>
+            Session Code: <span className="font-mono font-bold text-lg">{code}</span>
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="displayName">Display Name</Label>
-              <Input
-                id="displayName"
-                type="text"
-                placeholder="Enter your name"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                maxLength={50}
-                disabled={loading}
-              />
-            </div>
-            
-            <Button 
-              type="submit"
-              disabled={loading || !displayName.trim() || redirecting}
-              className="w-full"
-              size="lg"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Joining...
-                </>
-              ) : redirecting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Redirecting...
-                </>
-              ) : (
-                'Join Session'
-              )}
-            </Button>
-          </form>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="displayName">Display Name</Label>
+            <Input
+              id="displayName"
+              type="text"
+              placeholder="Enter your name"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              onKeyPress={handleKeyPress}
+              maxLength={50}
+              disabled={loading}
+            />
+          </div>
           
-          {showManualLink && (
-            <div className="mt-4 p-4 bg-muted rounded-lg text-center">
-              <p className="text-sm text-muted-foreground mb-3">
-                Having trouble? Click below to continue manually:
-              </p>
-              <Button 
-                onClick={() => window.location.href = `/t/${code}`}
-                variant="outline"
-                className="w-full"
-              >
-                <ExternalLink className="mr-2 h-4 w-4" />
-                Continue to Session
-              </Button>
-            </div>
-          )}
+          <Button 
+            onClick={handleJoin}
+            disabled={loading || !displayName.trim()}
+            className="w-full"
+            size="lg"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Joining...
+              </>
+            ) : (
+              'Join Session'
+            )}
+          </Button>
           
-          <div className="text-center mt-4">
+          <div className="text-center">
             <Button 
               variant="ghost" 
               onClick={() => navigate('/')}
-              disabled={loading || redirecting}
+              disabled={loading}
             >
               Back to Home
             </Button>

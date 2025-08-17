@@ -7,7 +7,6 @@ import { Plus, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { TableCreationDialog } from '@/components/TableCreationDialog';
-import { NavigationTest } from '@/components/NavigationTest';
 import { isValidTableCode } from '@/utils';
 
 export default function Home() {
@@ -79,32 +78,13 @@ export default function Home() {
                 size="lg" 
                 className="w-full"
                 disabled={!joinCode.trim() || !isValidTableCode(joinCode)}
-                onClick={() => {
-                  console.log('🔍 HOME: Join button clicked', { joinCode, isValid: isValidTableCode(joinCode) });
-                  const targetUrl = `/t/${joinCode}/join`;
-                  console.log('🔍 HOME: Navigating to:', targetUrl);
-                  
-                  try {
-                    navigate(targetUrl);
-                    console.log('🔍 HOME: Navigation called successfully');
-                  } catch (error) {
-                    console.error('🔍 HOME: Navigation failed:', error);
-                    toast({
-                      title: "Navigation Error",
-                      description: "Failed to navigate to join page. Please try again.",
-                      variant: "destructive",
-                    });
-                  }
-                }}
+                onClick={() => navigate(`/t/${joinCode}/join`)}
               >
                 Join Session
               </Button>
             </CardContent>
           </Card>
         </div>
-        
-        {/* Navigation Test Component - Remove after debugging */}
-        <NavigationTest />
       </div>
     </div>
   );

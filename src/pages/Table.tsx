@@ -27,7 +27,6 @@ import { MESSAGES } from '@/constants';
 import { Users, Clock, List, Play } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { VotingStatusIndicator } from '@/components/VotingStatusIndicator';
-import { WinnerBanner } from '@/components/WinnerBanner';
 
 const Table = () => {
   const { code } = useParams<{ code: string }>();
@@ -101,25 +100,28 @@ const Table = () => {
   // Automatic phase management
   usePhaseManager(table, currentRound, suggestions, votes, timeRemaining, clientId, refresh);
   
-  // Redirect participants if they're on a lobby/inactive table
-  useEffect(() => {
-    if (!table || !participants.length) return;
-    
-    // If table is in lobby and participant is not the host, redirect to join page
-    if (table.status === 'lobby' && !isHost && currentParticipant) {
-      navigate(`/t/${code}/join`);
-    }
-  }, [table, isHost, navigate, code, participants.length, currentParticipant]);
-  
   // Event handlers
   const handleWinnerSelected = async (suggestionId: string) => {
-    // Winner selection is now handled atomically by the ResultsPanel component
-    // Just refresh to get updated state
-    refresh();
-    toast({
-      title: "Success",
-      description: "Winner selected successfully!",
-    });
+    if (!table || !currentRound) return;
+    
+    try {
+      const winningSuggestion = suggestionsWithVotes.find(s => s.id === suggestionId);
+      if (winningSuggestion) {
+        await endRound(currentRound.id, table.id, winningSuggestion.text);
+        toast({
+          title: "Success",
+          description: "Winner selected!",
+        });
+        refresh();
+      }
+    } catch (error) {
+      console.error('Error selecting winner:', error);
+      toast({
+        title: "Error",
+        description: "Failed to select winner. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
   
   const handleNextRound = async () => {
@@ -210,15 +212,6 @@ const Table = () => {
       </header>
 
       <div className="max-w-5xl mx-auto px-4 md:px-6 py-4">
-        {/* Winner Banner */}
-        {currentRound?.winner_suggestion_id && (
-          <WinnerBanner
-            roundNumber={currentRound.number}
-            winnerText={blocks.find(b => b.round_id === currentRound.id)?.text || ''}
-            isTieBreak={winningSuggestions.length > 1}
-          />
-        )}
-        
         <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-4 md:gap-6">
           {/* Main Content */}
           <div className="space-y-6">
@@ -358,7 +351,7 @@ const Table = () => {
             )}
 
             {/* Timeline */}
-            <Timeline blocks={blocks} rounds={currentRound ? [currentRound] : []} />
+            <Timeline blocks={blocks} />
           </div>
         </div>
       </div>
