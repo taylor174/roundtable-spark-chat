@@ -10,9 +10,10 @@ import { useToast } from '@/hooks/use-toast';
 interface SuggestionFormProps {
   roundId: string;
   participantId: string;
+  optimisticUpdate?: (updates: any) => void;
 }
 
-export function SuggestionForm({ roundId, participantId }: SuggestionFormProps) {
+export function SuggestionForm({ roundId, participantId, optimisticUpdate }: SuggestionFormProps) {
   const [suggestion, setSuggestion] = useState('');
   const [loading, setLoading] = useState(false);
   const [existingSuggestion, setExistingSuggestion] = useState<Suggestion | null>(null);
@@ -65,14 +66,48 @@ export function SuggestionForm({ roundId, participantId }: SuggestionFormProps) 
       return;
     }
 
+    const suggestionText = suggestion.trim();
+    const tempId = `temp_${Date.now()}`;
+
     try {
       setLoading(true);
       
+      // OPTIMISTIC UPDATE: Immediately show suggestion in UI
+      if (optimisticUpdate && !isEditing) {
+        console.log('⚡ Optimistic update: Adding suggestion locally');
+        optimisticUpdate({
+          suggestions: (prevSuggestions: any[]) => [
+            ...prevSuggestions,
+            {
+              id: tempId,
+              round_id: roundId,
+              participant_id: participantId,
+              text: suggestionText,
+              created_at: new Date().toISOString(),
+              _isOptimistic: true
+            }
+          ]
+        });
+      }
+      
       if (isEditing && existingSuggestion) {
+        // OPTIMISTIC UPDATE for edit
+        if (optimisticUpdate) {
+          console.log('⚡ Optimistic update: Updating suggestion locally');
+          optimisticUpdate({
+            suggestions: (prevSuggestions: any[]) => 
+              prevSuggestions.map(s => 
+                s.id === existingSuggestion.id 
+                  ? { ...s, text: suggestionText, _isOptimistic: true }
+                  : s
+              )
+          });
+        }
+
         // Update existing suggestion
         const { error } = await supabase
           .from('suggestions')
-          .update({ text: suggestion.trim() })
+          .update({ text: suggestionText })
           .eq('id', existingSuggestion.id);
 
         if (error) throw error;
@@ -81,19 +116,34 @@ export function SuggestionForm({ roundId, participantId }: SuggestionFormProps) 
         const suggestionData: SuggestionInsert = {
           round_id: roundId,
           participant_id: participantId,
-          text: suggestion.trim(),
+          text: suggestionText,
         };
 
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('suggestions')
           .upsert(suggestionData, {
             onConflict: 'round_id,participant_id'
-          });
+          })
+          .select()
+          .single();
 
         if (error) throw error;
+
+        // Update optimistic suggestion with real ID
+        if (optimisticUpdate && data) {
+          console.log('✅ Suggestion confirmed, updating with real ID:', data.id);
+          optimisticUpdate({
+            suggestions: (prevSuggestions: any[]) => 
+              prevSuggestions.map(s => 
+                s.id === tempId 
+                  ? { ...data, _isOptimistic: false }
+                  : s
+              )
+          });
+        }
       }
 
-      // Don't clear the suggestion anymore since we're supporting editing
+      // Show success immediately (optimistic)
       toast({
         title: "Success",
         description: isEditing ? "Suggestion updated!" : MESSAGES.SUGGESTION_SUBMITTED,
@@ -102,7 +152,30 @@ export function SuggestionForm({ roundId, participantId }: SuggestionFormProps) 
       // Set editing mode after first submission
       setIsEditing(true);
     } catch (error) {
-      console.error('Error submitting suggestion:', error);
+      console.error('❌ Error submitting suggestion:', error);
+      
+      // REVERT optimistic update on error
+      if (optimisticUpdate) {
+        console.log('⚠️ Reverting optimistic update due to error');
+        if (isEditing && existingSuggestion) {
+          // Revert edit
+          optimisticUpdate({
+            suggestions: (prevSuggestions: any[]) => 
+              prevSuggestions.map(s => 
+                s.id === existingSuggestion.id 
+                  ? { ...s, text: existingSuggestion.text, _isOptimistic: false }
+                  : s
+              )
+          });
+        } else {
+          // Remove optimistic suggestion
+          optimisticUpdate({
+            suggestions: (prevSuggestions: any[]) => 
+              prevSuggestions.filter(s => s.id !== tempId)
+          });
+        }
+      }
+      
       toast({
         title: "Error",
         description: "Failed to submit suggestion. Please try again.",

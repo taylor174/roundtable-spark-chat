@@ -26,9 +26,37 @@ export function useTableStateRealtime(tableCode: string) {
   const fallbackTimerRef = useRef<NodeJS.Timeout | null>(null);
   const tableIdRef = useRef<string | null>(null);
   const currentRoundIdRef = useRef<string | null>(null);
+  const subscriptionStateRef = useRef<{[key: string]: boolean}>({});
 
-  // Track realtime events and set up fallback
-  const trackRealtimeEvent = useCallback(() => {
+  // Debug logging helper
+  const logSubscriptionState = useCallback(() => {
+    const channels = supabase.getChannels?.().map(c => ({
+      topic: c.topic,
+      state: c.state
+    })) || [];
+    
+    console.log('🔌 Subscription Debug:', {
+      tableCode,
+      tableId: tableIdRef.current,
+      currentRoundId: currentRoundIdRef.current,
+      channels,
+      activeSubscriptions: subscriptionStateRef.current,
+      lastEvent: new Date(lastRealtimeEventRef.current).toISOString()
+    });
+  }, [tableCode]);
+
+  // Optimistic state updates
+  const optimisticUpdate = useCallback((updates: Partial<TableState> | ((prev: TableState) => Partial<TableState>)) => {
+    setState(prevState => {
+      const newUpdates = typeof updates === 'function' ? updates(prevState) : updates;
+      console.log('⚡ Optimistic update applied:', newUpdates);
+      return { ...prevState, ...newUpdates };
+    });
+  }, []);
+
+  // Track realtime events and set operation-specific fallback timer
+  const trackRealtimeEvent = useCallback((eventType: string, operationType?: string) => {
+    console.log(`✅ Realtime event received: ${eventType} (${operationType || 'general'})`);
     lastRealtimeEventRef.current = Date.now();
     
     // Clear existing fallback timer
@@ -36,9 +64,9 @@ export function useTableStateRealtime(tableCode: string) {
       clearTimeout(fallbackTimerRef.current);
     }
     
-    // Set new fallback timer (1.5s)
+    // Set operation-specific fallback timeout
     fallbackTimerRef.current = setTimeout(() => {
-      console.log('Realtime fallback: No event received in 1.5s, triggering manual refresh');
+      console.log(`⏰ Fallback triggered for ${operationType || 'general'}: No realtime events received`);
       loadTableData();
     }, 1500);
   }, []);
@@ -182,8 +210,8 @@ export function useTableStateRealtime(tableCode: string) {
           filter: `id=eq.${tableIdRef.current}`
         },
         (payload) => {
-          console.log('Tables change event:', payload.eventType, payload);
-          trackRealtimeEvent();
+          console.log('📋 Tables change event:', payload.eventType, payload);
+          trackRealtimeEvent('table_update', 'table_change');
           
           // Broadcast phase transition for immediate UI updates
           if (payload.new && payload.old && 
@@ -212,8 +240,8 @@ export function useTableStateRealtime(tableCode: string) {
           filter: `table_id=eq.${tableIdRef.current}`
         },
         (payload) => {
-          console.log('Participants change event:', payload.eventType, payload);
-          trackRealtimeEvent();
+          console.log('👥 Participants change event:', payload.eventType, payload);
+          trackRealtimeEvent('participant_update', 'participant_change');
           loadTableData();
         }
       )
@@ -226,13 +254,13 @@ export function useTableStateRealtime(tableCode: string) {
           filter: `table_id=eq.${tableIdRef.current}`
         },
         (payload) => {
-          console.log('Rounds change event:', payload.eventType, payload);
-          trackRealtimeEvent();
+          console.log('🔄 Rounds change event:', payload.eventType, payload);
+          trackRealtimeEvent('round_update', 'round_change');
           
           // Clean re-subscription for round-specific data
           const newRoundId = payload.new && (payload.new as any).id ? (payload.new as any).id : null;
           if (newRoundId && newRoundId !== currentRoundIdRef.current) {
-            console.log('Round changed from', currentRoundIdRef.current, 'to', newRoundId);
+            console.log('🔄 Round changed from', currentRoundIdRef.current, 'to', newRoundId);
             currentRoundIdRef.current = newRoundId;
             
             // Clean up existing round subscriptions and add new ones
@@ -258,27 +286,27 @@ export function useTableStateRealtime(tableCode: string) {
           filter: `table_id=eq.${tableIdRef.current}`
         },
         (payload) => {
-          console.log('Blocks change event:', payload.eventType, payload);
-          trackRealtimeEvent();
+          console.log('🧱 Blocks change event:', payload.eventType, payload);
+          trackRealtimeEvent('block_update', 'block_change');
           loadTableData();
         }
       )
       .on('broadcast', { event: 'phase_transition' }, (payload) => {
-        console.log('Received phase transition broadcast:', payload);
-        trackRealtimeEvent();
+        console.log('📢 Received phase transition broadcast:', payload);
+        trackRealtimeEvent('phase_transition_broadcast', 'phase_transition');
       })
       .on('broadcast', { event: 'round_change' }, (payload) => {
-        console.log('Received round change broadcast:', payload);
-        trackRealtimeEvent();
+        console.log('📢 Received round change broadcast:', payload);
+        trackRealtimeEvent('round_change_broadcast', 'round_change');
       });
 
     // Function to set up round-specific subscriptions
     const setupRoundSubscriptions = (channel: any, roundId: string) => {
       if (!roundId) return;
       
-      console.log('Setting up round-specific subscriptions for round:', roundId);
+      console.log('🎯 Setting up round-specific subscriptions for round:', roundId);
       
-      // Add suggestions subscription
+      // Add suggestions subscription with INSERT and UPDATE handling
       channel.on(
         'postgres_changes',
         { 
@@ -288,13 +316,13 @@ export function useTableStateRealtime(tableCode: string) {
           filter: `round_id=eq.${roundId}`
         },
         (payload) => {
-          console.log('Suggestions change event:', payload.eventType, payload);
-          trackRealtimeEvent();
+          console.log('💡 Suggestions change event:', payload.eventType, payload);
+          trackRealtimeEvent('suggestion_update', 'suggestion_change');
           loadTableData();
         }
       );
       
-      // Add votes subscription
+      // Add votes subscription with INSERT and UPDATE handling
       channel.on(
         'postgres_changes',
         { 
@@ -304,11 +332,14 @@ export function useTableStateRealtime(tableCode: string) {
           filter: `round_id=eq.${roundId}`
         },
         (payload) => {
-          console.log('Votes change event:', payload.eventType, payload);
-          trackRealtimeEvent();
+          console.log('🗳️ Votes change event:', payload.eventType, payload);
+          trackRealtimeEvent('vote_update', 'vote_change');
           loadTableData();
         }
       );
+      
+      subscriptionStateRef.current.suggestions = true;
+      subscriptionStateRef.current.votes = true;
     };
 
     // Set up initial round subscriptions if we have a current round
@@ -318,9 +349,15 @@ export function useTableStateRealtime(tableCode: string) {
 
     // Subscribe to channel
     channel.subscribe((status) => {
-      console.log('Realtime subscription status:', status);
+      console.log('📡 Realtime subscription status:', status);
       if (status === 'SUBSCRIBED') {
-        trackRealtimeEvent();
+        console.log('✅ Successfully subscribed to table changes');
+        subscriptionStateRef.current.tables = true;
+        subscriptionStateRef.current.participants = true;
+        subscriptionStateRef.current.rounds = true;
+        subscriptionStateRef.current.blocks = true;
+        trackRealtimeEvent('subscription_ready', 'initial_subscribe');
+        logSubscriptionState();
       }
     });
 
@@ -377,5 +414,7 @@ export function useTableStateRealtime(tableCode: string) {
     ...state,
     currentPhase,
     refresh: loadTableData,
+    optimisticUpdate,
+    logSubscriptionState
   };
 }

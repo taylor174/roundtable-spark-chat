@@ -48,6 +48,7 @@ const Table = () => {
     loading,
     error,
     currentPhase,
+    optimisticUpdate,
     refresh,
   } = useTableStateRealtime(code || '');
   
@@ -249,6 +250,7 @@ const Table = () => {
                   <SuggestionForm
                     roundId={currentRound.id}
                     participantId={currentParticipant.id}
+                    optimisticUpdate={optimisticUpdate}
                   />
                 )}
                 <SuggestionList 
@@ -358,6 +360,7 @@ const Table = () => {
                 participants={participants}
                 currentParticipant={currentParticipant}
                 onRefresh={refresh}
+                optimisticUpdate={optimisticUpdate}
               />
             )}
 
