@@ -1,8 +1,7 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { getOrCreateClientId, getHostSecret } from '@/utils/clientId';
 import { TableState, PhaseType } from '@/types';
-import { useToast } from '@/hooks/use-toast';
+import { getOrCreateClientId, getHostSecret } from '@/utils/clientId';
 
 export function useTableStateRealtime(tableCode: string) {
   const [state, setState] = useState<TableState>({
@@ -20,189 +19,64 @@ export function useTableStateRealtime(tableCode: string) {
     error: null,
   });
 
-  const { toast } = useToast();
   const channelRef = useRef<any>(null);
-  const lastRealtimeEventRef = useRef<number>(0);
-  const fallbackTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const tableIdRef = useRef<string | null>(null);
-  const currentRoundIdRef = useRef<string | null>(null);
-  const subscriptionStateRef = useRef<{[key: string]: boolean}>({});
-  const roundSubscriptionsRef = useRef<string | null>(null); // Track which round has active subscriptions
 
-  // Debug logging helper
-  const logSubscriptionState = useCallback(() => {
-    const channels = supabase.getChannels?.().map(c => ({
-      topic: c.topic,
-      state: c.state
-    })) || [];
-    
-    console.log('🔌 Subscription Debug:', {
-      tableCode,
-      tableId: tableIdRef.current,
-      currentRoundId: currentRoundIdRef.current,
-      channels,
-      activeSubscriptions: subscriptionStateRef.current,
-      lastEvent: new Date(lastRealtimeEventRef.current).toISOString()
-    });
-  }, [tableCode]);
-
-  // Optimistic state updates
-  const optimisticUpdate = useCallback((updates: Partial<TableState> | ((prev: TableState) => Partial<TableState>)) => {
-    setState(prevState => {
-      const newUpdates = typeof updates === 'function' ? updates(prevState) : updates;
-      console.log('⚡ Optimistic update applied:', newUpdates);
-      return { ...prevState, ...newUpdates };
-    });
-  }, []);
-
-  // Track realtime events (simplified)
-  const trackRealtimeEvent = useCallback((eventType: string) => {
-    console.log(`✅ Realtime event received: ${eventType}`);
-    lastRealtimeEventRef.current = Date.now();
-  }, []);
-
+  // Load initial data
   const loadTableData = useCallback(async () => {
-    if (!tableCode) return;
-
     try {
       setState(prev => ({ ...prev, loading: true, error: null }));
 
-      // Load table data with protection against malformed queries
-      let selectQuery = '*';
-      if (!selectQuery || selectQuery.includes('s*')) {
-        selectQuery = '*';
-      }
-      console.log('[REFETCH]', { table: 'tables', select: selectQuery });
-      
+      // Get table
       const { data: table, error: tableError } = await supabase
         .from('tables')
-        .select(selectQuery)
+        .select('*')
         .eq('code', tableCode)
-        .maybeSingle() as { data: any; error: any };
+        .single();
 
-      if (tableError) {
-        console.error('Refetch error', { table: 'tables', tableCode, error: tableError });
-        throw tableError;
+      if (tableError || !table) {
+        setState(prev => ({ ...prev, error: 'Table not found', loading: false }));
+        return;
       }
-      if (!table) throw new Error('Table not found');
 
-      tableIdRef.current = table.id;
-
-      // Load participants with protection
-      selectQuery = '*';
-      if (!selectQuery || selectQuery.includes('s*')) {
-        selectQuery = '*';
-      }
-      console.log('[REFETCH]', { table: 'participants', select: selectQuery });
-      
-      const { data: participantsData, error: participantsError } = await supabase
+      // Get participants
+      const { data: participants = [] } = await supabase
         .from('participants')
-        .select(selectQuery)
+        .select('*')
         .eq('table_id', table.id)
-        .order('joined_at', { ascending: true }) as { data: any[]; error: any };
+        .order('joined_at', { ascending: true });
 
-      if (participantsError) {
-        console.error('Refetch error', { table: 'participants', tableId: table.id, error: participantsError });
-        throw participantsError;
-      }
-      
-      const participants = participantsData || [];
-
-      // Load current round with protection - guard against null round_id
+      // Get current round
       let currentRound = null;
       if (table.current_round_id) {
-        selectQuery = '*';
-        if (!selectQuery || selectQuery.includes('s*')) {
-          selectQuery = '*';
-        }
-        console.log('[REFETCH]', { table: 'rounds', select: selectQuery, roundId: table.current_round_id });
-        
-        const { data: roundData, error: roundError } = await supabase
+        const { data: roundData } = await supabase
           .from('rounds')
-          .select(selectQuery)
+          .select('*')
           .eq('id', table.current_round_id)
-          .maybeSingle() as { data: any; error: any };
-
-        if (roundError) {
-          console.error('Refetch error', { table: 'rounds', roundId: table.current_round_id, error: roundError });
-          throw roundError;
-        }
+          .single();
         currentRound = roundData;
-      } else {
-        console.log('[REFETCH] Skipping rounds query - table.current_round_id is null (lobby state)');
       }
 
-      currentRoundIdRef.current = currentRound?.id || null;
-
-      // Load suggestions for current round with protection
+      // Get suggestions, votes, and blocks for current round
       let suggestions: any[] = [];
-      if (currentRound) {
-        selectQuery = '*';
-        if (!selectQuery || selectQuery.includes('s*')) {
-          selectQuery = '*';
-        }
-        console.log('[REFETCH]', { table: 'suggestions', select: selectQuery });
-        
-        const { data: suggestionsData, error: suggestionsError } = await supabase
-          .from('suggestions')
-          .select(selectQuery)
-          .eq('round_id', currentRound.id)
-          .order('created_at', { ascending: true }) as { data: any[]; error: any };
-
-        if (suggestionsError) {
-          console.error('Refetch error', { table: 'suggestions', roundId: currentRound.id, error: suggestionsError });
-          throw suggestionsError;
-        }
-        suggestions = suggestionsData || [];
-      }
-
-      // Load votes for current round with protection
       let votes: any[] = [];
+      let blocks: any[] = [];
+
       if (currentRound) {
-        selectQuery = '*';
-        if (!selectQuery || selectQuery.includes('s*')) {
-          selectQuery = '*';
-        }
-        console.log('[REFETCH]', { table: 'votes', select: selectQuery });
-        
-        const { data: votesData, error: votesError } = await supabase
-          .from('votes')
-          .select(selectQuery)
-          .eq('round_id', currentRound.id)
-          .order('created_at', { ascending: true }) as { data: any[]; error: any };
+        const [suggestionsResult, votesResult, blocksResult] = await Promise.all([
+          supabase.from('suggestions').select('*').eq('round_id', currentRound.id).order('created_at', { ascending: true }),
+          supabase.from('votes').select('*').eq('round_id', currentRound.id).order('created_at', { ascending: true }),
+          supabase.from('blocks').select('*').eq('round_id', currentRound.id).order('created_at', { ascending: true }),
+        ]);
 
-        if (votesError) {
-          console.error('Refetch error', { table: 'votes', roundId: currentRound.id, error: votesError });
-          throw votesError;
-        }
-        votes = votesData || [];
+        suggestions = suggestionsResult.data || [];
+        votes = votesResult.data || [];
+        blocks = blocksResult.data || [];
       }
-
-      // Load blocks with protection
-      selectQuery = '*';
-      if (!selectQuery || selectQuery.includes('s*')) {
-        selectQuery = '*';
-      }
-      console.log('[REFETCH]', { table: 'blocks', select: selectQuery });
-      
-      const { data: blocksData, error: blocksError } = await supabase
-        .from('blocks')
-        .select(selectQuery)
-        .eq('table_id', table.id)
-        .order('created_at', { ascending: true }) as { data: any[]; error: any };
-
-      if (blocksError) {
-        console.error('Refetch error', { table: 'blocks', tableId: table.id, error: blocksError });
-        throw blocksError;
-      }
-      
-      const blocks = blocksData || [];
 
       // Determine if user is host and find current participant
       const clientId = getOrCreateClientId();
       const hostSecret = getHostSecret(tableCode);
       const isHost = hostSecret === table.host_secret;
-
       const currentParticipant = participants.find(p => p.client_id === clientId) || null;
 
       // Calculate time remaining
@@ -228,395 +102,253 @@ export function useTableStateRealtime(tableCode: string) {
         error: null,
       });
 
-    } catch (error: any) {
-      console.error('Error loading table data:', error);
-      setState(prev => ({
-        ...prev,
-        loading: false,
-        error: error.message || 'Failed to load table data',
-      }));
+      console.log('✅ Initial data loaded:', { 
+        table: table.title, 
+        participants: participants.length,
+        round: currentRound?.number,
+        suggestions: suggestions.length,
+        votes: votes.length 
+      });
+
+    } catch (error) {
+      console.error('❌ Error loading table data:', error);
+      setState(prev => ({ ...prev, error: 'Failed to load table data', loading: false }));
     }
   }, [tableCode]);
 
-  // Set up realtime subscriptions - trigger when table data is available
+  // Set up real-time subscriptions
   useEffect(() => {
-    if (!tableCode || !state.table?.id) return;
+    if (!state.table) return;
+
+    console.log('🔄 Setting up real-time subscriptions for table:', state.table.code);
 
     // Clean up existing channel
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
     }
 
-    const tableId = state.table.id;
-    tableIdRef.current = tableId;
-    console.log('Setting up realtime channel for table:', tableId);
+    // Create new channel
+    const channel = supabase.channel(`table-${state.table.id}`, {
+      config: { presence: { key: state.clientId } }
+    });
 
-    // Create single channel per table
-    const channel = supabase
-      .channel(`table_${tableId}`)
-      .on(
-        'postgres_changes',
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'tables',
-          filter: `id=eq.${tableId}`
-        },
-        (payload) => {
-          console.log('📋 Tables change event:', payload.eventType, payload);
-          trackRealtimeEvent('table_update');
-          
-          // Direct state update for table changes
-          if (payload.new) {
-            setState(prev => ({ ...prev, table: payload.new as any }));
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'participants',
-          filter: `table_id=eq.${tableId}`
-        },
-        (payload) => {
-          console.log('👥 Participants change event:', payload.eventType, payload);
-          trackRealtimeEvent('participant_update');
-          
-          // Direct state update for participants
-          if (payload.eventType === 'INSERT' && payload.new) {
-            setState(prev => {
-              const newParticipant = payload.new as any;
-              const exists = prev.participants.some(p => p.id === newParticipant.id);
-              if (!exists) {
-                toast({
-                  title: "New participant joined",
-                  description: `${newParticipant.display_name} has joined the table`,
-                });
-                return {
-                  ...prev,
-                  participants: [...prev.participants, newParticipant],
-                  currentParticipant: newParticipant.client_id === prev.clientId ? newParticipant : prev.currentParticipant
-                };
-              }
-              return prev;
-            });
-          } else if (payload.eventType === 'DELETE' && payload.old) {
-            setState(prev => ({
-              ...prev,
-              participants: prev.participants.filter(p => p.id !== (payload.old as any).id)
-            }));
-          } else if (payload.eventType === 'UPDATE' && payload.new) {
-            setState(prev => ({
-              ...prev,
-              participants: prev.participants.map(p => p.id === (payload.new as any).id ? payload.new as any : p),
-              currentParticipant: (payload.new as any).client_id === prev.clientId ? payload.new as any : prev.currentParticipant
-            }));
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'rounds',
-          filter: `table_id=eq.${tableId}`
-        },
-        (payload) => {
-          console.log('🔄 Rounds change event:', payload.eventType, payload);
-          trackRealtimeEvent('round_update');
-          
-          // Direct state update for rounds
-          if (payload.new) {
-            const newRound = payload.new as any;
-            setState(prev => ({ ...prev, currentRound: newRound }));
-            
-            // Update round ref for immediate use
-            const newRoundId = newRound.id;
-            if (newRoundId && newRoundId !== currentRoundIdRef.current) {
-              console.log('🔄 Round changed from', currentRoundIdRef.current, 'to', newRoundId);
-              currentRoundIdRef.current = newRoundId;
-              
-              // Set up round subscriptions immediately
-              if (roundSubscriptionsRef.current !== newRoundId) {
-                console.log('🎯 Setting up round subscriptions for new round:', newRoundId);
-                
-                // Add suggestions subscription
-                channel.on(
-                  'postgres_changes',
-                  { 
-                    event: '*', 
-                    schema: 'public', 
-                    table: 'suggestions',
-                    filter: `round_id=eq.${newRoundId}`
-                  },
-        (payload) => {
-          console.log('💡 Suggestions change event:', payload.eventType, payload.table, payload);
-          
-          // Validate this is actually a suggestions table event
-          if (payload.table !== 'suggestions') {
-            console.warn('❌ Suggestions handler received event for wrong table:', payload.table);
-            return;
-          }
-          
-          trackRealtimeEvent('suggestion_update');
-          
-          if (payload.eventType === 'INSERT' && payload.new) {
-            setState(prev => {
-              const newSuggestion = payload.new as any;
-              const exists = prev.suggestions.some(s => s.id === newSuggestion.id);
-              if (!exists) {
-                console.log('✅ Adding new suggestion to state:', newSuggestion.text);
-                return { ...prev, suggestions: [...prev.suggestions, newSuggestion] };
-              }
-              return prev;
-            });
-          } else if (payload.eventType === 'UPDATE' && payload.new) {
-            setState(prev => {
-              const updatedSuggestion = payload.new as any;
-              const existingIndex = prev.suggestions.findIndex(s => s.id === updatedSuggestion.id);
-              if (existingIndex >= 0) {
-                console.log('✅ Updating existing suggestion:', updatedSuggestion.text);
-                const newSuggestions = [...prev.suggestions];
-                newSuggestions[existingIndex] = updatedSuggestion;
-                return { ...prev, suggestions: newSuggestions };
-              } else {
-                // Handle race condition: UPDATE received before INSERT
-                console.log('✅ Adding suggestion via UPDATE (race condition):', updatedSuggestion.text);
-                return { ...prev, suggestions: [...prev.suggestions, updatedSuggestion] };
-              }
-            });
-          }
-        }
-                );
-                
-                // Add votes subscription
-                channel.on(
-                  'postgres_changes',
-                  { 
-                    event: '*', 
-                    schema: 'public', 
-                    table: 'votes',
-                    filter: `round_id=eq.${newRoundId}`
-                  },
-        (payload) => {
-          console.log('🗳️ Votes change event:', payload.eventType, payload.table, payload);
-          
-          // Validate this is actually a votes table event
-          if (payload.table !== 'votes') {
-            console.warn('❌ Votes handler received event for wrong table:', payload.table);
-            return;
-          }
-          
-          trackRealtimeEvent('vote_update');
-          
-          if (payload.eventType === 'INSERT' && payload.new) {
-            setState(prev => {
-              const newVote = payload.new as any;
-              const exists = prev.votes.some(v => v.id === newVote.id);
-              if (!exists) {
-                console.log('✅ Adding new vote to state:', newVote);
-                return { ...prev, votes: [...prev.votes, newVote] };
-              }
-              return prev;
-            });
-          }
-        }
-                );
-                
-                roundSubscriptionsRef.current = newRoundId;
-                subscriptionStateRef.current.suggestions = true;
-                subscriptionStateRef.current.votes = true;
-                console.log('✅ Round subscriptions ready for round:', newRoundId);
-              }
-            }
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'blocks',
-          filter: `table_id=eq.${tableId}`
-        },
-        (payload) => {
-          console.log('🧱 Blocks change event:', payload.eventType, payload);
-          trackRealtimeEvent('block_update');
-          
-          // Direct state update for blocks
-          if (payload.eventType === 'INSERT' && payload.new) {
-            setState(prev => {
-              const newBlock = payload.new as any;
-              const exists = prev.blocks.some(b => b.id === newBlock.id);
-              return exists ? prev : { ...prev, blocks: [...prev.blocks, newBlock] };
-            });
-          }
-        }
-      );
-
-    // Set up initial round subscriptions if round exists and not already subscribed
-    if (currentRoundIdRef.current && roundSubscriptionsRef.current !== currentRoundIdRef.current) {
-      console.log('🎯 Setting up initial round subscriptions for round:', currentRoundIdRef.current);
-      
-      const roundId = currentRoundIdRef.current;
-      
-      // Clean up old subscriptions first
-      if (roundSubscriptionsRef.current) {
-        console.log('🧹 Cleaning up old round subscriptions for:', roundSubscriptionsRef.current);
+    // Subscribe to table changes
+    channel.on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'tables',
+      filter: `id=eq.${state.table.id}`
+    }, (payload) => {
+      console.log('📋 Table update:', payload);
+      if (payload.new) {
+        setState(prev => ({ ...prev, table: payload.new as any }));
       }
+    });
+
+    // Subscribe to participants
+    channel.on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'participants',
+      filter: `table_id=eq.${state.table.id}`
+    }, (payload) => {
+      console.log('👥 Participants update:', payload);
       
-      // Add suggestions subscription
-      channel.on(
-        'postgres_changes',
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'suggestions',
-          filter: `round_id=eq.${roundId}`
-        },
-        (payload) => {
-          console.log('💡 Initial suggestions change event:', payload.eventType, payload.table, payload);
-          
-          if (payload.table !== 'suggestions') {
-            console.warn('❌ Suggestions handler received event for wrong table:', payload.table);
-            return;
+      if (payload.eventType === 'INSERT' && payload.new) {
+        setState(prev => {
+          const exists = prev.participants.some(p => p.id === payload.new.id);
+          if (!exists) {
+            return { 
+              ...prev, 
+              participants: [...prev.participants, payload.new as any],
+              currentParticipant: (payload.new as any).client_id === prev.clientId ? payload.new as any : prev.currentParticipant
+            };
           }
-          
-          trackRealtimeEvent('suggestion_update');
-          
-          if (payload.eventType === 'INSERT' && payload.new) {
-            setState(prev => {
-              const newSuggestion = payload.new as any;
-              const exists = prev.suggestions.some(s => s.id === newSuggestion.id);
-              if (!exists) {
-                console.log('✅ Adding new suggestion to state:', newSuggestion.text);
-                return { ...prev, suggestions: [...prev.suggestions, newSuggestion] };
-              }
-              console.log('⚠️ Suggestion already exists, skipping:', newSuggestion.id);
-              return prev;
-            });
-          } else if (payload.eventType === 'UPDATE' && payload.new) {
-            setState(prev => {
-              const updatedSuggestion = payload.new as any;
-              const existingIndex = prev.suggestions.findIndex(s => s.id === updatedSuggestion.id);
-              if (existingIndex >= 0) {
-                console.log('✅ Updating existing suggestion:', updatedSuggestion.text);
-                const newSuggestions = [...prev.suggestions];
-                newSuggestions[existingIndex] = updatedSuggestion;
-                return { ...prev, suggestions: newSuggestions };
-              } else {
-                console.log('✅ Adding suggestion via UPDATE (race condition):', updatedSuggestion.text);
-                return { ...prev, suggestions: [...prev.suggestions, updatedSuggestion] };
-              }
-            });
-          }
+          return prev;
+        });
+      } else if (payload.eventType === 'DELETE' && payload.old) {
+        setState(prev => ({
+          ...prev,
+          participants: prev.participants.filter(p => p.id !== payload.old.id)
+        }));
+      } else if (payload.eventType === 'UPDATE' && payload.new) {
+        setState(prev => ({
+          ...prev,
+          participants: prev.participants.map(p => 
+            p.id === payload.new.id ? payload.new as any : p
+          ),
+          currentParticipant: (payload.new as any).client_id === prev.clientId ? payload.new as any : prev.currentParticipant
+        }));
+      }
+    });
+
+    // Subscribe to rounds
+    channel.on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'rounds',
+      filter: `table_id=eq.${state.table.id}`
+    }, (payload) => {
+      console.log('🎯 Round update:', payload);
+      
+      if (payload.eventType === 'INSERT' && payload.new) {
+        setState(prev => ({ 
+          ...prev, 
+          currentRound: payload.new as any,
+          suggestions: [], // Clear suggestions for new round
+          votes: [], // Clear votes for new round
+          blocks: [] // Clear blocks for new round
+        }));
+      } else if (payload.eventType === 'UPDATE' && payload.new) {
+        setState(prev => ({ ...prev, currentRound: payload.new as any }));
+      }
+    });
+
+    // Subscribe to suggestions for current round
+    if (state.currentRound) {
+      channel.on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'suggestions',
+        filter: `round_id=eq.${state.currentRound.id}`
+      }, (payload) => {
+        console.log('💡 Suggestion update:', payload);
+        
+        if (payload.eventType === 'INSERT' && payload.new) {
+          setState(prev => {
+            const exists = prev.suggestions.some(s => s.id === payload.new.id);
+            if (!exists) {
+              console.log('✅ Adding new suggestion:', payload.new.text);
+              return { ...prev, suggestions: [...prev.suggestions, payload.new as any] };
+            }
+            return prev;
+          });
+        } else if (payload.eventType === 'UPDATE' && payload.new) {
+          setState(prev => ({
+            ...prev,
+            suggestions: prev.suggestions.map(s => 
+              s.id === payload.new.id ? payload.new as any : s
+            )
+          }));
+        } else if (payload.eventType === 'DELETE' && payload.old) {
+          setState(prev => ({
+            ...prev,
+            suggestions: prev.suggestions.filter(s => s.id !== payload.old.id)
+          }));
         }
-      );
-      
-      // Add votes subscription
-      channel.on(
-        'postgres_changes',
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'votes',
-          filter: `round_id=eq.${roundId}`
-        },
-        (payload) => {
-          console.log('🗳️ Initial votes change event:', payload.eventType, payload.table, payload);
-          
-          if (payload.table !== 'votes') {
-            console.warn('❌ Votes handler received event for wrong table:', payload.table);
-            return;
-          }
-          
-          trackRealtimeEvent('vote_update');
-          
-          if (payload.eventType === 'INSERT' && payload.new) {
-            setState(prev => {
-              const newVote = payload.new as any;
-              const exists = prev.votes.some(v => v.id === newVote.id);
-              if (!exists) {
-                console.log('✅ Adding new vote to state:', newVote);
-                return { ...prev, votes: [...prev.votes, newVote] };
-              }
-              console.log('⚠️ Vote already exists, skipping:', newVote.id);
-              return prev;
-            });
-          }
+      });
+
+      // Subscribe to votes for current round
+      channel.on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'votes',
+        filter: `round_id=eq.${state.currentRound.id}`
+      }, (payload) => {
+        console.log('🗳️ Vote update:', payload);
+        
+        if (payload.eventType === 'INSERT' && payload.new) {
+          setState(prev => {
+            const exists = prev.votes.some(v => v.id === payload.new.id);
+            if (!exists) {
+              console.log('✅ Adding new vote');
+              return { ...prev, votes: [...prev.votes, payload.new as any] };
+            }
+            return prev;
+          });
+        } else if (payload.eventType === 'DELETE' && payload.old) {
+          setState(prev => ({
+            ...prev,
+            votes: prev.votes.filter(v => v.id !== payload.old.id)
+          }));
         }
-      );
-      
-      roundSubscriptionsRef.current = roundId;
-      subscriptionStateRef.current.suggestions = true;
-      subscriptionStateRef.current.votes = true;
-      console.log('✅ Initial round subscriptions setup complete for round:', roundId);
+      });
+
+      // Subscribe to blocks for current round
+      channel.on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'blocks',
+        filter: `round_id=eq.${state.currentRound.id}`
+      }, (payload) => {
+        console.log('🚫 Block update:', payload);
+        
+        if (payload.eventType === 'INSERT' && payload.new) {
+          setState(prev => {
+            const exists = prev.blocks.some(b => b.id === payload.new.id);
+            if (!exists) {
+              return { ...prev, blocks: [...prev.blocks, payload.new as any] };
+            }
+            return prev;
+          });
+        }
+      });
     }
 
     // Subscribe to channel
     channel.subscribe((status) => {
-      console.log('📡 Realtime subscription status:', status);
-      if (status === 'SUBSCRIBED') {
-        console.log('✅ Successfully subscribed to table changes');
-        trackRealtimeEvent('subscription_ready');
-      }
+      console.log('📡 Subscription status:', status);
     });
 
     channelRef.current = channel;
 
+    // Cleanup
     return () => {
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
-      roundSubscriptionsRef.current = null;
     };
-  }, [tableCode, state.table?.id, trackRealtimeEvent, toast]);
+  }, [state.table?.id, state.currentRound?.id, state.clientId]);
 
-  // Timer for countdown
+  // Timer effect
   useEffect(() => {
     if (!state.currentRound?.ends_at || state.table?.status !== 'running') {
+      setState(prev => ({ ...prev, timeRemaining: 0 }));
       return;
     }
 
     const updateTimer = () => {
+      const now = new Date().getTime();
       const endTime = new Date(state.currentRound!.ends_at!).getTime();
-      const now = Date.now();
       const remaining = Math.max(0, Math.floor((endTime - now) / 1000));
-      
       setState(prev => ({ ...prev, timeRemaining: remaining }));
     };
 
+    updateTimer();
     const interval = setInterval(updateTimer, 1000);
+
     return () => clearInterval(interval);
   }, [state.currentRound?.ends_at, state.table?.status]);
 
-  // Initial data load
+  // Load data on mount
   useEffect(() => {
     loadTableData();
   }, [loadTableData]);
 
+  // Determine current phase
   const currentPhase: PhaseType = (() => {
-    if (!state.table || state.table.status === 'waiting') return 'lobby';
-    if (!state.currentRound) return 'lobby';
-    
-    const status = state.currentRound.status;
-    if (status === 'suggest') return 'suggest';
-    if (status === 'vote') return 'vote';
-    if (status === 'result') return 'result';
-    
+    if (!state.table || !state.currentRound) return 'lobby';
+    if (state.table.status === 'waiting') return 'lobby';
+    if (state.currentRound.status === 'suggestions') return 'suggest';
+    if (state.currentRound.status === 'voting') return 'vote';
+    if (state.currentRound.status === 'results') return 'result';
     return 'lobby';
   })();
 
+  // Optimistic update function
+  const optimisticUpdate = useCallback((updates: Partial<TableState> | ((prev: TableState) => Partial<TableState>)) => {
+    setState(prev => {
+      const newUpdates = typeof updates === 'function' ? updates(prev) : updates;
+      console.log('⚡ Optimistic update applied:', newUpdates);
+      return { ...prev, ...newUpdates };
+    });
+  }, []);
+
   return {
-    ...state,
+    state,
     currentPhase,
     refresh: loadTableData,
     optimisticUpdate,
-    logSubscriptionState
   };
 }
