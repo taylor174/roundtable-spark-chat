@@ -35,57 +35,37 @@ export function ResultsPanel({
   const [showTieBreaker, setShowTieBreaker] = useState(false);
   const [selectedWinner, setSelectedWinner] = useState<string>('');
   const [processing, setProcessing] = useState(false);
-  const [countdown, setCountdown] = useState(5);
-  const [autoAdvancing, setAutoAdvancing] = useState(false);
+  const [advancing, setAdvancing] = useState(false);
   const { toast } = useToast();
 
   const isTie = winningSuggestions.length > 1;
   const winner = winningSuggestions[0];
 
-  // Auto-advance after 5 seconds when there's a clear winner
-  useEffect(() => {
-    if (!isTie && winner && isHost && onNextRound && tableId && roundNumber) {
-      setAutoAdvancing(true);
-      setCountdown(5);
-      
-      const timer = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            handleAutoAdvance();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+  // No auto-advance, host manually starts next round
 
-      return () => clearInterval(timer);
-    }
-  }, [isTie, winner, isHost, onNextRound, tableId, roundNumber]);
-
-  const handleAutoAdvance = async () => {
+  const handleNextRound = async () => {
     if (!tableId || !roundNumber || isTransitioning) return;
     
     try {
-      setAutoAdvancing(true);
+      setAdvancing(true);
       await advanceRound(tableId, roundNumber);
       
       toast({
         title: "Next Round Started",
-        description: "Automatically advancing with the winning suggestion!",
+        description: "New round has begun with the winning suggestion as context!",
       });
       
       if (onNextRound) {
         onNextRound();
       }
     } catch (error) {
-      console.error('Error auto-advancing round:', error);
+      console.error('Error starting next round:', error);
       toast({
         title: "Error",
-        description: "Failed to advance to next round automatically.",
+        description: "Failed to start next round.",
         variant: "destructive",
       });
-      setAutoAdvancing(false);
+      setAdvancing(false);
     }
   };
 
@@ -274,15 +254,16 @@ export function ResultsPanel({
           </Badge>
         </div>
 
-        {autoAdvancing && isHost && (
-          <div className="text-center p-4 bg-primary/10 rounded-lg">
-            <div className="flex items-center justify-center space-x-2 text-primary">
-              <Clock className="h-4 w-4" />
-              <span className="text-sm font-medium">
-                Next round starts in {countdown} seconds...
-              </span>
-            </div>
-          </div>
+        {isHost && onNextRound && (
+          <Button 
+            onClick={handleNextRound}
+            disabled={isTransitioning || advancing}
+            className="w-full"
+            size="lg"
+          >
+            <Clock className="h-4 w-4 mr-2" />
+            {advancing ? 'Starting...' : 'Start Next Round'}
+          </Button>
         )}
       </CardContent>
     </Card>
