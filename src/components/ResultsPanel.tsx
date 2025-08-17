@@ -42,35 +42,15 @@ export function ResultsPanel({
     
     try {
       setProcessing(true);
-      
-      const winningSuggestion = winningSuggestions.find(s => s.id === selectedWinner);
-      if (!winningSuggestion) return;
 
-      // Atomically update round and create block
-      const [roundUpdate, blockInsert] = await Promise.all([
-        // Update round to result phase with winner
-        supabase
-          .from('rounds')
-          .update({
-            status: 'result',
-            winner_suggestion_id: selectedWinner,
-            ends_at: null
-          })
-          .eq('id', roundId),
-        
-        // Insert block entry
-        supabase
-          .from('blocks')
-          .insert({
-            table_id: tableId,
-            round_id: roundId,
-            suggestion_id: selectedWinner,
-            text: winningSuggestion.text,
-          })
-      ]);
+      // Use atomic tie-break resolution function
+      const { error } = await supabase.rpc('resolve_tie', {
+        p_table_id: tableId,
+        p_round_id: roundId,
+        p_suggestion_id: selectedWinner
+      });
 
-      if (roundUpdate.error) throw roundUpdate.error;
-      if (blockInsert.error) throw blockInsert.error;
+      if (error) throw error;
 
       toast({
         title: "Success",

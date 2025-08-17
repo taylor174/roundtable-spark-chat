@@ -102,26 +102,13 @@ const Table = () => {
   
   // Event handlers
   const handleWinnerSelected = async (suggestionId: string) => {
-    if (!table || !currentRound) return;
-    
-    try {
-      const winningSuggestion = suggestionsWithVotes.find(s => s.id === suggestionId);
-      if (winningSuggestion) {
-        await endRound(currentRound.id, table.id, winningSuggestion.text);
-        toast({
-          title: "Success",
-          description: "Winner selected!",
-        });
-        refresh();
-      }
-    } catch (error) {
-      console.error('Error selecting winner:', error);
-      toast({
-        title: "Error",
-        description: "Failed to select winner. Please try again.",
-        variant: "destructive",
-      });
-    }
+    // Winner selection is now handled atomically by the ResultsPanel component
+    // Just refresh to get updated state
+    refresh();
+    toast({
+      title: "Success",
+      description: "Winner selected successfully!",
+    });
   };
   
   const handleNextRound = async () => {
@@ -351,7 +338,7 @@ const Table = () => {
             )}
 
             {/* Timeline */}
-            <Timeline blocks={blocks} />
+            <Timeline blocks={blocks} rounds={currentRound ? [currentRound] : []} />
           </div>
         </div>
       </div>

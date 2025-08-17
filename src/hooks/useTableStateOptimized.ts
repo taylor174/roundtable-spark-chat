@@ -312,14 +312,30 @@ export function useTableState(tableCode: string) {
           }
         }
       )
-      // Block changes
+      // Block changes - including updates for tie-breaks
       .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'blocks', filter: `table_id=eq.${state.table.id}` },
+        { event: '*', schema: 'public', table: 'blocks', filter: `table_id=eq.${state.table.id}` },
         (payload) => {
-          setState(prev => ({
-            ...prev,
-            blocks: [...prev.blocks, payload.new as Block]
-          }));
+          console.log('Block change received:', payload);
+          if (payload.eventType === 'INSERT') {
+            const newBlock = payload.new as Block;
+            setState(prev => ({
+              ...prev,
+              blocks: [...prev.blocks, newBlock].sort((a, b) => 
+                new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+              )
+            }));
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedBlock = payload.new as Block;
+            setState(prev => ({
+              ...prev,
+              blocks: prev.blocks.map(block => 
+                block.id === updatedBlock.id ? updatedBlock : block
+              ).sort((a, b) => 
+                new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+              )
+            }));
+          }
         }
       )
       .subscribe();
