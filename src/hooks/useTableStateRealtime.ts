@@ -78,6 +78,15 @@ export function useTableStateRealtime(tableCode: string) {
       const hostSecret = getHostSecret(tableCode);
       const isHost = hostSecret === table.host_secret;
       const currentParticipant = participants.find(p => p.client_id === clientId) || null;
+      
+      console.log('🔍 Host detection:', { 
+        clientId, 
+        hostSecret, 
+        tableHostSecret: table.host_secret, 
+        isHost, 
+        currentParticipant: currentParticipant?.display_name,
+        participantCount: participants.length 
+      });
 
       // Calculate time remaining
       let timeRemaining = 0;

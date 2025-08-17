@@ -370,16 +370,19 @@ const Table = () => {
 
             {/* Host Controls */}
             {isHost && (
-              <HostControls
-                table={table}
-                canStart={true}
-                currentPhase={currentPhase}
-                participantCount={participants.length}
-                participants={participants}
-                currentParticipant={currentParticipant}
-                onRefresh={refresh}
-                optimisticUpdate={optimisticUpdate}
-              />
+              <>
+                {console.log('🎮 Rendering Host Controls:', { isHost, tableStatus: table.status, participantCount: participants.length })}
+                <HostControls
+                  table={table}
+                  canStart={true}
+                  currentPhase={currentPhase}
+                  participantCount={participants.length}
+                  participants={participants}
+                  currentParticipant={currentParticipant}
+                  onRefresh={refresh}
+                  optimisticUpdate={optimisticUpdate}
+                />
+              </>
             )}
 
             {/* Timeline */}
