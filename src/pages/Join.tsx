@@ -90,7 +90,10 @@ const Join = () => {
   }, [code, tableId, navigate, toast]);
 
   const handleJoin = async () => {
+    console.log('🚀 Starting join process with code:', code, 'displayName:', displayName);
+    
     if (!code || !isValidTableCode(code)) {
+      console.error('❌ Invalid table code:', code);
       toast({
         title: "Error",
         description: MESSAGES.INVALID_CODE,
@@ -100,6 +103,7 @@ const Join = () => {
     }
 
     if (!isValidDisplayName(displayName)) {
+      console.error('❌ Invalid display name:', displayName);
       toast({
         title: "Error", 
         description: MESSAGES.NAME_REQUIRED,
@@ -110,9 +114,22 @@ const Join = () => {
 
     try {
       setLoading(true);
-      const clientId = getOrCreateClientId();
+      
+      // Generate client ID with fallback for older browsers
+      let clientId: string;
+      try {
+        clientId = getOrCreateClientId();
+        console.log('✅ Client ID generated:', clientId);
+      } catch (error) {
+        console.error('❌ Failed to generate client ID:', error);
+        // Fallback UUID generation
+        clientId = 'client_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('table_client_id', clientId);
+        console.log('✅ Fallback client ID generated:', clientId);
+      }
 
       // Check if table exists and store tableId for realtime subscriptions
+      console.log('🔍 Looking up table with code:', code);
       const { data: table, error: tableError } = await supabase
         .from('tables')
         .select('id, status, title')
@@ -120,6 +137,7 @@ const Join = () => {
         .single();
 
       if (tableError || !table) {
+        console.error('❌ Table lookup failed:', tableError?.message, tableError?.code);
         toast({
           title: "Error",
           description: MESSAGES.INVALID_CODE,
@@ -127,39 +145,56 @@ const Join = () => {
         });
         return;
       }
+      
+      console.log('✅ Table found:', { id: table.id, status: table.status, title: table.title });
 
       // Store table ID for realtime subscriptions
       setTableId(table.id);
 
       // If table is already running, redirect immediately
       if (table.status === 'running') {
+        console.log('✅ Table is running, redirecting immediately');
         navigate(`/t/${code}`);
         return;
       }
 
       // Check if client already has a participant
-      const { data: existingParticipant } = await supabase
+      console.log('🔍 Checking for existing participant with client_id:', clientId);
+      const { data: existingParticipant, error: existingError } = await supabase
         .from('participants')
         .select('id')
         .eq('table_id', table.id)
         .eq('client_id', clientId)
         .single();
 
+      if (existingError && existingError.code !== 'PGRST116') {
+        console.error('❌ Error checking existing participant:', existingError);
+      }
+
       if (existingParticipant) {
         // Already joined, just navigate to table
+        console.log('✅ Already joined, navigating to table');
         navigate(`/t/${code}`);
         return;
       }
+      
+      console.log('✅ No existing participant found, proceeding with join');
 
       // Check if name is already taken
-      const { data: nameExists } = await supabase
+      console.log('🔍 Checking if display name is taken:', displayName.trim());
+      const { data: nameExists, error: nameCheckError } = await supabase
         .from('participants')
         .select('id')
         .eq('table_id', table.id)
         .eq('display_name', displayName.trim())
         .single();
 
+      if (nameCheckError && nameCheckError.code !== 'PGRST116') {
+        console.error('❌ Error checking name availability:', nameCheckError);
+      }
+
       if (nameExists) {
+        console.error('❌ Display name already taken:', displayName.trim());
         toast({
           title: "Error",
           description: "This name is already taken. Please choose another.",
@@ -167,6 +202,8 @@ const Join = () => {
         });
         return;
       }
+      
+      console.log('✅ Display name is available');
 
       // Create participant
       const participantData: ParticipantInsert = {
@@ -176,25 +213,54 @@ const Join = () => {
         is_host: false,
       };
 
-      const { error: participantError } = await supabase
+      console.log('📝 Creating participant with data:', participantData);
+      const { data: insertedParticipant, error: participantError } = await supabase
         .from('participants')
-        .insert(participantData);
+        .insert(participantData)
+        .select('id')
+        .single();
 
-       if (participantError) {
-        console.error('join error:', participantError.code, participantError.message);
+      if (participantError) {
+        console.error('❌ Participant creation failed:', participantError.code, participantError.message, participantError.details);
         throw participantError;
       }
+
+      console.log('✅ Participant created successfully:', insertedParticipant);
 
       toast({
         title: "Success",
         description: MESSAGES.JOIN_SUCCESS,
       });
 
-      // Navigate to table
+      // Small delay to ensure participant is fully inserted before navigation
+      console.log('⏳ Waiting briefly before navigation...');
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Verify participant was created before navigating
+      const { data: verifyParticipant } = await supabase
+        .from('participants')
+        .select('id')
+        .eq('table_id', table.id)
+        .eq('client_id', clientId)
+        .single();
+
+      if (!verifyParticipant) {
+        console.error('❌ Participant verification failed - participant not found after creation');
+        throw new Error('Failed to verify participant creation');
+      }
+
+      console.log('✅ Participant verified, navigating to table:', `/t/${code}`);
       navigate(`/t/${code}`);
       
     } catch (error: any) {
-      console.error('Error joining table:', error);
+      console.error('❌ Join process failed:', error);
+      console.error('❌ Error details:', {
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint
+      });
+      
       toast({
         title: "Error",
         description: error?.message || "Failed to join table. Please try again.",
