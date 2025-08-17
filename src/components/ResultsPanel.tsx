@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -133,6 +133,9 @@ export function ResultsPanel({
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Select the Winner</DialogTitle>
+              <DialogDescription>
+                Multiple suggestions are tied. Choose the winner to proceed.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <RadioGroup

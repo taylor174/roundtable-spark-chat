@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Play, Pause, SkipForward, Square, Settings, Clock, Users, Download } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Table } from '@/types';
@@ -286,6 +286,9 @@ export function EnhancedHostControls({
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Session Settings</DialogTitle>
+                <DialogDescription>
+                  Configure the timing for suggestion and voting phases.
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div>
