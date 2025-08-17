@@ -7,8 +7,9 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { WinningSuggestion } from '@/types';
-import { Trophy, Crown, Users } from 'lucide-react';
+import { Trophy, Crown, Users, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAutoAdvance } from '@/hooks/useAutoAdvance';
 
 interface ResultsPanelProps {
   winningSuggestions: WinningSuggestion[];
@@ -16,8 +17,11 @@ interface ResultsPanelProps {
   roundNumber?: number;
   tableId?: string;
   roundId?: string;
+  table?: any;
+  currentRound?: any;
   onWinnerSelected?: (suggestionId: string) => void;
   onNextRound?: () => void;
+  onRefresh?: () => void;
 }
 
 export function ResultsPanel({ 
@@ -26,13 +30,25 @@ export function ResultsPanel({
   roundNumber = 1,
   tableId,
   roundId,
+  table,
+  currentRound,
   onWinnerSelected, 
-  onNextRound 
+  onNextRound,
+  onRefresh
 }: ResultsPanelProps) {
   const [showTieBreaker, setShowTieBreaker] = useState(false);
   const [selectedWinner, setSelectedWinner] = useState<string>('');
   const [processing, setProcessing] = useState(false);
   const { toast } = useToast();
+  
+  // Auto-advance functionality
+  const { countdown, isAutoAdvancing } = useAutoAdvance(
+    table,
+    currentRound,
+    winningSuggestions,
+    isHost,
+    onRefresh
+  );
 
   const isTie = winningSuggestions.length > 1;
   const winner = winningSuggestions[0];
@@ -46,34 +62,17 @@ export function ResultsPanel({
       const winningSuggestion = winningSuggestions.find(s => s.id === selectedWinner);
       if (!winningSuggestion) return;
 
-      // Atomically update round and create block
-      const [roundUpdate, blockInsert] = await Promise.all([
-        // Update round to result phase with winner
-        supabase
-          .from('rounds')
-          .update({
-            status: 'result',
-            winner_suggestion_id: selectedWinner,
-            ends_at: null
-          })
-          .eq('id', roundId),
-        
-        // Insert block entry
-        supabase
-          .from('blocks')
-          .insert({
-            table_id: tableId,
-            round_id: roundId,
-            suggestion_id: selectedWinner,
-            text: winningSuggestion.text,
-          })
-      ]);
+      // Use the resolve_tie RPC function for atomic operation
+      const { error } = await supabase.rpc('resolve_tie', {
+        p_table_id: tableId,
+        p_round_id: roundId,
+        p_suggestion_id: selectedWinner
+      });
 
-      if (roundUpdate.error) throw roundUpdate.error;
-      if (blockInsert.error) throw blockInsert.error;
+      if (error) throw error;
 
       toast({
-        title: "Success",
+        title: "Tie Broken!",
         description: "Winner selected and round completed!",
       });
 
@@ -221,13 +220,27 @@ export function ResultsPanel({
           </Badge>
         </div>
 
-        {isHost && onNextRound && (
+        {/* Auto-advance countdown */}
+        {countdown > 0 && table?.auto_advance && (
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center space-x-2 text-blue-700">
+              <Clock className="h-4 w-4" />
+              <span className="text-sm">
+                Next round starting in {countdown} seconds...
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Manual next round button - only show if auto-advance is off or user is host */}
+        {isHost && onNextRound && !table?.auto_advance && (
           <Button 
             onClick={onNextRound}
             className="w-full"
             size="lg"
+            disabled={isAutoAdvancing}
           >
-            Start Next Round
+            {isAutoAdvancing ? 'Starting Next Round...' : 'Start Next Round'}
           </Button>
         )}
       </CardContent>

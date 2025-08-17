@@ -27,6 +27,8 @@ import { MESSAGES } from '@/constants';
 import { Users, Clock, List, Play } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { VotingStatusIndicator } from '@/components/VotingStatusIndicator';
+import { BlocksSidebar } from '@/components/BlocksSidebar';
+import { HostVotePanel } from '@/components/HostVotePanel';
 
 const Table = () => {
   const { code } = useParams<{ code: string }>();
@@ -264,7 +266,7 @@ const Table = () => {
                   />
                 )}
                 {isHost && currentRound && table && (
-                  <HostVoteList
+                  <HostVotePanel
                     suggestions={suggestionsWithVotes}
                     roundId={currentRound.id}
                     tableId={table.id}
@@ -282,8 +284,11 @@ const Table = () => {
                 roundNumber={currentRound?.number}
                 tableId={table?.id}
                 roundId={currentRound?.id}
+                table={table}
+                currentRound={currentRound}
                 onWinnerSelected={handleWinnerSelected}
                 onNextRound={handleNextRound}
+                onRefresh={refresh}
               />
             )}
 
@@ -297,6 +302,9 @@ const Table = () => {
 
           {/* Sidebar */}
           <div className="space-y-6">
+            {/* Blocks So Far */}
+            <BlocksSidebar blocks={blocks} />
+            
             {/* Discussion Context Card */}
             {table.description && (
               <DiscussionContextCard description={table.description} />

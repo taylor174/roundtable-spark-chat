@@ -17,6 +17,7 @@ const Join = () => {
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
   const [tableId, setTableId] = useState<string | null>(null);
+  const [table, setTable] = useState<any>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -26,17 +27,18 @@ const Join = () => {
       if (!code || !isValidTableCode(code)) return;
 
       try {
-        const { data: table } = await supabase
+        const { data: tableData } = await supabase
           .from('tables')
-          .select('id, status')
+          .select('id, status, title')
           .eq('code', code)
           .single();
 
-        if (table) {
-          setTableId(table.id);
+        if (tableData) {
+          setTableId(tableData.id);
+          setTable(tableData);
           
           // If table is already running, we can optionally show a different message
-          if (table.status === 'running') {
+          if (tableData.status === 'running') {
             toast({
               title: "Session in Progress",
               description: "This session is currently active. Join to participate!",
@@ -211,6 +213,9 @@ const Join = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Join Session</CardTitle>
+          {table?.title && (
+            <p className="text-lg font-medium">{table.title}</p>
+          )}
           <CardDescription>
             Session Code: <span className="font-mono font-bold text-lg">{code}</span>
           </CardDescription>

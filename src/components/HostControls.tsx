@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { Table } from '@/types';
@@ -237,6 +238,34 @@ export function HostControls({
     }
   };
 
+  const handleToggleAutoAdvance = async (enabled: boolean) => {
+    try {
+      setLoading(true);
+
+      const { error } = await supabase
+        .from('tables')
+        .update({ auto_advance: enabled })
+        .eq('id', table.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `Auto-advance ${enabled ? 'enabled' : 'disabled'}.`,
+      });
+
+    } catch (error) {
+      console.error('Error updating auto-advance:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update auto-advance setting.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleJoinAsParticipant = async () => {
     try {
       setLoading(true);
@@ -340,17 +369,21 @@ export function HostControls({
           </div>
         )}
 
-        {/* Host Participation */}
-        {!currentParticipant && table.status === 'running' && (
+        {/* Auto-advance Setting */}
+        {table.status === 'running' && (
           <div className="space-y-2">
-            <Button
-              onClick={handleJoinAsParticipant}
-              disabled={loading}
-              variant="outline"
-              className="w-full md:w-auto"
-            >
-              Join as Participant
-            </Button>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="auto-advance">Auto-advance rounds</Label>
+              <Switch
+                id="auto-advance"
+                checked={table.auto_advance}
+                onCheckedChange={handleToggleAutoAdvance}
+                disabled={loading}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Automatically start next round after 3 seconds
+            </p>
             <Separator />
           </div>
         )}

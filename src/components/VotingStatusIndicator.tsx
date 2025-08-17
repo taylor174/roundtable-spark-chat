@@ -20,6 +20,11 @@ export function VotingStatusIndicator({ participants, votes, currentRound }: Vot
     };
   });
 
+  // Check if host has voted (using host participant ID pattern)
+  const hostHasVoted = votes.some(vote => 
+    vote.participant_id.startsWith('host_') && vote.round_id === currentRound.id
+  );
+
   return (
     <div className="space-y-2">
       <h4 className="text-sm font-medium">Voting Status</h4>
@@ -39,6 +44,22 @@ export function VotingStatusIndicator({ participants, votes, currentRound }: Vot
           )}
         </div>
       ))}
+      
+      {/* Show host voting status */}
+      <div className="flex items-center justify-between">
+        <span className="text-sm">Host</span>
+        {hostHasVoted ? (
+          <Badge variant="outline" className="gap-1">
+            <Check className="h-3 w-3 text-green-600" />
+            Voted
+          </Badge>
+        ) : (
+          <Badge variant="secondary" className="gap-1">
+            <Clock className="h-3 w-3" />
+            Waiting
+          </Badge>
+        )}
+      </div>
     </div>
   );
 }
