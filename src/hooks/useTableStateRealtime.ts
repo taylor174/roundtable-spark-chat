@@ -237,27 +237,29 @@ export function useTableStateRealtime(tableCode: string) {
     }
   }, [tableCode]);
 
-  // Set up realtime subscriptions
+  // Set up realtime subscriptions - trigger when table data is available
   useEffect(() => {
-    if (!tableCode || !tableIdRef.current) return;
+    if (!tableCode || !state.table?.id) return;
 
     // Clean up existing channel
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
     }
 
-    console.log('Setting up realtime channel for table:', tableIdRef.current);
+    const tableId = state.table.id;
+    tableIdRef.current = tableId;
+    console.log('Setting up realtime channel for table:', tableId);
 
     // Create single channel per table
     const channel = supabase
-      .channel(`table_${tableIdRef.current}`)
+      .channel(`table_${tableId}`)
       .on(
         'postgres_changes',
         { 
           event: '*', 
           schema: 'public', 
           table: 'tables',
-          filter: `id=eq.${tableIdRef.current}`
+          filter: `id=eq.${tableId}`
         },
         (payload) => {
           console.log('📋 Tables change event:', payload.eventType, payload);
@@ -275,7 +277,7 @@ export function useTableStateRealtime(tableCode: string) {
           event: '*', 
           schema: 'public', 
           table: 'participants',
-          filter: `table_id=eq.${tableIdRef.current}`
+          filter: `table_id=eq.${tableId}`
         },
         (payload) => {
           console.log('👥 Participants change event:', payload.eventType, payload);
@@ -319,7 +321,7 @@ export function useTableStateRealtime(tableCode: string) {
           event: '*', 
           schema: 'public', 
           table: 'rounds',
-          filter: `table_id=eq.${tableIdRef.current}`
+          filter: `table_id=eq.${tableId}`
         },
         (payload) => {
           console.log('🔄 Rounds change event:', payload.eventType, payload);
@@ -346,7 +348,7 @@ export function useTableStateRealtime(tableCode: string) {
           event: '*', 
           schema: 'public', 
           table: 'blocks',
-          filter: `table_id=eq.${tableIdRef.current}`
+          filter: `table_id=eq.${tableId}`
         },
         (payload) => {
           console.log('🧱 Blocks change event:', payload.eventType, payload);
@@ -443,7 +445,7 @@ export function useTableStateRealtime(tableCode: string) {
         channelRef.current = null;
       }
     };
-  }, [tableCode, loadTableData, trackRealtimeEvent]);
+  }, [tableCode, state.table?.id, trackRealtimeEvent, toast]);
 
   // Timer for countdown
   useEffect(() => {
