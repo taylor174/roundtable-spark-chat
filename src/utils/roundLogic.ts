@@ -59,26 +59,13 @@ export function getWinningSuggestions(
 export async function advanceRound(tableId: string, currentRoundNumber: number): Promise<Round> {
   const nextRoundNumber = currentRoundNumber + 1;
   
-  // Get table settings for timing
-  const { data: table } = await supabase
-    .from('tables')
-    .select('default_suggest_sec')
-    .eq('id', tableId)
-    .single();
-  
-  if (!table) throw new Error('Table not found');
-  
-  // Calculate suggestion phase end time
-  const endsAt = new Date(Date.now() + table.default_suggest_sec * 1000).toISOString();
-  
-  // Create new round with suggestion phase already started
+  // Create new round
   const { data: newRound, error } = await supabase
     .from('rounds')
     .insert({
       table_id: tableId,
       number: nextRoundNumber,
-      status: 'suggest',
-      ends_at: endsAt,
+      status: 'lobby',
     })
     .select()
     .single();
