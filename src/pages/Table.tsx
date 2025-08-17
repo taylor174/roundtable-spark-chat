@@ -51,6 +51,7 @@ const Table = () => {
   
   const [suggestionsWithVotes, setSuggestionsWithVotes] = useState<SuggestionWithVotes[]>([]);
   const [winningSuggestions, setWinningSuggestions] = useState<WinningSuggestion[]>([]);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const { toast } = useToast();
 
   // Redirect non-hosts to join page if they don't have a participant record
@@ -93,14 +94,16 @@ const Table = () => {
     : false;
     
   
-  // Automatic phase management
-  usePhaseManager(table, currentRound, suggestions, votes, timeRemaining, clientId, refresh);
+  // Automatic phase management (disabled during manual transitions)
+  usePhaseManager(table, currentRound, suggestions, votes, timeRemaining, clientId, isTransitioning ? undefined : refresh);
   
   // Event handlers
   const handleWinnerSelected = async (suggestionId: string) => {
-    if (!table || !currentRound) return;
+    if (!table || !currentRound || isTransitioning) return;
     
     try {
+      setIsTransitioning(true);
+      
       const winningSuggestion = suggestionsWithVotes.find(s => s.id === suggestionId);
       if (winningSuggestion) {
         await endRound(currentRound.id, table.id, winningSuggestion.text);
@@ -108,7 +111,11 @@ const Table = () => {
           title: "Success",
           description: "Winner selected!",
         });
-        refresh();
+        
+        // Don't call refresh immediately - let real-time updates handle it
+        setTimeout(() => {
+          setIsTransitioning(false);
+        }, 1500);
       }
     } catch (error) {
       console.error('Error selecting winner:', error);
@@ -117,19 +124,28 @@ const Table = () => {
         description: "Failed to select winner. Please try again.",
         variant: "destructive",
       });
+      setIsTransitioning(false);
     }
   };
   
   const handleNextRound = async () => {
-    if (!table || !currentRound) return;
+    if (!table || !currentRound || isTransitioning) return;
     
     try {
+      setIsTransitioning(true);
+      
       await advanceRound(table.id, currentRound.number);
+      
       toast({
         title: "Success", 
         description: "Next round started!",
       });
-      refresh();
+      
+      // Don't call refresh immediately - let real-time updates handle it
+      setTimeout(() => {
+        setIsTransitioning(false);
+      }, 2000); // Give time for transitions to complete
+      
     } catch (error) {
       console.error('Error starting next round:', error);
       toast({
@@ -137,6 +153,7 @@ const Table = () => {
         description: "Failed to start next round. Please try again.",
         variant: "destructive",
       });
+      setIsTransitioning(false);
     }
   };
 
@@ -210,10 +227,10 @@ const Table = () => {
       <div className="max-w-5xl mx-auto px-4 md:px-6 py-4">
         <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-4 md:gap-6">
           {/* Main Content */}
-          <div className="space-y-6">
+          <div className={`space-y-6 transition-all duration-500 ${isTransitioning ? 'opacity-50 pointer-events-none' : ''}`}>
             {/* Current Phase Content */}
             {currentPhase === 'lobby' && (
-              <Card>
+              <Card className="animate-fade-in">
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
                     <Play className="h-5 w-5" />
@@ -235,7 +252,7 @@ const Table = () => {
             
             {/* Suggestion Phase - Show to participants and hosts */}
             {currentPhase === 'suggest' && (
-              <>
+              <div className="animate-fade-in space-y-6">
                 {currentParticipant && currentRound && (
                   <SuggestionForm
                     roundId={currentRound.id}
@@ -245,12 +262,12 @@ const Table = () => {
                 <SuggestionList 
                   suggestions={suggestionsWithVotes}
                 />
-              </>
+              </div>
             )}
             
             {/* Voting Phase - Show to participants and hosts */}
             {currentPhase === 'vote' && (
-              <>
+              <div className="animate-fade-in">
                 {currentParticipant && currentRound && (
                   <VoteList
                     suggestions={suggestionsWithVotes}
@@ -259,20 +276,23 @@ const Table = () => {
                     userHasVoted={userHasVoted}
                   />
                 )}
-              </>
+              </div>
             )}
             
             {/* Results Phase */}
             {currentPhase === 'result' && winningSuggestions.length > 0 && (
-              <ResultsPanel
-                winningSuggestions={winningSuggestions}
-                isHost={isHost}
-                roundNumber={currentRound?.number}
-                tableId={table?.id}
-                roundId={currentRound?.id}
-                onWinnerSelected={handleWinnerSelected}
-                onNextRound={handleNextRound}
-              />
+              <div className="animate-fade-in">
+                <ResultsPanel
+                  winningSuggestions={winningSuggestions}
+                  isHost={isHost}
+                  roundNumber={currentRound?.number}
+                  tableId={table?.id}
+                  roundId={currentRound?.id}
+                  onWinnerSelected={handleWinnerSelected}
+                  onNextRound={handleNextRound}
+                  isTransitioning={isTransitioning}
+                />
+              </div>
             )}
 
             {/* Show suggestions in voting and results phases */}
