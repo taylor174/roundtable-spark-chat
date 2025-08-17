@@ -381,6 +381,7 @@ export function HostControls({
     }
   };
 
+
   return (
     <Card>
       <CardHeader>
@@ -404,7 +405,7 @@ export function HostControls({
         <Separator />
 
         {/* Timer Settings */}
-        {table.status === 'lobby' && (
+        {(table.status === 'lobby' || table.status === 'waiting') && (
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="suggestion-time">Suggestion Time</Label>
@@ -471,7 +472,7 @@ export function HostControls({
         {/* Actions */}
         <div className="space-y-2">
           
-          {table.status === 'lobby' && (
+          {(table.status === 'lobby' || table.status === 'waiting') && (
             <Button
               onClick={handleStartTable}
               disabled={loading}
