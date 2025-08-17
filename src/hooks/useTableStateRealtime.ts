@@ -143,8 +143,11 @@ export function useTableStateRealtime(tableCode: string) {
         table: 'tables',
         filter: `id=eq.${tableId}`
       }, (payload) => {
-        console.log('📋 Table update:', payload);
+        console.log('📋 Table update received:', payload);
+        console.log('📋 Current user client ID:', state.clientId);
+        console.log('📋 Is host:', getHostSecret(tableCode) === state.table?.host_secret);
         if (payload.new && payload.new.status) {
+          console.log('📋 Updating table state from:', state.table?.status, 'to:', payload.new.status);
           setState(prev => ({ ...prev, table: payload.new as any }));
         } else {
           console.warn('⚠️ Ignoring table update with incomplete data:', payload);
