@@ -77,75 +77,130 @@ export function useTableStateRealtime(tableCode: string) {
     try {
       setState(prev => ({ ...prev, loading: true, error: null }));
 
-      // Load table data
+      // Load table data with protection against malformed queries
+      let selectQuery = '*';
+      if (!selectQuery || selectQuery.includes('s*')) {
+        selectQuery = '*';
+      }
+      console.log('[REFETCH]', { table: 'tables', select: selectQuery });
+      
       const { data: table, error: tableError } = await supabase
         .from('tables')
-        .select('*')
+        .select(selectQuery)
         .eq('code', tableCode)
-        .single();
+        .maybeSingle() as { data: any; error: any };
 
-      if (tableError) throw tableError;
+      if (tableError) {
+        console.error('Refetch error', { table: 'tables', tableCode, error: tableError });
+        throw tableError;
+      }
       if (!table) throw new Error('Table not found');
 
       tableIdRef.current = table.id;
 
-      // Load participants
-      const { data: participants = [], error: participantsError } = await supabase
+      // Load participants with protection
+      selectQuery = '*';
+      if (!selectQuery || selectQuery.includes('s*')) {
+        selectQuery = '*';
+      }
+      console.log('[REFETCH]', { table: 'participants', select: selectQuery });
+      
+      const { data: participantsData, error: participantsError } = await supabase
         .from('participants')
-        .select('*')
+        .select(selectQuery)
         .eq('table_id', table.id)
-        .order('joined_at', { ascending: true });
+        .order('joined_at', { ascending: true }) as { data: any[]; error: any };
 
-      if (participantsError) throw participantsError;
+      if (participantsError) {
+        console.error('Refetch error', { table: 'participants', tableId: table.id, error: participantsError });
+        throw participantsError;
+      }
+      
+      const participants = participantsData || [];
 
-      // Load current round
+      // Load current round with protection
+      selectQuery = '*';
+      if (!selectQuery || selectQuery.includes('s*')) {
+        selectQuery = '*';
+      }
+      console.log('[REFETCH]', { table: 'rounds', select: selectQuery });
+      
       const { data: currentRound, error: roundError } = await supabase
         .from('rounds')
-        .select('*')
+        .select(selectQuery)
         .eq('id', table.current_round_id || '')
-        .single();
+        .maybeSingle() as { data: any; error: any };
 
       // If no current round, that's okay
       if (roundError && roundError.code !== 'PGRST116') {
-        console.error('Round error:', roundError);
+        console.error('Refetch error', { table: 'rounds', roundId: table.current_round_id, error: roundError });
       }
 
       currentRoundIdRef.current = currentRound?.id || null;
 
-      // Load suggestions for current round
-      let suggestions = [];
+      // Load suggestions for current round with protection
+      let suggestions: any[] = [];
       if (currentRound) {
-        const { data: suggestionsData = [], error: suggestionsError } = await supabase
+        selectQuery = '*';
+        if (!selectQuery || selectQuery.includes('s*')) {
+          selectQuery = '*';
+        }
+        console.log('[REFETCH]', { table: 'suggestions', select: selectQuery });
+        
+        const { data: suggestionsData, error: suggestionsError } = await supabase
           .from('suggestions')
-          .select('*')
+          .select(selectQuery)
           .eq('round_id', currentRound.id)
-          .order('created_at', { ascending: true });
+          .order('created_at', { ascending: true }) as { data: any[]; error: any };
 
-        if (suggestionsError) throw suggestionsError;
-        suggestions = suggestionsData;
+        if (suggestionsError) {
+          console.error('Refetch error', { table: 'suggestions', roundId: currentRound.id, error: suggestionsError });
+          throw suggestionsError;
+        }
+        suggestions = suggestionsData || [];
       }
 
-      // Load votes for current round
-      let votes = [];
+      // Load votes for current round with protection
+      let votes: any[] = [];
       if (currentRound) {
-        const { data: votesData = [], error: votesError } = await supabase
+        selectQuery = '*';
+        if (!selectQuery || selectQuery.includes('s*')) {
+          selectQuery = '*';
+        }
+        console.log('[REFETCH]', { table: 'votes', select: selectQuery });
+        
+        const { data: votesData, error: votesError } = await supabase
           .from('votes')
-          .select('*')
+          .select(selectQuery)
           .eq('round_id', currentRound.id)
-          .order('created_at', { ascending: true });
+          .order('created_at', { ascending: true }) as { data: any[]; error: any };
 
-        if (votesError) throw votesError;
-        votes = votesData;
+        if (votesError) {
+          console.error('Refetch error', { table: 'votes', roundId: currentRound.id, error: votesError });
+          throw votesError;
+        }
+        votes = votesData || [];
       }
 
-      // Load blocks
-      const { data: blocks = [], error: blocksError } = await supabase
+      // Load blocks with protection
+      selectQuery = '*';
+      if (!selectQuery || selectQuery.includes('s*')) {
+        selectQuery = '*';
+      }
+      console.log('[REFETCH]', { table: 'blocks', select: selectQuery });
+      
+      const { data: blocksData, error: blocksError } = await supabase
         .from('blocks')
-        .select('*')
+        .select(selectQuery)
         .eq('table_id', table.id)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: true }) as { data: any[]; error: any };
 
-      if (blocksError) throw blocksError;
+      if (blocksError) {
+        console.error('Refetch error', { table: 'blocks', tableId: table.id, error: blocksError });
+        throw blocksError;
+      }
+      
+      const blocks = blocksData || [];
 
       // Determine if user is host and find current participant
       const clientId = getOrCreateClientId();
