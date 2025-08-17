@@ -17,6 +17,7 @@ interface HostControlsProps {
   canStart: boolean;
   currentPhase: string;
   participantCount: number;
+  participants: any[];
   currentParticipant: any;
   onRefresh?: () => void;
 }
@@ -26,6 +27,7 @@ export function HostControls({
   canStart, 
   currentPhase, 
   participantCount,
+  participants,
   currentParticipant,
   onRefresh 
 }: HostControlsProps) {
@@ -54,6 +56,17 @@ export function HostControls({
   ];
 
   const handleStartTable = async () => {
+    // Check if there's at least 1 non-host participant
+    const nonHostParticipants = participants.filter(p => !p.is_host);
+    if (nonHostParticipants.length === 0) {
+      toast({
+        title: "Cannot start",
+        description: "At least one participant must join before starting.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setLoading(true);
 

@@ -123,7 +123,7 @@ export function TableCreationDialog({ children }: TableCreationDialogProps) {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g., Brainstorming Session, Decision Making"
-              maxLength={300}
+              maxLength={500}
             />
           </div>
 

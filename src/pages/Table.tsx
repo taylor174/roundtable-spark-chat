@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { getHostSecret } from '@/utils/clientId';
-import { useTableState } from '@/hooks/useTableState';
+import { useTableState } from '@/hooks/useTableStateOptimized';
 import { usePhaseManager } from '@/hooks/usePhaseManager';
 import { Timer } from '@/components/Timer';
 import { SuggestionForm } from '@/components/SuggestionForm';
@@ -24,6 +24,7 @@ import { useToast } from '@/hooks/use-toast';
 import { MESSAGES } from '@/constants';
 import { Users, Clock, List, Play } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { VotingStatusIndicator } from '@/components/VotingStatusIndicator';
 
 const Table = () => {
   const { code } = useParams<{ code: string }>();
@@ -229,27 +230,43 @@ const Table = () => {
               </Card>
             )}
             
-            {/* Suggestion Phase */}
-            {currentPhase === 'suggest' && currentParticipant && currentRound && (
+            {/* Suggestion Phase - Show to participants and hosts */}
+            {currentPhase === 'suggest' && (
               <>
-                <SuggestionForm
-                  roundId={currentRound.id}
-                  participantId={currentParticipant.id}
-                />
+                {currentParticipant && currentRound && (
+                  <SuggestionForm
+                    roundId={currentRound.id}
+                    participantId={currentParticipant.id}
+                  />
+                )}
                 <SuggestionList 
                   suggestions={suggestionsWithVotes}
                 />
               </>
             )}
             
-            {/* Voting Phase */}
-            {currentPhase === 'vote' && currentParticipant && currentRound && (
-              <VoteList
-                suggestions={suggestionsWithVotes}
-                roundId={currentRound.id}
-                participantId={currentParticipant.id}
-                userHasVoted={userHasVoted}
-              />
+            {/* Voting Phase - Show to participants and hosts */}
+            {currentPhase === 'vote' && (
+              <>
+                {currentParticipant && currentRound && (
+                  <VoteList
+                    suggestions={suggestionsWithVotes}
+                    roundId={currentRound.id}
+                    participantId={currentParticipant.id}
+                    userHasVoted={userHasVoted}
+                  />
+                )}
+                {isHost && !currentParticipant && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Voting in Progress</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-muted-foreground">Participants are voting on suggestions.</p>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
             )}
             
             {/* Results Phase */}
@@ -263,7 +280,7 @@ const Table = () => {
             )}
 
             {/* Show suggestions in voting and results phases */}
-            {(currentPhase === 'vote' || currentPhase === 'result') && (
+            {(currentPhase === 'vote' || currentPhase === 'result') && suggestionsWithVotes.length > 0 && (
               <SuggestionList 
                 suggestions={suggestionsWithVotes}
               />
@@ -281,18 +298,29 @@ const Table = () => {
                   <span>Participants ({participants.length})</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-4 sm:p-6">
-                <div className="space-y-2">
-                  {participants.map((participant) => (
-                    <div key={participant.id} className="flex items-center justify-between">
-                      <span>{participant.display_name}</span>
-                      {participant.is_host && (
-                        <span className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded">
-                          Host
-                        </span>
-                      )}
-                    </div>
-                  ))}
+               <CardContent className="p-4 sm:p-6">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    {participants.map((participant) => (
+                      <div key={participant.id} className="flex items-center justify-between">
+                        <span>{participant.display_name}</span>
+                        {participant.is_host && (
+                          <span className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded">
+                            Host
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Show voting status during voting phase */}
+                  {currentPhase === 'vote' && isHost && currentRound && (
+                    <VotingStatusIndicator 
+                      participants={participants}
+                      votes={votes}
+                      currentRound={currentRound}
+                    />
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -304,6 +332,7 @@ const Table = () => {
                 canStart={true}
                 currentPhase={currentPhase}
                 participantCount={participants.length}
+                participants={participants}
                 currentParticipant={currentParticipant}
                 onRefresh={refresh}
               />
