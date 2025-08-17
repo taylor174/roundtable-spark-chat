@@ -333,12 +333,10 @@ export type Database = {
     }
     Functions: {
       start_table_session: {
-        Args:
-          | { p_suggest_sec?: number; p_table_id: string; p_vote_sec?: number }
-          | { p_table_id: string }
+        Args: { p_table_id: string }
         Returns: {
+          ends_at: string
           round_id: string
-          table_status: string
         }[]
       }
     }
