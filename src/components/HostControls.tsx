@@ -67,29 +67,36 @@ export function HostControls({
 
     try {
       setLoading(true);
+      console.log('Starting table session for:', table.id);
 
       // Use atomic RPC function to start table session
       const { data, error } = await supabase.rpc('start_table_session', {
-        p_table_id: table.id,
-        p_suggest_sec: suggestionTime,
-        p_vote_sec: votingTime,
+        p_table_id: table.id
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('start_table_session RPC error:', error);
+        throw error;
+      }
+
+      console.log('Table session started successfully:', data);
 
       toast({
-        title: "Success",
-        description: "Table started! Suggestion phase is now active.",
+        title: "Table Started!",
+        description: "The session has begun. Participants can now submit suggestions.",
       });
 
-      // The realtime subscriptions will handle the updates automatically
-      // No need to call onRefresh since realtime will update the state
+      // Set up fallback timeout in case realtime doesn't arrive
+      setTimeout(() => {
+        console.log('Fallback: refreshing state after start');
+        onRefresh?.();
+      }, 1500);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error starting table:', error);
       toast({
-        title: "Error", 
-        description: "Failed to start table. Please try again.",
+        title: "Failed to Start Table",
+        description: error.message || "Please try again.",
         variant: "destructive",
       });
     } finally {

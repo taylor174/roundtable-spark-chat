@@ -195,22 +195,33 @@ export function useTableState(tableCode: string) {
       supabase.removeChannel(channelRef.current);
     }
 
+    console.log('Setting up realtime subscriptions for table:', state.table.id);
+
     const channel = supabase
       .channel(`table_${state.table.id}`)
       // Table updates - critical for detecting when table starts
       .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'tables', filter: `id=eq.${state.table.id}` },
+        { event: 'UPDATE', schema: 'public', table: 'tables', filter: `id=eq.${state.table.id}` },
         (payload) => {
           console.log('Table update received:', payload);
-          if (payload.eventType === 'UPDATE') {
-            const newTable = payload.new as Table;
-            updateTable(newTable);
-            
-            // Check if table just started running - trigger immediate phase detection
-            if (newTable.status === 'running' && state.table?.status === 'lobby') {
-              console.log('Table started - triggering immediate state refresh');
-              setTimeout(loadTableData, 100); // Small delay to ensure round is created
-            }
+          const newTable = payload.new as Table;
+          updateTable(newTable);
+          
+          // Check if table just started running - trigger immediate state refresh
+          if (newTable.status === 'running' && state.table?.status !== 'running') {
+            console.log('Table started - triggering immediate state refresh');
+            loadTableData();
+          }
+        }
+      )
+      // Round updates - critical for phase transitions
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'rounds', filter: state.table.current_round_id ? `id=eq.${state.table.current_round_id}` : `table_id=eq.${state.table.id}` },
+        (payload) => {
+          console.log('Round update received:', payload);
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const newRound = payload.new as Round;
+            updateRound(newRound);
           }
         }
       )
