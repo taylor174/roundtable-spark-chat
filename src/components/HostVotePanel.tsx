@@ -34,7 +34,7 @@ export function HostVotePanel({
         .select('*')
         .eq('table_id', tableId)
         .eq('is_host', true)
-        .single();
+        .maybeSingle();
 
       if (participantError || !hostParticipant) {
         // Create host participant if not found

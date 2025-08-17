@@ -31,7 +31,7 @@ const Join = () => {
           .from('tables')
           .select('id, status, title')
           .eq('code', code)
-          .single();
+          .maybeSingle();
 
         if (tableData) {
           setTableId(tableData.id);
@@ -117,7 +117,7 @@ const Join = () => {
         .from('tables')
         .select('id, status')
         .eq('code', code)
-        .single();
+        .maybeSingle();
 
       if (tableError || !table) {
         toast({
@@ -143,7 +143,7 @@ const Join = () => {
         .select('id')
         .eq('table_id', table.id)
         .eq('client_id', clientId)
-        .single();
+        .maybeSingle();
 
       if (existingParticipant) {
         // Already joined, just navigate to table
@@ -157,7 +157,7 @@ const Join = () => {
         .select('id')
         .eq('table_id', table.id)
         .eq('display_name', displayName.trim())
-        .single();
+        .maybeSingle();
 
       if (nameExists) {
         toast({

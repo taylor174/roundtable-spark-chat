@@ -37,7 +37,7 @@ export function SuggestionForm({ roundId, participantId, optimisticUpdate }: Sug
           .select('*')
           .eq('round_id', roundId)
           .eq('participant_id', participantId)
-          .single();
+          .maybeSingle();
 
         if (data && !error) {
           setExistingSuggestion(data);

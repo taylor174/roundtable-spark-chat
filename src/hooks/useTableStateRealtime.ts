@@ -31,7 +31,7 @@ export function useTableStateRealtime(tableCode: string) {
         .from('tables')
         .select('*')
         .eq('code', tableCode)
-        .single();
+        .maybeSingle();
 
       if (tableError || !table) {
         setState(prev => ({ ...prev, error: 'Table not found', loading: false }));
@@ -52,7 +52,7 @@ export function useTableStateRealtime(tableCode: string) {
           .from('rounds')
           .select('*')
           .eq('id', table.current_round_id)
-          .single();
+          .maybeSingle();
         currentRound = roundData;
       }
 
