@@ -52,12 +52,9 @@ export function TableInfo({ tableCode, participantCount, isHost }: TableInfoProp
           Share Table
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md" aria-describedby="share-dialog-description">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Share Table {tableCode}</DialogTitle>
-          <div id="share-dialog-description" className="sr-only">
-            Share this table by showing the QR code or copying the join link to invite participants.
-          </div>
         </DialogHeader>
         <div className="space-y-4">
           
