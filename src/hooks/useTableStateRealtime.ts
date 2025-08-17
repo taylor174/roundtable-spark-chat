@@ -458,8 +458,104 @@ export function useTableStateRealtime(tableCode: string) {
         }
       );
 
-    // Note: Round-specific subscriptions are now handled dynamically in the rounds handler above
-    // No initial subscriptions to avoid duplicates
+    // Set up initial round subscriptions if round exists and not already subscribed
+    if (currentRoundIdRef.current && roundSubscriptionsRef.current !== currentRoundIdRef.current) {
+      console.log('🎯 Setting up initial round subscriptions for round:', currentRoundIdRef.current);
+      
+      const roundId = currentRoundIdRef.current;
+      
+      // Clean up old subscriptions first
+      if (roundSubscriptionsRef.current) {
+        console.log('🧹 Cleaning up old round subscriptions for:', roundSubscriptionsRef.current);
+      }
+      
+      // Add suggestions subscription
+      channel.on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'suggestions',
+          filter: `round_id=eq.${roundId}`
+        },
+        (payload) => {
+          console.log('💡 Initial suggestions change event:', payload.eventType, payload.table, payload);
+          
+          if (payload.table !== 'suggestions') {
+            console.warn('❌ Suggestions handler received event for wrong table:', payload.table);
+            return;
+          }
+          
+          trackRealtimeEvent('suggestion_update');
+          
+          if (payload.eventType === 'INSERT' && payload.new) {
+            setState(prev => {
+              const newSuggestion = payload.new as any;
+              const exists = prev.suggestions.some(s => s.id === newSuggestion.id);
+              if (!exists) {
+                console.log('✅ Adding new suggestion to state:', newSuggestion.text);
+                return { ...prev, suggestions: [...prev.suggestions, newSuggestion] };
+              }
+              console.log('⚠️ Suggestion already exists, skipping:', newSuggestion.id);
+              return prev;
+            });
+          } else if (payload.eventType === 'UPDATE' && payload.new) {
+            setState(prev => {
+              const updatedSuggestion = payload.new as any;
+              const existingIndex = prev.suggestions.findIndex(s => s.id === updatedSuggestion.id);
+              if (existingIndex >= 0) {
+                console.log('✅ Updating existing suggestion:', updatedSuggestion.text);
+                const newSuggestions = [...prev.suggestions];
+                newSuggestions[existingIndex] = updatedSuggestion;
+                return { ...prev, suggestions: newSuggestions };
+              } else {
+                console.log('✅ Adding suggestion via UPDATE (race condition):', updatedSuggestion.text);
+                return { ...prev, suggestions: [...prev.suggestions, updatedSuggestion] };
+              }
+            });
+          }
+        }
+      );
+      
+      // Add votes subscription
+      channel.on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'votes',
+          filter: `round_id=eq.${roundId}`
+        },
+        (payload) => {
+          console.log('🗳️ Initial votes change event:', payload.eventType, payload.table, payload);
+          
+          if (payload.table !== 'votes') {
+            console.warn('❌ Votes handler received event for wrong table:', payload.table);
+            return;
+          }
+          
+          trackRealtimeEvent('vote_update');
+          
+          if (payload.eventType === 'INSERT' && payload.new) {
+            setState(prev => {
+              const newVote = payload.new as any;
+              const exists = prev.votes.some(v => v.id === newVote.id);
+              if (!exists) {
+                console.log('✅ Adding new vote to state:', newVote);
+                return { ...prev, votes: [...prev.votes, newVote] };
+              }
+              console.log('⚠️ Vote already exists, skipping:', newVote.id);
+              return prev;
+            });
+          }
+        }
+      );
+      
+      roundSubscriptionsRef.current = roundId;
+      subscriptionStateRef.current.suggestions = true;
+      subscriptionStateRef.current.votes = true;
+      console.log('✅ Initial round subscriptions setup complete for round:', roundId);
+    }
 
     // Subscribe to channel
     channel.subscribe((status) => {
