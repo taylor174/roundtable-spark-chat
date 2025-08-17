@@ -14,6 +14,8 @@ import { Loader2 } from 'lucide-react';
 
 const Join = () => {
   const { code } = useParams<{ code: string }>();
+  console.log('🔍 JOIN: Component rendered with code:', code);
+  
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
   const [tableId, setTableId] = useState<string | null>(null);
@@ -23,17 +25,35 @@ const Join = () => {
 
   // Load table data on mount to set up realtime subscriptions
   useEffect(() => {
+    console.log('🔍 JOIN: useEffect triggered with code:', code);
+    
     const loadTableData = async () => {
-      if (!code || !isValidTableCode(code)) return;
+      if (!code) {
+        console.log('🔍 JOIN: No code provided');
+        return;
+      }
+      
+      if (!isValidTableCode(code)) {
+        console.log('🔍 JOIN: Invalid code format:', code);
+        return;
+      }
 
+      console.log('🔍 JOIN: Loading table data for code:', code);
+      
       try {
-        const { data: table } = await supabase
+        const { data: table, error } = await supabase
           .from('tables')
           .select('id, status, title')
           .eq('code', code)
           .single();
 
+        if (error) {
+          console.log('🔍 JOIN: Error loading table:', error);
+          return;
+        }
+
         if (table) {
+          console.log('🔍 JOIN: Table found:', table);
           setTableId(table.id);
           setTableTitle(table.title);
           
@@ -47,7 +67,7 @@ const Join = () => {
         }
       } catch (error) {
         // Silently fail - table validation will happen on join
-        console.log('Table lookup failed on join page:', error);
+        console.log('🔍 JOIN: Table lookup failed on join page:', error);
       }
     };
 
