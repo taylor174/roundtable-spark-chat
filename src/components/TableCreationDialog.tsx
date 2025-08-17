@@ -21,21 +21,21 @@ export function TableCreationDialog({ children }: TableCreationDialogProps) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [suggestTime, setSuggestTime] = useState(600); // 10 minutes default
+  const [suggestTime, setSuggestTime] = useState(30); // 30 seconds default
   const [voteTime, setVoteTime] = useState(60); // 60 seconds default
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const suggestionPresets = [
+    { label: '30 seconds', value: 30 },
+    { label: '60 seconds', value: 60 },
+    { label: '90 seconds', value: 90 },
+    { label: '2 minutes', value: 120 },
+    { label: '3 minutes', value: 180 },
     { label: '5 minutes', value: 300 },
     { label: '10 minutes', value: 600 },
     { label: '15 minutes', value: 900 },
-    { label: '20 minutes', value: 1200 },
-    { label: '30 minutes', value: 1800 },
-    { label: '40 minutes', value: 2400 },
-    { label: '50 minutes', value: 3000 },
-    { label: '60 minutes', value: 3600 },
   ];
 
   const votingPresets = [
