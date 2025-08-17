@@ -118,22 +118,28 @@ export function useTableStateRealtime(tableCode: string) {
       
       const participants = participantsData || [];
 
-      // Load current round with protection
-      selectQuery = '*';
-      if (!selectQuery || selectQuery.includes('s*')) {
+      // Load current round with protection - guard against null round_id
+      let currentRound = null;
+      if (table.current_round_id) {
         selectQuery = '*';
-      }
-      console.log('[REFETCH]', { table: 'rounds', select: selectQuery });
-      
-      const { data: currentRound, error: roundError } = await supabase
-        .from('rounds')
-        .select(selectQuery)
-        .eq('id', table.current_round_id || '')
-        .maybeSingle() as { data: any; error: any };
+        if (!selectQuery || selectQuery.includes('s*')) {
+          selectQuery = '*';
+        }
+        console.log('[REFETCH]', { table: 'rounds', select: selectQuery, roundId: table.current_round_id });
+        
+        const { data: roundData, error: roundError } = await supabase
+          .from('rounds')
+          .select(selectQuery)
+          .eq('id', table.current_round_id)
+          .maybeSingle() as { data: any; error: any };
 
-      // If no current round, that's okay
-      if (roundError && roundError.code !== 'PGRST116') {
-        console.error('Refetch error', { table: 'rounds', roundId: table.current_round_id, error: roundError });
+        if (roundError) {
+          console.error('Refetch error', { table: 'rounds', roundId: table.current_round_id, error: roundError });
+          throw roundError;
+        }
+        currentRound = roundData;
+      } else {
+        console.log('[REFETCH] Skipping rounds query - table.current_round_id is null (lobby state)');
       }
 
       currentRoundIdRef.current = currentRound?.id || null;
