@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card';
 import { Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { generateTableCode, generateHostSecret } from '@/utils';
+import { storeHostSecret } from '@/utils/clientId';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 
@@ -58,7 +59,7 @@ export function TableCreationDialog({ children }: TableCreationDialogProps) {
       if (error) throw error;
 
       // Store host secret
-      localStorage.setItem(`host_secret_${tableCode}`, hostSecret);
+      storeHostSecret(tableCode, hostSecret);
 
       toast({
         title: "Table created successfully!",
@@ -91,17 +92,17 @@ export function TableCreationDialog({ children }: TableCreationDialogProps) {
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Create New Discussion Table</DialogTitle>
+          <DialogTitle>Create New Session</DialogTitle>
         </DialogHeader>
         
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="title">Table Title *</Label>
+            <Label htmlFor="title">Session Title *</Label>
             <Input
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g., Product Roadmap Planning"
+              placeholder="e.g., Brainstorming Session, Decision Making"
               maxLength={100}
             />
           </div>
@@ -112,7 +113,7 @@ export function TableCreationDialog({ children }: TableCreationDialogProps) {
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Brief description of what you'll be discussing..."
+              placeholder="Optional: What topic will you be exploring?"
               rows={3}
               maxLength={500}
             />
@@ -159,7 +160,7 @@ export function TableCreationDialog({ children }: TableCreationDialogProps) {
               disabled={loading || !title.trim()}
               className="flex-1"
             >
-              {loading ? 'Creating...' : 'Create Table'}
+              {loading ? 'Creating...' : 'Create Session'}
             </Button>
           </div>
         </div>

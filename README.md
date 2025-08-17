@@ -1,73 +1,89 @@
-# Welcome to your Lovable project
+# Classroom Sessions
 
-## Project info
+Interactive group discussion and decision-making tool for classrooms.
 
-**URL**: https://lovable.dev/projects/59e68596-46c3-44a0-b862-4e0efd96300b
+## Quick Start
 
-## How can I edit this code?
+### Environment Setup
 
-There are several ways of editing your application.
+This app uses Supabase for the backend. The connection is already configured with these credentials:
 
-**Use Lovable**
+- **Supabase URL**: `https://ykhukknbkfwlmstmkcdk.supabase.co`
+- **Anon Key**: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlraHVra25ia2Z3bG1zdG1rY2RrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxNzMxNDQsImV4cCI6MjA3MDc0OTE0NH0.JXKccfpha5Zfji8a9bykPbtkLSur2QEOqsk4pD36Yz0`
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/59e68596-46c3-44a0-b862-4e0efd96300b) and start prompting.
+No additional environment variables are required.
 
-Changes made via Lovable will be committed automatically to this repo.
+### Installation
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## Instructor Run-sheet
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Step 1: Create Session
+1. Open the app homepage
+2. Click "Create New Session" 
+3. Enter session title (e.g., "Brainstorming Ideas")
+4. Set timing: 
+   - Suggestion phase: 120 seconds (default)
+   - Voting phase: 60 seconds (default)
+5. Click "Create Session"
+6. **Copy the session code** (e.g., ABC123) to share with students
 
-**Use GitHub Codespaces**
+### Step 2: Share with Students
+1. Give students the session code
+2. Students visit the app and enter the code
+3. Students enter their name and join
+4. Wait for all students to join (you'll see the participant count)
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Step 3: Start Suggestions
+1. Click "Start Session" in the host controls
+2. Timer starts automatically
+3. Students can submit their ideas
+4. Add time (+15s) if needed using host controls
+5. Skip to voting early if everyone has submitted
 
-## What technologies are used for this project?
+### Step 4: Start Voting
+1. Voting phase starts automatically when suggestion time ends
+2. Students vote on their favorite ideas
+3. Add time (+15s) if needed
+4. Skip to results early if everyone has voted
 
-This project is built with:
+### Step 5: Handle Results
+- **Single Winner**: Automatically moves to timeline and prepares next round
+- **Tie**: You'll see a tie-breaker dialog to pick the winner
+  1. Review tied suggestions
+  2. Select the winner
+  3. Winner gets added to timeline
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Step 6: Continue or End
+- **Next Round**: Click "Start Next Round" to continue with a new topic
+- **End Session**: Use host controls to close the session
+- **View Timeline**: See all winning ideas from each round
 
-## How can I deploy this project?
+## Security Note
 
-Simply open [Lovable](https://lovable.dev/projects/59e68596-46c3-44a0-b862-4e0efd96300b) and click on Share -> Publish.
+This demo version uses relaxed database policies for smooth classroom participation. In a production environment, you should:
 
-## Can I connect a custom domain to my Lovable project?
+- Implement proper user authentication for instructors
+- Add stricter access controls for sensitive operations  
+- Enable email verification for accounts
+- Review and tighten Row Level Security policies
 
-Yes, you can!
+## Features
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+- **Guest Participation**: Students join with just a name, no signup required
+- **Real-time Updates**: All participants see live updates
+- **Automatic Progression**: Phases advance automatically with timers
+- **Tie-breaking**: Host can resolve voting ties
+- **Timeline**: Track winning ideas across multiple rounds
+- **Mobile Friendly**: Works on phones and tablets
+- **Host Controls**: Add time, skip phases, end sessions
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+## Technical Stack
+
+- **Frontend**: React, TypeScript, Tailwind CSS
+- **Backend**: Supabase (PostgreSQL, real-time subscriptions)
+- **Hosting**: Vercel

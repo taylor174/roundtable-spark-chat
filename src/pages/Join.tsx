@@ -133,9 +133,9 @@ const Join = () => {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Join Table</CardTitle>
+          <CardTitle className="text-2xl">Join Session</CardTitle>
           <CardDescription>
-            Table Code: <span className="font-mono font-bold">{code}</span>
+            Session Code: <span className="font-mono font-bold text-lg">{code}</span>
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -165,7 +165,7 @@ const Join = () => {
                 Joining...
               </>
             ) : (
-              'Join Table'
+              'Join Session'
             )}
           </Button>
           

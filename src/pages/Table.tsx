@@ -1,4 +1,5 @@
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
+import { getHostSecret } from '@/utils/clientId';
 import { useTableState } from '@/hooks/useTableState';
 import { usePhaseManager } from '@/hooks/usePhaseManager';
 import { Timer } from '@/components/Timer';
@@ -26,6 +27,7 @@ import { useEffect, useState } from 'react';
 
 const Table = () => {
   const { code } = useParams<{ code: string }>();
+  const navigate = useNavigate();
   
   const {
     table,
@@ -47,6 +49,20 @@ const Table = () => {
   const [suggestionsWithVotes, setSuggestionsWithVotes] = useState<any[]>([]);
   const [winningSuggestions, setWinningSuggestions] = useState<any[]>([]);
   const { toast } = useToast();
+
+  // Redirect non-hosts to join page if they don't have a participant record
+  useEffect(() => {
+    if (!code || loading) return;
+    
+    const checkParticipant = async () => {
+      if (!currentParticipant && !getHostSecret(code)) {
+        // Not a participant and not a host, redirect to join
+        navigate(`/t/${code}/join`);
+      }
+    };
+
+    checkParticipant();
+  }, [code, currentParticipant, loading, navigate]);
   
   // Load suggestions with votes
   useEffect(() => {
@@ -159,9 +175,11 @@ const Table = () => {
         <div className="max-w-6xl mx-auto p-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold">Table {table.code}</h1>
-              <p className="text-muted-foreground">
-                Phase: {currentPhase} • {participants.length} participants
+              <h1 className="text-3xl font-bold">{table.title || `Session ${table.code}`}</h1>
+              <p className="text-lg text-muted-foreground">
+                {currentPhase === 'lobby' ? 'Waiting to start' : 
+                 currentPhase === 'suggest' ? 'Suggestion Phase' :
+                 currentPhase === 'vote' ? 'Voting Phase' : 'Results'} • {participants.length} participants
               </p>
             </div>
             
@@ -172,11 +190,13 @@ const Table = () => {
                 isHost={isHost}
               />
               {currentPhase !== 'lobby' && (
-                <Timer 
-                  timeRemaining={timeRemaining}
-                  phase={currentPhase}
-                  isActive={table.status === 'running'}
-                />
+                <div className="text-right">
+                  <Timer 
+                    timeRemaining={timeRemaining}
+                    phase={currentPhase}
+                    isActive={table.status === 'running'}
+                  />
+                </div>
               )}
             </div>
           </div>

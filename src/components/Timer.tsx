@@ -19,18 +19,21 @@ export function Timer({ timeRemaining, phase, isActive = true }: TimerProps) {
   const isVeryLowTime = displayTime <= 10;
 
   return (
-    <div className={`flex items-center space-x-2 text-lg font-mono ${
-      isVeryLowTime ? 'text-destructive animate-pulse' : 
-      isLowTime ? 'text-orange-500' : 
-      'text-foreground'
-    }`}>
-      <Clock className="h-5 w-5" />
-      <span className="text-2xl font-bold">
-        {isActive ? formatTime(displayTime) : '--:--'}
-      </span>
-      <span className="text-sm text-muted-foreground ml-2">
-        {phase}
-      </span>
+    <div className="flex items-center space-x-3">
+      <Clock className="h-6 w-6 text-primary" />
+      <div className="text-right">
+        <div className={`text-3xl font-bold font-mono tracking-wide ${
+          isVeryLowTime ? 'text-destructive animate-pulse' : 
+          isLowTime ? 'text-orange-500' : 
+          'text-foreground'
+        }`}>
+          {isActive ? formatTime(displayTime) : '--:--'}
+        </div>
+        <div className="text-sm text-muted-foreground">
+          {phase === 'suggest' ? 'Suggesting' : 'Voting'} Time
+          {!isActive && ' (paused)'}
+        </div>
+      </div>
     </div>
   );
 }
