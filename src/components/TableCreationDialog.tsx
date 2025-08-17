@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { generateTableCode, generateHostSecret } from '@/utils';
 import { storeHostSecret } from '@/utils/clientId';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
+import { Input } from '@/components/ui/input';
 
 interface TableCreationDialogProps {
   children?: React.ReactNode;
@@ -20,11 +21,30 @@ export function TableCreationDialog({ children }: TableCreationDialogProps) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [suggestTime, setSuggestTime] = useState(120);
-  const [voteTime, setVoteTime] = useState(60);
+  const [suggestTime, setSuggestTime] = useState(600); // 10 minutes default
+  const [voteTime, setVoteTime] = useState(60); // 60 seconds default
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const suggestionPresets = [
+    { label: '5 minutes', value: 300 },
+    { label: '10 minutes', value: 600 },
+    { label: '15 minutes', value: 900 },
+    { label: '20 minutes', value: 1200 },
+    { label: '30 minutes', value: 1800 },
+    { label: '40 minutes', value: 2400 },
+    { label: '50 minutes', value: 3000 },
+    { label: '60 minutes', value: 3600 },
+  ];
+
+  const votingPresets = [
+    { label: '30 seconds', value: 30 },
+    { label: '60 seconds', value: 60 },
+    { label: '90 seconds', value: 90 },
+    { label: '2 minutes', value: 120 },
+    { label: '3 minutes', value: 180 },
+  ];
 
   const handleCreate = async () => {
     if (!title.trim()) {
@@ -103,7 +123,7 @@ export function TableCreationDialog({ children }: TableCreationDialogProps) {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g., Brainstorming Session, Decision Making"
-              maxLength={100}
+              maxLength={300}
             />
           </div>
 
@@ -121,28 +141,36 @@ export function TableCreationDialog({ children }: TableCreationDialogProps) {
 
           <Card className="p-4">
             <h4 className="font-medium mb-3">Phase Timing</h4>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="suggestTime">Suggestion Phase (seconds)</Label>
-                <Input
-                  id="suggestTime"
-                  type="number"
-                  value={suggestTime}
-                  onChange={(e) => setSuggestTime(Number(e.target.value))}
-                  min={30}
-                  max={600}
-                />
+                <Label htmlFor="suggestTime">Suggestion Phase</Label>
+                <Select value={suggestTime.toString()} onValueChange={(value) => setSuggestTime(parseInt(value))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {suggestionPresets.map((preset) => (
+                      <SelectItem key={preset.value} value={preset.value.toString()}>
+                        {preset.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="voteTime">Voting Phase (seconds)</Label>
-                <Input
-                  id="voteTime"
-                  type="number"
-                  value={voteTime}
-                  onChange={(e) => setVoteTime(Number(e.target.value))}
-                  min={15}
-                  max={300}
-                />
+                <Label htmlFor="voteTime">Voting Phase</Label>
+                <Select value={voteTime.toString()} onValueChange={(value) => setVoteTime(parseInt(value))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {votingPresets.map((preset) => (
+                      <SelectItem key={preset.value} value={preset.value.toString()}>
+                        {preset.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </Card>

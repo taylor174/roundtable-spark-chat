@@ -22,7 +22,7 @@ export function Timer({ timeRemaining, phase, isActive = true }: TimerProps) {
     <div className="flex items-center space-x-3">
       <Clock className="h-6 w-6 text-primary" />
       <div className="text-right">
-        <div className={`text-3xl font-bold font-mono tracking-wide ${
+        <div className={`text-4xl sm:text-5xl font-bold font-mono tracking-wide ${
           isVeryLowTime ? 'text-destructive animate-pulse' : 
           isLowTime ? 'text-orange-500' : 
           'text-foreground'

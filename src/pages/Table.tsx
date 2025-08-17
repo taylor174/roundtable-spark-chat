@@ -138,11 +138,11 @@ const Table = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background p-4">
-        <div className="max-w-6xl mx-auto space-y-6">
+      <div className="min-h-screen bg-background p-4 md:p-6">
+        <div className="max-w-5xl mx-auto space-y-6">
           <Skeleton className="h-20 w-full" />
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <div className="lg:col-span-3 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-4 md:gap-6">
+            <div className="space-y-4">
               <Skeleton className="h-40 w-full" />
               <Skeleton className="h-60 w-full" />
             </div>
@@ -158,7 +158,7 @@ const Table = () => {
 
   if (error || !table) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="min-h-screen flex items-center justify-center bg-background p-4 md:p-6">
         <Alert className="max-w-md">
           <AlertDescription>
             {error || 'Table not found'}
@@ -172,10 +172,10 @@ const Table = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b bg-card">
-        <div className="max-w-6xl mx-auto p-4">
-          <div className="flex items-center justify-between">
+        <div className="max-w-5xl mx-auto px-4 md:px-6 py-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold">{table.title || `Session ${table.code}`}</h1>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-semibold leading-tight break-words">{table.title || `Session ${table.code}`}</h1>
               <p className="text-lg text-muted-foreground">
                 {currentPhase === 'lobby' ? 'Waiting to start' : 
                  currentPhase === 'suggest' ? 'Suggestion Phase' :
@@ -183,7 +183,7 @@ const Table = () => {
               </p>
             </div>
             
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
               <TableInfo
                 tableCode={table.code}
                 participantCount={participants.length}
@@ -203,10 +203,10 @@ const Table = () => {
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto p-4">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="max-w-5xl mx-auto px-4 md:px-6 py-4">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-4 md:gap-6">
           {/* Main Content */}
-          <div className="lg:col-span-3 space-y-6">
+          <div className="space-y-6">
             {/* Current Phase Content */}
             {currentPhase === 'lobby' && (
               <Card>
@@ -216,9 +216,9 @@ const Table = () => {
                     <span>Waiting to Start</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-center py-8">
-                    <p className="text-lg mb-4">{MESSAGES.WAITING_FOR_HOST}</p>
+              <CardContent className="p-4 sm:p-6">
+                <div className="text-center py-8">
+                  <p className="text-lg mb-4">{MESSAGES.WAITING_FOR_HOST}</p>
                     {isHost && (
                       <p className="text-muted-foreground">
                         Use the host controls on the right to configure and start the table.
@@ -281,7 +281,7 @@ const Table = () => {
                   <span>Participants ({participants.length})</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 sm:p-6">
                 <div className="space-y-2">
                   {participants.map((participant) => (
                     <div key={participant.id} className="flex items-center justify-between">
@@ -301,9 +301,10 @@ const Table = () => {
             {isHost && (
               <HostControls
                 table={table}
-                canStart={participants.length >= 2}
+                canStart={true}
                 currentPhase={currentPhase}
                 participantCount={participants.length}
+                currentParticipant={currentParticipant}
                 onRefresh={refresh}
               />
             )}

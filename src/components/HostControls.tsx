@@ -1,21 +1,23 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { Table } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { APP_CONFIG } from '@/constants';
 import { startSuggestPhase } from '@/utils/roundLogic';
+import { getOrCreateClientId } from '@/utils/clientId';
 
 interface HostControlsProps {
   table: Table;
   canStart: boolean;
   currentPhase: string;
   participantCount: number;
+  currentParticipant: any;
   onRefresh?: () => void;
 }
 
@@ -24,12 +26,32 @@ export function HostControls({
   canStart, 
   currentPhase, 
   participantCount,
+  currentParticipant,
   onRefresh 
 }: HostControlsProps) {
   const [loading, setLoading] = useState(false);
   const [suggestionTime, setSuggestionTime] = useState(table.default_suggest_sec);
   const [votingTime, setVotingTime] = useState(table.default_vote_sec);
   const { toast } = useToast();
+
+  const suggestionPresets = [
+    { label: '5 minutes', value: 300 },
+    { label: '10 minutes', value: 600 },
+    { label: '15 minutes', value: 900 },
+    { label: '20 minutes', value: 1200 },
+    { label: '30 minutes', value: 1800 },
+    { label: '40 minutes', value: 2400 },
+    { label: '50 minutes', value: 3000 },
+    { label: '60 minutes', value: 3600 },
+  ];
+
+  const votingPresets = [
+    { label: '30 seconds', value: 30 },
+    { label: '60 seconds', value: 60 },
+    { label: '90 seconds', value: 90 },
+    { label: '2 minutes', value: 120 },
+    { label: '3 minutes', value: 180 },
+  ];
 
   const handleStartTable = async () => {
     try {
@@ -216,6 +238,41 @@ export function HostControls({
     }
   };
 
+  const handleJoinAsParticipant = async () => {
+    try {
+      setLoading(true);
+      const clientId = getOrCreateClientId();
+
+      const { error } = await supabase
+        .from('participants')
+        .insert({
+          table_id: table.id,
+          client_id: clientId,
+          display_name: 'Host',
+          is_host: true,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "You can now participate in voting and suggestions.",
+      });
+
+      onRefresh?.();
+
+    } catch (error) {
+      console.error('Error joining as participant:', error);
+      toast({
+        title: "Error",
+        description: "Failed to join as participant. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -242,26 +299,34 @@ export function HostControls({
         {table.status === 'lobby' && (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="suggestion-time">Suggestion Time (seconds)</Label>
-              <Input
-                id="suggestion-time"
-                type="number"
-                min="30"
-                max="600"
-                value={suggestionTime}
-                onChange={(e) => setSuggestionTime(parseInt(e.target.value) || APP_CONFIG.DEFAULT_SUGGEST_SEC)}
-              />
+              <Label htmlFor="suggestion-time">Suggestion Time</Label>
+              <Select value={suggestionTime.toString()} onValueChange={(value) => setSuggestionTime(parseInt(value))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {suggestionPresets.map((preset) => (
+                    <SelectItem key={preset.value} value={preset.value.toString()}>
+                      {preset.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="voting-time">Voting Time (seconds)</Label>
-              <Input
-                id="voting-time" 
-                type="number"
-                min="30"
-                max="300"
-                value={votingTime}
-                onChange={(e) => setVotingTime(parseInt(e.target.value) || APP_CONFIG.DEFAULT_VOTE_SEC)}
-              />
+              <Label htmlFor="voting-time">Voting Time</Label>
+              <Select value={votingTime.toString()} onValueChange={(value) => setVotingTime(parseInt(value))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {votingPresets.map((preset) => (
+                    <SelectItem key={preset.value} value={preset.value.toString()}>
+                      {preset.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <Button
               onClick={handleUpdateSettings}
@@ -276,14 +341,29 @@ export function HostControls({
           </div>
         )}
 
+        {/* Host Participation */}
+        {!currentParticipant && table.status === 'running' && (
+          <div className="space-y-2">
+            <Button
+              onClick={handleJoinAsParticipant}
+              disabled={loading}
+              variant="outline"
+              className="w-full md:w-auto"
+            >
+              Join as Participant
+            </Button>
+            <Separator />
+          </div>
+        )}
+
         {/* Actions */}
         <div className="space-y-2">
           
           {table.status === 'lobby' && (
             <Button
               onClick={handleStartTable}
-              disabled={loading || !canStart}
-              className="w-full"
+              disabled={loading}
+              className="w-full md:w-auto"
               size="lg"
             >
               {loading ? 'Starting...' : 'Start Table'}
@@ -296,7 +376,7 @@ export function HostControls({
                 onClick={handleAddTime}
                 disabled={loading}
                 variant="outline"
-                className="w-full"
+                className="w-full md:w-auto"
               >
                 Add +15s
               </Button>
@@ -305,7 +385,7 @@ export function HostControls({
                 onClick={handleSkipPhase}
                 disabled={loading}
                 variant="outline"
-                className="w-full"
+                className="w-full md:w-auto"
               >
                 Skip to Next Phase
               </Button>
@@ -314,7 +394,7 @@ export function HostControls({
                 onClick={handleEndTable}
                 disabled={loading}
                 variant="destructive"
-                className="w-full"
+                className="w-full md:w-auto"
               >
                 End Table
               </Button>

@@ -17,7 +17,7 @@ export function TableInfo({ tableCode, participantCount, isHost }: TableInfoProp
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [copied, setCopied] = useState(false);
   
-  const joinUrl = `${window.location.origin}/join/${tableCode}`;
+  const joinUrl = `${window.location.origin}/t/${tableCode}/join`;
 
   useEffect(() => {
     QRCode.toDataURL(joinUrl, {

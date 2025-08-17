@@ -154,11 +154,11 @@ export function useTableState(tableCode: string) {
         () => loadTableData()
       )
       .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'suggestions' },
+        { event: '*', schema: 'public', table: 'suggestions', filter: `round_id=eq.${state.currentRound?.id || ''}` },
         () => loadTableData()
       )
       .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'votes' },
+        { event: '*', schema: 'public', table: 'votes', filter: `round_id=eq.${state.currentRound?.id || ''}` },
         () => loadTableData()
       )
       .on('postgres_changes',
