@@ -54,21 +54,10 @@ export function useTableStateRealtime(tableCode: string) {
     });
   }, []);
 
-  // Track realtime events and set operation-specific fallback timer
-  const trackRealtimeEvent = useCallback((eventType: string, operationType?: string) => {
-    console.log(`✅ Realtime event received: ${eventType} (${operationType || 'general'})`);
+  // Track realtime events (simplified)
+  const trackRealtimeEvent = useCallback((eventType: string) => {
+    console.log(`✅ Realtime event received: ${eventType}`);
     lastRealtimeEventRef.current = Date.now();
-    
-    // Clear existing fallback timer
-    if (fallbackTimerRef.current) {
-      clearTimeout(fallbackTimerRef.current);
-    }
-    
-    // Set operation-specific fallback timeout
-    fallbackTimerRef.current = setTimeout(() => {
-      console.log(`⏰ Fallback triggered for ${operationType || 'general'}: No realtime events received`);
-      loadTableData();
-    }, 1500);
   }, []);
 
   const loadTableData = useCallback(async () => {
@@ -272,24 +261,12 @@ export function useTableStateRealtime(tableCode: string) {
         },
         (payload) => {
           console.log('📋 Tables change event:', payload.eventType, payload);
-          trackRealtimeEvent('table_update', 'table_change');
+          trackRealtimeEvent('table_update');
           
-          // Broadcast phase transition for immediate UI updates
-          if (payload.new && payload.old && 
-              (payload.new as any).status && (payload.old as any).status && 
-              (payload.new as any).status !== (payload.old as any).status) {
-            channel.send({
-              type: 'broadcast',
-              event: 'phase_transition',
-              payload: { 
-                tableId: tableIdRef.current, 
-                phase: (payload.new as any).status, 
-                roundId: (payload.new as any).current_round_id 
-              }
-            });
+          // Direct state update for table changes
+          if (payload.new) {
+            setState(prev => ({ ...prev, table: payload.new as any }));
           }
-          
-          loadTableData();
         }
       )
       .on(
@@ -302,8 +279,38 @@ export function useTableStateRealtime(tableCode: string) {
         },
         (payload) => {
           console.log('👥 Participants change event:', payload.eventType, payload);
-          trackRealtimeEvent('participant_update', 'participant_change');
-          loadTableData();
+          trackRealtimeEvent('participant_update');
+          
+          // Direct state update for participants
+          if (payload.eventType === 'INSERT' && payload.new) {
+            setState(prev => {
+              const newParticipant = payload.new as any;
+              const exists = prev.participants.some(p => p.id === newParticipant.id);
+              if (!exists) {
+                toast({
+                  title: "New participant joined",
+                  description: `${newParticipant.display_name} has joined the table`,
+                });
+                return {
+                  ...prev,
+                  participants: [...prev.participants, newParticipant],
+                  currentParticipant: newParticipant.client_id === prev.clientId ? newParticipant : prev.currentParticipant
+                };
+              }
+              return prev;
+            });
+          } else if (payload.eventType === 'DELETE' && payload.old) {
+            setState(prev => ({
+              ...prev,
+              participants: prev.participants.filter(p => p.id !== (payload.old as any).id)
+            }));
+          } else if (payload.eventType === 'UPDATE' && payload.new) {
+            setState(prev => ({
+              ...prev,
+              participants: prev.participants.map(p => p.id === (payload.new as any).id ? payload.new as any : p),
+              currentParticipant: (payload.new as any).client_id === prev.clientId ? payload.new as any : prev.currentParticipant
+            }));
+          }
         }
       )
       .on(
@@ -316,26 +323,21 @@ export function useTableStateRealtime(tableCode: string) {
         },
         (payload) => {
           console.log('🔄 Rounds change event:', payload.eventType, payload);
-          trackRealtimeEvent('round_update', 'round_change');
+          trackRealtimeEvent('round_update');
           
-          // Clean re-subscription for round-specific data
-          const newRoundId = payload.new && (payload.new as any).id ? (payload.new as any).id : null;
-          if (newRoundId && newRoundId !== currentRoundIdRef.current) {
-            console.log('🔄 Round changed from', currentRoundIdRef.current, 'to', newRoundId);
-            currentRoundIdRef.current = newRoundId;
+          // Direct state update for rounds
+          if (payload.new) {
+            const newRound = payload.new as any;
+            setState(prev => ({ ...prev, currentRound: newRound }));
             
-            // Clean up existing round subscriptions and add new ones
-            setupRoundSubscriptions(channel, newRoundId);
-            
-            // Broadcast round change
-            channel.send({
-              type: 'broadcast',
-              event: 'round_change',
-              payload: { tableId: tableIdRef.current, roundId: newRoundId }
-            });
+            // Update round ref and set up subscriptions for new round
+            const newRoundId = newRound.id;
+            if (newRoundId && newRoundId !== currentRoundIdRef.current) {
+              console.log('🔄 Round changed from', currentRoundIdRef.current, 'to', newRoundId);
+              currentRoundIdRef.current = newRoundId;
+              setupRoundSubscriptions(channel, newRoundId);
+            }
           }
-          
-          loadTableData();
         }
       )
       .on(
@@ -348,18 +350,18 @@ export function useTableStateRealtime(tableCode: string) {
         },
         (payload) => {
           console.log('🧱 Blocks change event:', payload.eventType, payload);
-          trackRealtimeEvent('block_update', 'block_change');
-          loadTableData();
+          trackRealtimeEvent('block_update');
+          
+          // Direct state update for blocks
+          if (payload.eventType === 'INSERT' && payload.new) {
+            setState(prev => {
+              const newBlock = payload.new as any;
+              const exists = prev.blocks.some(b => b.id === newBlock.id);
+              return exists ? prev : { ...prev, blocks: [...prev.blocks, newBlock] };
+            });
+          }
         }
       )
-      .on('broadcast', { event: 'phase_transition' }, (payload) => {
-        console.log('📢 Received phase transition broadcast:', payload);
-        trackRealtimeEvent('phase_transition_broadcast', 'phase_transition');
-      })
-      .on('broadcast', { event: 'round_change' }, (payload) => {
-        console.log('📢 Received round change broadcast:', payload);
-        trackRealtimeEvent('round_change_broadcast', 'round_change');
-      });
 
     // Function to set up round-specific subscriptions
     const setupRoundSubscriptions = (channel: any, roundId: string) => {
@@ -378,8 +380,16 @@ export function useTableStateRealtime(tableCode: string) {
         },
         (payload) => {
           console.log('💡 Suggestions change event:', payload.eventType, payload);
-          trackRealtimeEvent('suggestion_update', 'suggestion_change');
-          loadTableData();
+          trackRealtimeEvent('suggestion_update');
+          
+          // Direct state update for suggestions
+          if (payload.eventType === 'INSERT' && payload.new) {
+            setState(prev => {
+              const newSuggestion = payload.new as any;
+              const exists = prev.suggestions.some(s => s.id === newSuggestion.id);
+              return exists ? prev : { ...prev, suggestions: [...prev.suggestions, newSuggestion] };
+            });
+          }
         }
       );
       
@@ -394,8 +404,16 @@ export function useTableStateRealtime(tableCode: string) {
         },
         (payload) => {
           console.log('🗳️ Votes change event:', payload.eventType, payload);
-          trackRealtimeEvent('vote_update', 'vote_change');
-          loadTableData();
+          trackRealtimeEvent('vote_update');
+          
+          // Direct state update for votes
+          if (payload.eventType === 'INSERT' && payload.new) {
+            setState(prev => {
+              const newVote = payload.new as any;
+              const exists = prev.votes.some(v => v.id === newVote.id);
+              return exists ? prev : { ...prev, votes: [...prev.votes, newVote] };
+            });
+          }
         }
       );
       
@@ -413,12 +431,7 @@ export function useTableStateRealtime(tableCode: string) {
       console.log('📡 Realtime subscription status:', status);
       if (status === 'SUBSCRIBED') {
         console.log('✅ Successfully subscribed to table changes');
-        subscriptionStateRef.current.tables = true;
-        subscriptionStateRef.current.participants = true;
-        subscriptionStateRef.current.rounds = true;
-        subscriptionStateRef.current.blocks = true;
-        trackRealtimeEvent('subscription_ready', 'initial_subscribe');
-        logSubscriptionState();
+        trackRealtimeEvent('subscription_ready');
       }
     });
 
@@ -428,10 +441,6 @@ export function useTableStateRealtime(tableCode: string) {
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
-      }
-      if (fallbackTimerRef.current) {
-        clearTimeout(fallbackTimerRef.current);
-        fallbackTimerRef.current = null;
       }
     };
   }, [tableCode, loadTableData, trackRealtimeEvent]);
