@@ -332,7 +332,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      start_table_session: {
+        Args: {
+          p_suggest_sec?: number
+          p_table_id: string
+          p_vote_sec?: number
+        }
+        Returns: {
+          round_id: string
+          table_status: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
