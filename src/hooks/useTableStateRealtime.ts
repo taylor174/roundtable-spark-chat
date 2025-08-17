@@ -366,6 +366,21 @@ export function useTableStateRealtime(tableCode: string) {
                         }
                         return prev;
                       });
+                    } else if (payload.eventType === 'UPDATE' && payload.new) {
+                      setState(prev => {
+                        const updatedSuggestion = payload.new as any;
+                        const existingIndex = prev.suggestions.findIndex(s => s.id === updatedSuggestion.id);
+                        if (existingIndex >= 0) {
+                          console.log('✅ Updating existing suggestion:', updatedSuggestion.text);
+                          const newSuggestions = [...prev.suggestions];
+                          newSuggestions[existingIndex] = updatedSuggestion;
+                          return { ...prev, suggestions: newSuggestions };
+                        } else {
+                          // Handle race condition: UPDATE received before INSERT
+                          console.log('✅ Adding suggestion via UPDATE (race condition):', updatedSuggestion.text);
+                          return { ...prev, suggestions: [...prev.suggestions, updatedSuggestion] };
+                        }
+                      });
                     }
                   }
                 );
@@ -457,6 +472,21 @@ export function useTableStateRealtime(tableCode: string) {
                 return { ...prev, suggestions: [...prev.suggestions, newSuggestion] };
               }
               return prev;
+            });
+          } else if (payload.eventType === 'UPDATE' && payload.new) {
+            setState(prev => {
+              const updatedSuggestion = payload.new as any;
+              const existingIndex = prev.suggestions.findIndex(s => s.id === updatedSuggestion.id);
+              if (existingIndex >= 0) {
+                console.log('✅ Updating existing suggestion:', updatedSuggestion.text);
+                const newSuggestions = [...prev.suggestions];
+                newSuggestions[existingIndex] = updatedSuggestion;
+                return { ...prev, suggestions: newSuggestions };
+              } else {
+                // Handle race condition: UPDATE received before INSERT
+                console.log('✅ Adding suggestion via UPDATE (race condition):', updatedSuggestion.text);
+                return { ...prev, suggestions: [...prev.suggestions, updatedSuggestion] };
+              }
             });
           }
         }
