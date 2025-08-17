@@ -19,6 +19,14 @@ export function SuggestionForm({ roundId, participantId }: SuggestionFormProps) 
   const [isEditing, setIsEditing] = useState(false);
   const { toast } = useToast();
 
+  // Reset form state when round changes
+  useEffect(() => {
+    console.log('SuggestionForm: Round changed to', roundId);
+    setExistingSuggestion(null);
+    setIsEditing(false);
+    setSuggestion('');
+  }, [roundId]);
+
   // Check for existing suggestion
   useEffect(() => {
     const checkExistingSuggestion = async () => {
@@ -40,7 +48,9 @@ export function SuggestionForm({ roundId, participantId }: SuggestionFormProps) 
       }
     };
 
-    checkExistingSuggestion();
+    if (roundId && participantId) {
+      checkExistingSuggestion();
+    }
   }, [roundId, participantId]);
 
   const handleSubmit = async (e: React.FormEvent) => {

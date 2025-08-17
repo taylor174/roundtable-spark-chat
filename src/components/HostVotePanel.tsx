@@ -28,18 +28,42 @@ export function HostVotePanel({
     try {
       setLoading(true);
       
-      // Create temporary host participant ID for voting
-      const hostParticipantId = `host_${tableId}`;
-      
-      const { error } = await supabase
+      // First, upsert host participant record
+      const { data: hostParticipant, error: participantError } = await supabase
+        .from('participants')
+        .upsert({
+          table_id: tableId,
+          client_id: 'host',
+          display_name: 'Host',
+          is_host: true,
+        }, {
+          onConflict: 'table_id,client_id'
+        })
+        .select()
+        .single();
+
+      if (participantError) {
+        console.error('Error creating host participant:', participantError);
+        throw participantError;
+      }
+
+      if (!hostParticipant) {
+        throw new Error('Failed to create host participant');
+      }
+
+      // Now insert vote with the host participant ID
+      const { error: voteError } = await supabase
         .from('votes')
         .insert({
           round_id: roundId,
           suggestion_id: suggestionId,
-          participant_id: hostParticipantId,
+          participant_id: hostParticipant.id,
         });
 
-      if (error) throw error;
+      if (voteError) {
+        console.error('Error submitting host vote:', voteError);
+        throw voteError;
+      }
 
       setVotedFor(suggestionId);
       

@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { getHostSecret } from '@/utils/clientId';
-import { useTableState } from '@/hooks/useTableStateOptimized';
+import { useTableStateRealtime } from '@/hooks/useTableStateRealtime';
 import { usePhaseManager } from '@/hooks/usePhaseManager';
 import { Timer } from '@/components/Timer';
 import { SuggestionForm } from '@/components/SuggestionForm';
@@ -49,7 +49,7 @@ const Table = () => {
     error,
     currentPhase,
     refresh,
-  } = useTableState(code || '');
+  } = useTableStateRealtime(code || '');
   
   const [suggestionsWithVotes, setSuggestionsWithVotes] = useState<any[]>([]);
   const [winningSuggestions, setWinningSuggestions] = useState<any[]>([]);
@@ -94,9 +94,12 @@ const Table = () => {
     ? votes.some(vote => vote.participant_id === currentParticipant.id)
     : false;
     
-  // Check if host has voted (using temporary host participant ID)
+  // Check if host has voted (look for host participant)
   const hostHasVoted = isHost && table
-    ? votes.some(vote => vote.participant_id === `host_${table.id}`)
+    ? votes.some(vote => {
+        const hostParticipant = participants.find(p => p.client_id === 'host' && p.is_host);
+        return hostParticipant && vote.participant_id === hostParticipant.id;
+      })
     : false;
   
   // Automatic phase management
