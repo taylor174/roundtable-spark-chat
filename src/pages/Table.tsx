@@ -72,7 +72,10 @@ const Table = () => {
   
   // Calculate suggestions with votes from realtime state
   useEffect(() => {
+    console.log('🔄 EFFECT TRIGGERED - Suggestions count:', suggestions?.length, 'Votes count:', votes?.length, 'Current round:', currentRound?.id);
+    
     if (!currentRound) {
+      console.log('❌ No current round, clearing suggestions');
       setSuggestionsWithVotes([]);
       setWinningSuggestions([]);
       return;
@@ -83,6 +86,7 @@ const Table = () => {
     const safeVotes = Array.isArray(votes) ? votes : [];
     
     console.log('🔍 Processing suggestions:', safeSuggestions.length, 'votes:', safeVotes.length);
+    console.log('📝 Suggestions data:', safeSuggestions.map(s => ({ id: s.id, text: s.text })));
     
     // Calculate vote counts and user voting status from realtime state
     const suggestionsWithVotesData = safeSuggestions.map(suggestion => {
