@@ -70,26 +70,32 @@ const Table = () => {
     checkParticipant();
   }, [code, currentParticipant, loading, navigate]);
   
-  // Load suggestions with votes
+  // Calculate suggestions with votes from realtime state
   useEffect(() => {
-    const loadSuggestionsWithVotes = async () => {
-      if (!currentRound) {
-        setSuggestionsWithVotes([]);
-        return;
-      }
+    if (!currentRound) {
+      setSuggestionsWithVotes([]);
+      setWinningSuggestions([]);
+      return;
+    }
+    
+    // Calculate vote counts and user voting status from realtime state
+    const suggestionsWithVotesData = suggestions.map(suggestion => {
+      const suggestionVotes = votes.filter(vote => vote.suggestion_id === suggestion.id);
+      const voteCount = suggestionVotes.length;
+      const hasUserVoted = currentParticipant 
+        ? suggestionVotes.some(vote => vote.participant_id === currentParticipant.id)
+        : false;
       
-      try {
-        const data = await getSuggestionsWithVotes(currentRound.id, clientId);
-        setSuggestionsWithVotes(data);
-        setWinningSuggestions(getWinningSuggestions(data));
-      } catch (error) {
-        console.error('Error loading suggestions with votes:', error);
-        setSuggestionsWithVotes([]);
-      }
-    };
-
-    loadSuggestionsWithVotes();
-  }, [currentRound, suggestions, votes, clientId]);
+      return {
+        ...suggestion,
+        voteCount,
+        hasUserVoted
+      };
+    });
+    
+    setSuggestionsWithVotes(suggestionsWithVotesData);
+    setWinningSuggestions(getWinningSuggestions(suggestionsWithVotesData));
+  }, [currentRound, suggestions, votes, currentParticipant]);
   
   const userHasVoted = currentParticipant 
     ? votes.some(vote => vote.participant_id === currentParticipant.id)
