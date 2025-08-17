@@ -19,6 +19,7 @@ export type Database = {
           created_at: string
           id: string
           round_id: string
+          suggestion_id: string | null
           table_id: string
           text: string
         }
@@ -26,6 +27,7 @@ export type Database = {
           created_at?: string
           id?: string
           round_id: string
+          suggestion_id?: string | null
           table_id: string
           text: string
         }
@@ -33,6 +35,7 @@ export type Database = {
           created_at?: string
           id?: string
           round_id?: string
+          suggestion_id?: string | null
           table_id?: string
           text?: string
         }
@@ -42,6 +45,13 @@ export type Database = {
             columns: ["round_id"]
             isOneToOne: false
             referencedRelation: "rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blocks_suggestion_id_fkey"
+            columns: ["suggestion_id"]
+            isOneToOne: false
+            referencedRelation: "suggestions"
             referencedColumns: ["id"]
           },
           {
@@ -148,6 +158,7 @@ export type Database = {
           started_at: string
           status: string
           table_id: string
+          winner_suggestion_id: string | null
         }
         Insert: {
           ended_at?: string | null
@@ -157,6 +168,7 @@ export type Database = {
           started_at?: string
           status?: string
           table_id: string
+          winner_suggestion_id?: string | null
         }
         Update: {
           ended_at?: string | null
@@ -166,6 +178,7 @@ export type Database = {
           started_at?: string
           status?: string
           table_id?: string
+          winner_suggestion_id?: string | null
         }
         Relationships: [
           {
@@ -173,6 +186,13 @@ export type Database = {
             columns: ["table_id"]
             isOneToOne: false
             referencedRelation: "tables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rounds_winner_suggestion_id_fkey"
+            columns: ["winner_suggestion_id"]
+            isOneToOne: false
+            referencedRelation: "suggestions"
             referencedColumns: ["id"]
           },
         ]

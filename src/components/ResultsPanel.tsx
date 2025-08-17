@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -7,30 +8,88 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { WinningSuggestion } from '@/types';
 import { Trophy, Crown, Users } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface ResultsPanelProps {
   winningSuggestions: WinningSuggestion[];
   isHost: boolean;
+  roundNumber?: number;
+  tableId?: string;
+  roundId?: string;
   onWinnerSelected?: (suggestionId: string) => void;
   onNextRound?: () => void;
 }
 
 export function ResultsPanel({ 
   winningSuggestions, 
-  isHost, 
+  isHost,
+  roundNumber = 1,
+  tableId,
+  roundId,
   onWinnerSelected, 
   onNextRound 
 }: ResultsPanelProps) {
   const [showTieBreaker, setShowTieBreaker] = useState(false);
   const [selectedWinner, setSelectedWinner] = useState<string>('');
+  const [processing, setProcessing] = useState(false);
+  const { toast } = useToast();
 
   const isTie = winningSuggestions.length > 1;
   const winner = winningSuggestions[0];
 
-  const handleTieBreak = () => {
-    if (selectedWinner && onWinnerSelected) {
-      onWinnerSelected(selectedWinner);
+  const handleTieBreak = async () => {
+    if (!selectedWinner || !tableId || !roundId || processing) return;
+    
+    try {
+      setProcessing(true);
+      
+      const winningSuggestion = winningSuggestions.find(s => s.id === selectedWinner);
+      if (!winningSuggestion) return;
+
+      // Atomically update round and create block
+      const [roundUpdate, blockInsert] = await Promise.all([
+        // Update round to result phase with winner
+        supabase
+          .from('rounds')
+          .update({
+            status: 'result',
+            winner_suggestion_id: selectedWinner,
+            ends_at: null
+          })
+          .eq('id', roundId),
+        
+        // Insert block entry
+        supabase
+          .from('blocks')
+          .insert({
+            table_id: tableId,
+            round_id: roundId,
+            suggestion_id: selectedWinner,
+            text: winningSuggestion.text,
+          })
+      ]);
+
+      if (roundUpdate.error) throw roundUpdate.error;
+      if (blockInsert.error) throw blockInsert.error;
+
+      toast({
+        title: "Success",
+        description: "Winner selected and round completed!",
+      });
+
       setShowTieBreaker(false);
+      if (onWinnerSelected) {
+        onWinnerSelected(selectedWinner);
+      }
+    } catch (error) {
+      console.error('Error handling tie break:', error);
+      toast({
+        title: "Error",
+        description: "Failed to break tie. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -105,11 +164,11 @@ export function ResultsPanel({
               
               <Button
                 onClick={handleTieBreak}
-                disabled={!selectedWinner}
+                disabled={!selectedWinner || processing}
                 className="w-full"
               >
                 <Crown className="mr-2 h-4 w-4" />
-                Select Winner
+                {processing ? 'Processing...' : 'Select Winner'}
               </Button>
             </div>
           </DialogContent>
@@ -151,7 +210,7 @@ export function ResultsPanel({
       <CardHeader>
         <CardTitle className="flex items-center space-x-2 text-yellow-600">
           <Trophy className="h-5 w-5" />
-          <span>Round Winner!</span>
+          <span>Round {roundNumber} — Winner!</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">

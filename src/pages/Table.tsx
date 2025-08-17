@@ -6,10 +6,12 @@ import { Timer } from '@/components/Timer';
 import { SuggestionForm } from '@/components/SuggestionForm';
 import { SuggestionList } from '@/components/SuggestionList';
 import { VoteList } from '@/components/VoteList';
+import { HostVoteList } from '@/components/HostVoteList';
 import { ResultsPanel } from '@/components/ResultsPanel';
 import { Timeline } from '@/components/Timeline';
 import { HostControls } from '@/components/HostControls';
 import { TableInfo } from '@/components/TableInfo';
+import { DiscussionContextCard } from '@/components/DiscussionContextCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -88,6 +90,11 @@ const Table = () => {
   
   const userHasVoted = currentParticipant 
     ? votes.some(vote => vote.participant_id === currentParticipant.id)
+    : false;
+    
+  // Check if host has voted (using temporary host participant ID)
+  const hostHasVoted = isHost && table
+    ? votes.some(vote => vote.participant_id === `host_${table.id}`)
     : false;
   
   // Automatic phase management
@@ -177,11 +184,6 @@ const Table = () => {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-semibold leading-tight break-words">{table.title || `Session ${table.code}`}</h1>
-              {table.description && (
-                <p className="text-sm sm:text-base text-muted-foreground mt-2 whitespace-pre-wrap break-words">
-                  {table.description}
-                </p>
-              )}
               <p className="text-lg text-muted-foreground mt-1">
                 {currentPhase === 'lobby' ? 'Waiting to start' : 
                  currentPhase === 'suggest' ? 'Suggestion Phase' :
@@ -261,15 +263,13 @@ const Table = () => {
                     userHasVoted={userHasVoted}
                   />
                 )}
-                {isHost && !currentParticipant && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Voting in Progress</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-muted-foreground">Participants are voting on suggestions.</p>
-                    </CardContent>
-                  </Card>
+                {isHost && currentRound && table && (
+                  <HostVoteList
+                    suggestions={suggestionsWithVotes}
+                    roundId={currentRound.id}
+                    tableId={table.id}
+                    hostHasVoted={hostHasVoted}
+                  />
                 )}
               </>
             )}
@@ -279,6 +279,9 @@ const Table = () => {
               <ResultsPanel
                 winningSuggestions={winningSuggestions}
                 isHost={isHost}
+                roundNumber={currentRound?.number}
+                tableId={table?.id}
+                roundId={currentRound?.id}
                 onWinnerSelected={handleWinnerSelected}
                 onNextRound={handleNextRound}
               />
@@ -294,6 +297,10 @@ const Table = () => {
 
           {/* Sidebar */}
           <div className="space-y-6">
+            {/* Discussion Context Card */}
+            {table.description && (
+              <DiscussionContextCard description={table.description} />
+            )}
             
             {/* Participants */}
             <Card>

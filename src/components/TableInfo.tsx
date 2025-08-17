@@ -14,6 +14,8 @@ interface TableInfoProps {
 }
 
 export function TableInfo({ tableCode, participantCount, isHost }: TableInfoProps) {
+  // Only show for hosts
+  if (!isHost) return null;
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [copied, setCopied] = useState(false);
   

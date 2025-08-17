@@ -1,7 +1,7 @@
 export const APP_CONFIG = {
   DEFAULT_SUGGEST_SEC: 120,
   DEFAULT_VOTE_SEC: 60,
-  MAX_SUGGESTION_LENGTH: 200,
+  MAX_SUGGESTION_LENGTH: 1000, // Increased from 200
   CODE_LENGTH: 6,
   TIMER_BUFFER_MS: 1000, // 1 second buffer for timer sync
 } as const;

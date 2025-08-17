@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { SuggestionInsert } from '@/types';
+import { SuggestionInsert, Suggestion } from '@/types';
 import { APP_CONFIG, MESSAGES } from '@/constants';
 import { useToast } from '@/hooks/use-toast';
 
@@ -15,7 +15,33 @@ interface SuggestionFormProps {
 export function SuggestionForm({ roundId, participantId }: SuggestionFormProps) {
   const [suggestion, setSuggestion] = useState('');
   const [loading, setLoading] = useState(false);
+  const [existingSuggestion, setExistingSuggestion] = useState<Suggestion | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
   const { toast } = useToast();
+
+  // Check for existing suggestion
+  useEffect(() => {
+    const checkExistingSuggestion = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('suggestions')
+          .select('*')
+          .eq('round_id', roundId)
+          .eq('participant_id', participantId)
+          .single();
+
+        if (data && !error) {
+          setExistingSuggestion(data);
+          setSuggestion(data.text);
+          setIsEditing(true);
+        }
+      } catch (error) {
+        // No existing suggestion found, that's fine
+      }
+    };
+
+    checkExistingSuggestion();
+  }, [roundId, participantId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,23 +58,39 @@ export function SuggestionForm({ roundId, participantId }: SuggestionFormProps) 
     try {
       setLoading(true);
       
-      const suggestionData: SuggestionInsert = {
-        round_id: roundId,
-        participant_id: participantId,
-        text: suggestion.trim(),
-      };
+      if (isEditing && existingSuggestion) {
+        // Update existing suggestion
+        const { error } = await supabase
+          .from('suggestions')
+          .update({ text: suggestion.trim() })
+          .eq('id', existingSuggestion.id);
 
-      const { error } = await supabase
-        .from('suggestions')
-        .insert(suggestionData);
+        if (error) throw error;
+      } else {
+        // Insert new suggestion (with upsert to handle conflicts)
+        const suggestionData: SuggestionInsert = {
+          round_id: roundId,
+          participant_id: participantId,
+          text: suggestion.trim(),
+        };
 
-      if (error) throw error;
+        const { error } = await supabase
+          .from('suggestions')
+          .upsert(suggestionData, {
+            onConflict: 'round_id,participant_id'
+          });
 
-      setSuggestion('');
+        if (error) throw error;
+      }
+
+      // Don't clear the suggestion anymore since we're supporting editing
       toast({
         title: "Success",
-        description: MESSAGES.SUGGESTION_SUBMITTED,
+        description: isEditing ? "Suggestion updated!" : MESSAGES.SUGGESTION_SUBMITTED,
       });
+      
+      // Set editing mode after first submission
+      setIsEditing(true);
     } catch (error) {
       console.error('Error submitting suggestion:', error);
       toast({
@@ -64,7 +106,7 @@ export function SuggestionForm({ roundId, participantId }: SuggestionFormProps) 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Share Your Suggestion</CardTitle>
+        <CardTitle>{isEditing ? 'Edit Your Suggestion' : 'Share Your Suggestion'}</CardTitle>
       </CardHeader>
       <CardContent>
         <p className="text-muted-foreground mb-4">
@@ -83,7 +125,7 @@ export function SuggestionForm({ roundId, participantId }: SuggestionFormProps) 
               {APP_CONFIG.MAX_SUGGESTION_LENGTH - suggestion.length} characters remaining
             </span>
             <Button type="submit" disabled={loading || suggestion.trim().length === 0}>
-              {loading ? 'Submitting...' : 'Submit Suggestion'}
+              {loading ? (isEditing ? 'Updating...' : 'Submitting...') : (isEditing ? 'Save Changes' : 'Submit Suggestion')}
             </Button>
           </div>
         </form>

@@ -25,10 +25,13 @@ export async function getSuggestionsWithVotes(
 
   if (votesError) throw votesError;
 
-  // Count votes and check if user voted
+  // Count votes and check if user voted (include host votes)
   return (suggestions || []).map(suggestion => {
     const suggestionVotes = votes?.filter(v => v.suggestion_id === suggestion.id) || [];
-    const hasUserVoted = votes?.some(v => v.participant_id === clientId && v.suggestion_id === suggestion.id) || false;
+    const hasUserVoted = votes?.some(v => 
+      (v.participant_id === clientId || v.participant_id.startsWith('host_')) && 
+      v.suggestion_id === suggestion.id
+    ) || false;
     
     return {
       ...suggestion,
