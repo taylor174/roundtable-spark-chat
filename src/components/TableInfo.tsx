@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import QRCode from 'qrcode';
@@ -55,9 +55,6 @@ export function TableInfo({ tableCode, participantCount, isHost }: TableInfoProp
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Share Table {tableCode}</DialogTitle>
-          <DialogDescription>
-            Share this table with participants using the QR code or link below.
-          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           

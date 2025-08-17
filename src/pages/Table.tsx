@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { getHostSecret } from '@/utils/clientId';
-import { useTableStateRealtime } from '@/hooks/useTableStateRealtime';
+import { useTableState } from '@/hooks/useTableStateOptimized';
 import { usePhaseManager } from '@/hooks/usePhaseManager';
 import { Timer } from '@/components/Timer';
 import { SuggestionForm } from '@/components/SuggestionForm';
@@ -27,32 +27,27 @@ import { MESSAGES } from '@/constants';
 import { Users, Clock, List, Play } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { VotingStatusIndicator } from '@/components/VotingStatusIndicator';
-import { BlocksSidebar } from '@/components/BlocksSidebar';
-import { HostVotePanel } from '@/components/HostVotePanel';
 
 const Table = () => {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
   
   const {
-    state: {
-      table,
-      participants,
-      currentRound,
-      suggestions,
-      votes,
-      blocks,
-      currentParticipant,
-      clientId,
-      isHost,
-      timeRemaining,
-      loading,
-      error,
-    },
+    table,
+    participants,
+    currentRound,
+    suggestions,
+    votes,
+    blocks,
+    currentParticipant,
+    clientId,
+    isHost,
+    timeRemaining,
+    loading,
+    error,
     currentPhase,
-    optimisticUpdate,
     refresh,
-  } = useTableStateRealtime(code || '');
+  } = useTableState(code || '');
   
   const [suggestionsWithVotes, setSuggestionsWithVotes] = useState<any[]>([]);
   const [winningSuggestions, setWinningSuggestions] = useState<any[]>([]);
@@ -72,53 +67,34 @@ const Table = () => {
     checkParticipant();
   }, [code, currentParticipant, loading, navigate]);
   
-  // Calculate suggestions with votes from realtime state
+  // Load suggestions with votes
   useEffect(() => {
-    console.log('🔄 EFFECT TRIGGERED - Suggestions count:', suggestions?.length, 'Votes count:', votes?.length, 'Current round:', currentRound?.id);
-    
-    if (!currentRound) {
-      console.log('❌ No current round, clearing suggestions');
-      setSuggestionsWithVotes([]);
-      setWinningSuggestions([]);
-      return;
-    }
-    
-    // Ensure suggestions and votes are arrays (add null safety)
-    const safeSuggestions = Array.isArray(suggestions) ? suggestions : [];
-    const safeVotes = Array.isArray(votes) ? votes : [];
-    
-    console.log('🔍 Processing suggestions:', safeSuggestions.length, 'votes:', safeVotes.length);
-    console.log('📝 Suggestions data:', safeSuggestions.map(s => ({ id: s.id, text: s.text })));
-    
-    // Calculate vote counts and user voting status from realtime state
-    const suggestionsWithVotesData = safeSuggestions.map(suggestion => {
-      const suggestionVotes = safeVotes.filter(vote => vote.suggestion_id === suggestion.id);
-      const voteCount = suggestionVotes.length;
-      const hasUserVoted = currentParticipant 
-        ? suggestionVotes.some(vote => vote.participant_id === currentParticipant.id)
-        : false;
+    const loadSuggestionsWithVotes = async () => {
+      if (!currentRound) {
+        setSuggestionsWithVotes([]);
+        return;
+      }
       
-      return {
-        ...suggestion,
-        voteCount,
-        hasUserVoted
-      };
-    });
-    
-    setSuggestionsWithVotes(suggestionsWithVotesData);
-    setWinningSuggestions(getWinningSuggestions(suggestionsWithVotesData));
-  }, [currentRound, suggestions, votes, currentParticipant]);
+      try {
+        const data = await getSuggestionsWithVotes(currentRound.id, clientId);
+        setSuggestionsWithVotes(data);
+        setWinningSuggestions(getWinningSuggestions(data));
+      } catch (error) {
+        console.error('Error loading suggestions with votes:', error);
+        setSuggestionsWithVotes([]);
+      }
+    };
+
+    loadSuggestionsWithVotes();
+  }, [currentRound, suggestions, votes, clientId]);
   
   const userHasVoted = currentParticipant 
     ? votes.some(vote => vote.participant_id === currentParticipant.id)
     : false;
     
-  // Check if host has voted (look for host participant)
+  // Check if host has voted (using temporary host participant ID)
   const hostHasVoted = isHost && table
-    ? votes.some(vote => {
-        const hostParticipant = participants.find(p => p.client_id === 'host' && p.is_host);
-        return hostParticipant && vote.participant_id === hostParticipant.id;
-      })
+    ? votes.some(vote => vote.participant_id === `host_${table.id}`)
     : false;
   
   // Automatic phase management
@@ -268,7 +244,6 @@ const Table = () => {
                   <SuggestionForm
                     roundId={currentRound.id}
                     participantId={currentParticipant.id}
-                    optimisticUpdate={optimisticUpdate}
                   />
                 )}
                 <SuggestionList 
@@ -289,7 +264,7 @@ const Table = () => {
                   />
                 )}
                 {isHost && currentRound && table && (
-                  <HostVotePanel
+                  <HostVoteList
                     suggestions={suggestionsWithVotes}
                     roundId={currentRound.id}
                     tableId={table.id}
@@ -307,11 +282,8 @@ const Table = () => {
                 roundNumber={currentRound?.number}
                 tableId={table?.id}
                 roundId={currentRound?.id}
-                table={table}
-                currentRound={currentRound}
                 onWinnerSelected={handleWinnerSelected}
                 onNextRound={handleNextRound}
-                onRefresh={refresh}
               />
             )}
 
@@ -325,9 +297,6 @@ const Table = () => {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Blocks So Far */}
-            <BlocksSidebar blocks={blocks} />
-            
             {/* Discussion Context Card */}
             {table.description && (
               <DiscussionContextCard description={table.description} />
@@ -373,12 +342,11 @@ const Table = () => {
               <HostControls
                 table={table}
                 canStart={true}
-                  currentPhase={currentPhase}
-                  participantCount={participants.length}
-                  participants={participants}
-                  currentParticipant={currentParticipant}
-                  onRefresh={refresh}
-                optimisticUpdate={optimisticUpdate}
+                currentPhase={currentPhase}
+                participantCount={participants.length}
+                participants={participants}
+                currentParticipant={currentParticipant}
+                onRefresh={refresh}
               />
             )}
 

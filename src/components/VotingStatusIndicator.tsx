@@ -10,10 +10,6 @@ interface VotingStatusIndicatorProps {
 export function VotingStatusIndicator({ participants, votes, currentRound }: VotingStatusIndicatorProps) {
   if (!currentRound) return null;
 
-  // Find host participant (single source of truth)
-  const hostParticipant = participants.find(p => p.is_host);
-  const nonHostParticipants = participants.filter(p => !p.is_host);
-
   const participantVoteStatus = participants.map(participant => {
     const hasVoted = votes.some(vote => 
       vote.participant_id === participant.id && vote.round_id === currentRound.id
@@ -29,10 +25,7 @@ export function VotingStatusIndicator({ participants, votes, currentRound }: Vot
       <h4 className="text-sm font-medium">Voting Status</h4>
       {participantVoteStatus.map(participant => (
         <div key={participant.id} className="flex items-center justify-between">
-          <span className="text-sm">
-            {participant.display_name}
-            {participant.is_host && ' (Host)'}
-          </span>
+          <span className="text-sm">{participant.display_name}</span>
           {participant.hasVoted ? (
             <Badge variant="outline" className="gap-1">
               <Check className="h-3 w-3 text-green-600" />

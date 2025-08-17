@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { Table } from '@/types';
@@ -19,7 +18,6 @@ interface HostControlsProps {
   participants: any[];
   currentParticipant: any;
   onRefresh?: () => void;
-  optimisticUpdate?: (updates: any) => void;
 }
 
 export function HostControls({ 
@@ -29,8 +27,7 @@ export function HostControls({
   participantCount,
   participants,
   currentParticipant,
-  onRefresh,
-  optimisticUpdate 
+  onRefresh 
 }: HostControlsProps) {
   const [loading, setLoading] = useState(false);
   const [suggestionTime, setSuggestionTime] = useState(table.default_suggest_sec);
@@ -70,7 +67,7 @@ export function HostControls({
 
     try {
       setLoading(true);
-      console.log('🚀 Starting table session for:', table.id);
+      console.log('Starting table session for:', table.id);
 
       // Use atomic RPC function to start table session
       const { data, error } = await supabase.rpc('start_table_session', {
@@ -82,76 +79,21 @@ export function HostControls({
         throw error;
       }
 
-      console.log('✅ Table session started successfully:', data);
-
-      // OPTIMISTIC UPDATE: Immediately update local state
-      if (optimisticUpdate && data?.[0]) {
-        const newRoundId = data[0].round_id;
-        const endsAt = data[0].ends_at;
-        const timeRemaining = Math.max(0, Math.floor((new Date(endsAt).getTime() - Date.now()) / 1000));
-        
-        console.log('⚡ Optimistic update: Setting table to running with round', newRoundId);
-        optimisticUpdate({
-          table: {
-            ...table,
-            status: 'running',
-            current_round_id: newRoundId
-          },
-          currentRound: {
-            id: newRoundId,
-            table_id: table.id,
-            number: 1,
-            status: 'suggest',
-            started_at: new Date().toISOString(),
-            ends_at: endsAt,
-            ended_at: null,
-            winner_suggestion_id: null
-          },
-          timeRemaining
-        });
-      }
+      console.log('Table session started successfully:', data);
 
       toast({
         title: "Table Started!",
         description: "The session has begun. Participants can now submit suggestions.",
       });
 
-      // Broadcast phase transition for immediate UI updates
-      if (data?.[0]) {
-        await supabase
-          .channel(`table-${table.id}`)
-          .send({
-            type: 'broadcast',
-            event: 'phase_transition',
-            payload: { 
-              tableId: table.id, 
-              phase: 'suggest', 
-              roundId: data[0].round_id 
-            }
-          });
-      }
-
-      // Reduced fallback timeout since we have optimistic update
+      // Set up fallback timeout in case realtime doesn't arrive
       setTimeout(() => {
-        console.log('🔄 Fallback: refreshing state after start');
+        console.log('Fallback: refreshing state after start');
         onRefresh?.();
-      }, 1000);
+      }, 1500);
 
     } catch (error: any) {
-      console.error('❌ Error starting table:', error);
-      
-      // Revert optimistic update on error
-      if (optimisticUpdate) {
-        optimisticUpdate({
-          table: {
-            ...table,
-            status: 'lobby'
-          },
-          currentRound: null,
-          timeRemaining: 0
-        });
-      }
-      
+      console.error('Error starting table:', error);
       toast({
         title: "Failed to Start Table",
         description: error.message || "Please try again.",
@@ -207,33 +149,10 @@ export function HostControls({
       setLoading(true);
 
       if (table.current_round_id) {
-        // OPTIMISTIC UPDATE: Immediately advance phase locally
-        const nextPhase = currentPhase === 'suggest' ? 'vote' : 'result';
-        console.log('⚡ Optimistic update: Skipping to', nextPhase);
-        
-        if (optimisticUpdate) {
-          optimisticUpdate({
-            timeRemaining: 0
-          });
-        }
-
         await supabase
           .from('rounds')
           .update({ ends_at: new Date().toISOString() })
           .eq('id', table.current_round_id);
-
-        // Broadcast phase change
-        await supabase
-          .channel(`table-${table.id}`)
-          .send({
-            type: 'broadcast',
-            event: 'phase_transition',
-            payload: { 
-              tableId: table.id, 
-              phase: nextPhase, 
-              roundId: table.current_round_id 
-            }
-          });
       }
 
       toast({
@@ -318,34 +237,6 @@ export function HostControls({
     }
   };
 
-  const handleToggleAutoAdvance = async (enabled: boolean) => {
-    try {
-      setLoading(true);
-
-      const { error } = await supabase
-        .from('tables')
-        .update({ auto_advance: enabled })
-        .eq('id', table.id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: `Auto-advance ${enabled ? 'enabled' : 'disabled'}.`,
-      });
-
-    } catch (error) {
-      console.error('Error updating auto-advance:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update auto-advance setting.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleJoinAsParticipant = async () => {
     try {
       setLoading(true);
@@ -381,7 +272,6 @@ export function HostControls({
     }
   };
 
-
   return (
     <Card>
       <CardHeader>
@@ -405,7 +295,7 @@ export function HostControls({
         <Separator />
 
         {/* Timer Settings */}
-        {(table.status === 'lobby' || table.status === 'waiting') && (
+        {table.status === 'lobby' && (
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="suggestion-time">Suggestion Time</Label>
@@ -450,21 +340,17 @@ export function HostControls({
           </div>
         )}
 
-        {/* Auto-advance Setting */}
-        {table.status === 'running' && (
+        {/* Host Participation */}
+        {!currentParticipant && table.status === 'running' && (
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="auto-advance">Auto-advance rounds</Label>
-              <Switch
-                id="auto-advance"
-                checked={table.auto_advance}
-                onCheckedChange={handleToggleAutoAdvance}
-                disabled={loading}
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Automatically start next round after 3 seconds
-            </p>
+            <Button
+              onClick={handleJoinAsParticipant}
+              disabled={loading}
+              variant="outline"
+              className="w-full md:w-auto"
+            >
+              Join as Participant
+            </Button>
             <Separator />
           </div>
         )}
@@ -472,7 +358,7 @@ export function HostControls({
         {/* Actions */}
         <div className="space-y-2">
           
-          {(table.status === 'lobby' || table.status === 'waiting') && (
+          {table.status === 'lobby' && (
             <Button
               onClick={handleStartTable}
               disabled={loading}

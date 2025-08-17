@@ -18,7 +18,6 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          is_tie_break: boolean
           round_id: string
           suggestion_id: string | null
           table_id: string
@@ -27,7 +26,6 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
-          is_tie_break?: boolean
           round_id: string
           suggestion_id?: string | null
           table_id: string
@@ -36,7 +34,6 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
-          is_tie_break?: boolean
           round_id?: string
           suggestion_id?: string | null
           table_id?: string
@@ -241,7 +238,6 @@ export type Database = {
       }
       tables: {
         Row: {
-          auto_advance: boolean
           code: string
           created_at: string
           current_round_id: string | null
@@ -256,7 +252,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          auto_advance?: boolean
           code: string
           created_at?: string
           current_round_id?: string | null
@@ -271,7 +266,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          auto_advance?: boolean
           code?: string
           created_at?: string
           current_round_id?: string | null
@@ -338,14 +332,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      resolve_tie: {
-        Args: {
-          p_round_id: string
-          p_suggestion_id: string
-          p_table_id: string
-        }
-        Returns: undefined
-      }
       start_table_session: {
         Args: { p_table_id: string }
         Returns: {
