@@ -138,14 +138,16 @@ export function useTableStateRealtime(tableCode: string) {
 
       // Subscribe to table changes
       channel.on('postgres_changes', {
-        event: '*',
+        event: 'UPDATE',
         schema: 'public',
         table: 'tables',
         filter: `id=eq.${tableId}`
       }, (payload) => {
         console.log('📋 Table update:', payload);
-        if (payload.new) {
+        if (payload.new && payload.new.status) {
           setState(prev => ({ ...prev, table: payload.new as any }));
+        } else {
+          console.warn('⚠️ Ignoring table update with incomplete data:', payload);
         }
       });
 
