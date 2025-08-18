@@ -82,8 +82,9 @@ export function getCurrentPhase(
   
   if (!roundStatus) return 'lobby';
   
-  if (roundStatus === 'suggest') return timeRemaining > 0 ? 'suggest' : 'vote';
-  if (roundStatus === 'vote') return timeRemaining > 0 ? 'vote' : 'result';
+  // Only return phases based on actual database state, don't predict based on timer
+  if (roundStatus === 'suggest') return 'suggest';
+  if (roundStatus === 'vote') return 'vote';
   
   return 'result';
 }
