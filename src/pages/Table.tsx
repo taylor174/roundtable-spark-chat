@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { 
   getSuggestionsWithVotes, 
   getWinningSuggestions,
+  getWinnerWithTieBreak,
   advanceRound,
   endRound
 } from '@/utils/roundLogic';
@@ -134,17 +135,18 @@ const Table = () => {
     try {
       setIsTransitioning(true);
       
+      // Create new round in lobby mode for manual start
       await advanceRound(table.id, currentRound.number);
       
       toast({
         title: "Success", 
-        description: "Next round started!",
+        description: "Next round created!",
       });
       
-      // Extended transition time to handle all real-time updates
+      // Brief transition time for UI updates
       setTimeout(() => {
         setIsTransitioning(false);
-      }, 3000);
+      }, 1500);
       
     } catch (error) {
       console.error('Error starting next round:', error);
