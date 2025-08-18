@@ -11,6 +11,7 @@ import { Timeline } from '@/components/Timeline';
 import { HostControls } from '@/components/HostControls';
 import { TableInfo } from '@/components/TableInfo';
 import { DiscussionContextCard } from '@/components/DiscussionContextCard';
+import { TruncatedText } from '@/components/TruncatedText';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -220,12 +221,17 @@ const Table = () => {
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-semibold leading-tight break-words">
-                {/* Dynamic title based on discussion thread */}
-                {currentRound && currentRound.number > 1 && blocks.length > 0 
-                  ? blocks[blocks.length - 1].text 
-                  : table.title || `Session ${table.code}`}
-              </h1>
+              {currentRound && currentRound.number > 1 && blocks.length > 0 ? (
+                <TruncatedText 
+                  text={blocks[blocks.length - 1].text}
+                  maxLength={70}
+                  className="text-2xl sm:text-3xl md:text-4xl font-semibold leading-tight break-words"
+                />
+              ) : (
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-semibold leading-tight break-words">
+                  {table.title || `Session ${table.code}`}
+                </h1>
+              )}
               <p className="text-sm text-muted-foreground">
                 {currentPhase === 'lobby' ? 'Waiting to start' : 
                  currentPhase === 'suggest' ? 'Suggestion Phase' :
