@@ -73,7 +73,7 @@ export function usePhaseManager(
 
     // Single Authority Pattern: Prefer host, but allow any client after timeout
     // Allow retries with exponential backoff for failed attempts
-    const shouldProcess = isHost || timeRemaining <= -5; // 5 second fallback for non-hosts
+    const shouldProcess = isHost || timeRemaining <= -2; // 2 second fallback for non-hosts
     
     console.log('👑 Authority check:', {
       isHost,
@@ -199,8 +199,8 @@ export function usePhaseManager(
       }
     };
 
-    // Longer delays to prevent race conditions and allow real-time sync to catch up
-    const timeout = setTimeout(handlePhaseAdvancement, isHost ? 1000 : 3000);
+    // Shorter delays for faster transitions
+    const timeout = setTimeout(handlePhaseAdvancement, isHost ? 500 : 1500);
     return () => clearTimeout(timeout);
 
   }, [table, currentRound, suggestions, votes, timeRemaining, clientId, isHost, isProcessing, lastProcessedRound, retryCount, onRefresh]);
