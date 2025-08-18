@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Clock, Timer } from 'lucide-react';
-import { TruncatedText } from '@/components/TruncatedText';
+
 
 interface TimelineProps {
   blocks: Block[];
@@ -79,11 +79,9 @@ export function Timeline({ blocks, currentRound, originalTitle }: TimelineProps)
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium">Round {index + 1} Winner</p>
-                    <TruncatedText 
-                      text={block.text} 
-                      maxLength={100}
-                      className="text-sm text-muted-foreground leading-relaxed mt-1"
-                    />
+                    <p className="text-sm text-muted-foreground leading-relaxed mt-1">
+                      {block.text}
+                    </p>
                     <p className="text-xs text-muted-foreground mt-2">
                       {new Date(block.created_at).toLocaleString([], {
                         month: 'short',

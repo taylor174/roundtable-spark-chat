@@ -11,7 +11,8 @@ import { Timeline } from '@/components/Timeline';
 import { HostControls } from '@/components/HostControls';
 import { TableInfo } from '@/components/TableInfo';
 import { DiscussionContextCard } from '@/components/DiscussionContextCard';
-import { TruncatedText } from '@/components/TruncatedText';
+import { PhaseTransition } from '@/components/PhaseTransition';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -55,6 +56,11 @@ const Table = () => {
   const [suggestionsWithVotes, setSuggestionsWithVotes] = useState<SuggestionWithVotes[]>([]);
   const [winningSuggestions, setWinningSuggestions] = useState<WinningSuggestion[]>([]);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [phaseTransition, setPhaseTransition] = useState<{
+    isVisible: boolean;
+    fromPhase: string;
+    toPhase: string;
+  }>({ isVisible: false, fromPhase: '', toPhase: '' });
   const { toast } = useToast();
 
   // Redirect non-hosts to join page if they don't have a participant record
@@ -101,6 +107,24 @@ const Table = () => {
   
   // Automatic phase management - always enabled (phase manager handles its own processing state)
   const { isProcessing } = usePhaseManager(table, currentRound, suggestions, votes, timeRemaining, clientId, isHost, refresh, participants);
+  
+  // Handle phase transition animations
+  useEffect(() => {
+    if (isProcessing && currentPhase) {
+      // Show transition animation when processing starts
+      const nextPhase = currentPhase === 'suggest' ? 'vote' : 
+                       currentPhase === 'vote' ? 'result' : currentPhase;
+      
+      setPhaseTransition({
+        isVisible: true,
+        fromPhase: currentPhase,
+        toPhase: nextPhase
+      });
+    } else {
+      // Hide transition when processing ends
+      setPhaseTransition(prev => ({ ...prev, isVisible: false }));
+    }
+  }, [isProcessing, currentPhase]);
   
   // Event handlers
   const handleWinnerSelected = async (suggestionId: string) => {
@@ -222,15 +246,31 @@ const Table = () => {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               {currentRound && currentRound.number > 1 && blocks.length > 0 ? (
-                <TruncatedText 
-                  text={blocks[blocks.length - 1].text}
-                  maxLength={70}
-                  className="text-2xl sm:text-3xl md:text-4xl font-semibold leading-tight break-words"
-                />
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <h1 className="text-2xl sm:text-3xl md:text-4xl font-semibold leading-tight break-words truncate cursor-help">
+                        {blocks[blocks.length - 1].text}
+                      </h1>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-md">
+                      <p>{blocks[blocks.length - 1].text}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               ) : (
-                <h1 className="text-2xl sm:text-3xl md:text-4xl font-semibold leading-tight break-words">
-                  {table.title || `Session ${table.code}`}
-                </h1>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <h1 className="text-2xl sm:text-3xl md:text-4xl font-semibold leading-tight break-words truncate cursor-help">
+                        {table.title || `Session ${table.code}`}
+                      </h1>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-md">
+                      <p>{table.title || `Session ${table.code}`}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
               <p className="text-sm text-muted-foreground">
                 {currentPhase === 'lobby' ? 'Waiting to start' : 
@@ -263,13 +303,20 @@ const Table = () => {
       </header>
 
       <div className="max-w-5xl mx-auto px-4 md:px-6 py-4 relative">
-        {/* Loading Overlay */}
-        {(isTransitioning || isProcessing) && (
-          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+        {/* Phase Transition Overlay */}
+        <PhaseTransition 
+          isVisible={phaseTransition.isVisible}
+          fromPhase={phaseTransition.fromPhase}
+          toPhase={phaseTransition.toPhase}
+        />
+        
+        {/* Loading Overlay for round transitions */}
+        {isTransitioning && (
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-40 flex items-center justify-center">
             <div className="text-center space-y-4">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
               <p className="text-muted-foreground">
-                {isTransitioning ? 'Transitioning to next round...' : 'Processing phase change...'}
+                Transitioning to next round...
               </p>
             </div>
           </div>
@@ -278,7 +325,7 @@ const Table = () => {
         
         <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-4 md:gap-6">
           {/* Main Content */}
-          <div className={`space-y-6 transition-all duration-300 ${isTransitioning || isProcessing ? 'opacity-30' : ''}`}>
+          <div className={`space-y-6 transition-all duration-300 ${isTransitioning ? 'opacity-30' : ''}`}>
             {/* Current Phase Content */}
             {currentPhase === 'lobby' && (
               <Card className="animate-fade-in">
@@ -356,7 +403,7 @@ const Table = () => {
           </div>
 
           {/* Sidebar */}
-          <div className={`space-y-6 transition-all duration-300 ${isTransitioning || isProcessing ? 'opacity-30' : ''}`}>
+          <div className={`space-y-6 transition-all duration-300 ${isTransitioning ? 'opacity-30' : ''}`}>
             {/* Timeline */}
             <Timeline 
               blocks={blocks} 
