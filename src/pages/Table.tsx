@@ -261,6 +261,13 @@ const Table = () => {
           </div>
         )}
         
+        {/* Session Description */}
+        {table.description && (
+          <div className="mb-6">
+            <DiscussionContextCard description={table.description} />
+          </div>
+        )}
+        
         <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-4 md:gap-6">
           {/* Main Content */}
           <div className={`space-y-6 transition-all duration-300 ${isTransitioning || isProcessing ? 'opacity-30' : ''}`}>
@@ -342,10 +349,8 @@ const Table = () => {
 
           {/* Sidebar */}
           <div className={`space-y-6 transition-all duration-300 ${isTransitioning || isProcessing ? 'opacity-30' : ''}`}>
-            {/* Discussion Context Card */}
-            {table.description && (
-              <DiscussionContextCard description={table.description} />
-            )}
+            {/* Timeline */}
+            <Timeline blocks={blocks} currentRound={currentRound} />
             
             {/* Participants */}
             <Card>
@@ -394,9 +399,6 @@ const Table = () => {
                 onRefresh={refresh}
               />
             )}
-
-            {/* Timeline */}
-            <Timeline blocks={blocks} currentRound={currentRound} />
           </div>
         </div>
       </div>

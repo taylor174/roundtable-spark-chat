@@ -11,7 +11,7 @@ export function DiscussionContextCard({ description }: DiscussionContextCardProp
   const [isExpanded, setIsExpanded] = useState(false);
   
   // Check if description is long enough to warrant collapse/expand
-  const isLongDescription = description.length > 300;
+  const isLongDescription = description.length > 200;
   const shouldShowToggle = isLongDescription;
 
   return (
