@@ -108,20 +108,9 @@ export function HostControls({
       setLoading(true);
 
       if (table.current_round_id) {
-        const { data: round } = await supabase
-          .from('rounds')
-          .select('ends_at')
-          .eq('id', table.current_round_id)
-          .single();
-
-        if (round?.ends_at) {
-          const newEndsAt = new Date(new Date(round.ends_at).getTime() + 15000).toISOString();
-          
-          await supabase
-            .from('rounds')
-            .update({ ends_at: newEndsAt })
-            .eq('id', table.current_round_id);
-        }
+        // Import and use the updated addTimeToPhase function
+        const { addTimeToPhase } = await import('@/utils/roundLogic');
+        await addTimeToPhase(table.current_round_id, 15, table.id);
       }
 
       toast({
@@ -148,10 +137,9 @@ export function HostControls({
       setLoading(true);
 
       if (table.current_round_id) {
-        await supabase
-          .from('rounds')
-          .update({ ends_at: new Date().toISOString() })
-          .eq('id', table.current_round_id);
+        // Import and use the updated skipToNextPhase function
+        const { skipToNextPhase } = await import('@/utils/roundLogic');
+        await skipToNextPhase(table.current_round_id, table.id, table.default_vote_sec);
       }
 
       toast({

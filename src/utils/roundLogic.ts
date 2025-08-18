@@ -109,9 +109,9 @@ export async function advanceRound(tableId: string, currentRoundNumber: number):
 }
 
 /**
- * Start suggestion phase with timer
+ * Start suggestion phase with timer (atomic with global refresh trigger)
  */
-export async function startSuggestPhase(roundId: string, defaultSuggestSec: number): Promise<void> {
+export async function startSuggestPhase(roundId: string, defaultSuggestSec: number, tableId: string): Promise<void> {
   const endsAt = new Date(Date.now() + defaultSuggestSec * 1000).toISOString();
   
   await supabase
@@ -121,21 +121,26 @@ export async function startSuggestPhase(roundId: string, defaultSuggestSec: numb
       ends_at: endsAt,
     })
     .eq('id', roundId);
+    
+  // Trigger global refresh
+  await supabase
+    .from('tables')
+    .update({ updated_at: new Date().toISOString() })
+    .eq('id', tableId);
 }
 
 /**
- * Start vote phase with timer
+ * Start vote phase with timer (atomic with global refresh trigger)
  */
-export async function startVotePhase(roundId: string, defaultVoteSec: number): Promise<void> {
+export async function startVotePhase(roundId: string, defaultVoteSec: number, tableId: string): Promise<void> {
   const endsAt = new Date(Date.now() + defaultVoteSec * 1000).toISOString();
   
-  await supabase
-    .from('rounds')
-    .update({
-      status: 'vote',
-      ends_at: endsAt,
-    })
-    .eq('id', roundId);
+  // Use atomic function that updates round and triggers global refresh
+  await supabase.rpc('start_vote_phase_atomic', {
+    p_round_id: roundId,
+    p_table_id: tableId,
+    p_ends_at: endsAt
+  });
 }
 
 /**
@@ -263,9 +268,9 @@ export async function completeRoundAndAdvance(
 }
 
 /**
- * Add time to current phase
+ * Add time to current phase (with global refresh trigger)
  */
-export async function addTimeToPhase(roundId: string, additionalSeconds: number): Promise<void> {
+export async function addTimeToPhase(roundId: string, additionalSeconds: number, tableId: string): Promise<void> {
   const { data: round } = await supabase
     .from('rounds')
     .select('ends_at')
@@ -279,11 +284,17 @@ export async function addTimeToPhase(roundId: string, additionalSeconds: number)
       .from('rounds')
       .update({ ends_at: newEndsAt })
       .eq('id', roundId);
+      
+    // Trigger global refresh
+    await supabase
+      .from('tables')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', tableId);
   }
 }
 
 /**
- * Skip to next phase
+ * Skip to next phase (with global refresh trigger)
  */
 export async function skipToNextPhase(roundId: string, tableId: string, defaultVoteSec: number): Promise<void> {
   const { data: round } = await supabase
@@ -295,8 +306,13 @@ export async function skipToNextPhase(roundId: string, tableId: string, defaultV
   if (!round) return;
 
   if (round.status === 'suggest') {
-    await startVotePhase(roundId, defaultVoteSec);
+    await startVotePhase(roundId, defaultVoteSec, tableId);
   } else if (round.status === 'vote') {
     await endRound(roundId, tableId, 'No winner selected');
+    // Trigger global refresh
+    await supabase
+      .from('tables')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', tableId);
   }
 }

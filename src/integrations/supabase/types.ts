@@ -353,6 +353,10 @@ export type Database = {
           round_id: string
         }[]
       }
+      start_vote_phase_atomic: {
+        Args: { p_ends_at: string; p_round_id: string; p_table_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

@@ -96,7 +96,7 @@ const Table = () => {
     
   
   // Automatic phase management (disabled during manual transitions)
-  usePhaseManager(table, currentRound, suggestions, votes, timeRemaining, clientId, isTransitioning ? undefined : refresh);
+  usePhaseManager(table, currentRound, suggestions, votes, timeRemaining, clientId, isHost, isTransitioning ? undefined : refresh);
   
   // Event handlers
   const handleWinnerSelected = async (suggestionId: string) => {
