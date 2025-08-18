@@ -77,8 +77,8 @@ export function usePhaseManager(
       }
     };
 
-    // Small delay to prevent race conditions
-    const timeout = setTimeout(handlePhaseAdvancement, 1000);
+    // Reduced delay for faster phase transitions
+    const timeout = setTimeout(handlePhaseAdvancement, 500);
     return () => clearTimeout(timeout);
 
   }, [table, currentRound, suggestions, votes, timeRemaining, clientId, isProcessing, onRefresh]);

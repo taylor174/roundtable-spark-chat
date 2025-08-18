@@ -140,7 +140,21 @@ export function useTableState(tableCode: string) {
   }, [clientId]);
 
   const updateRound = useCallback((newRound: Round) => {
-    setState(prev => ({ ...prev, currentRound: newRound }));
+    setState(prev => {
+      const prevRound = prev.currentRound;
+      
+      // Immediately recalculate timer if ends_at changed
+      let timeRemaining = prev.timeRemaining;
+      if (newRound.ends_at !== prevRound?.ends_at) {
+        timeRemaining = calculateTimeRemaining(newRound.ends_at);
+      }
+      
+      return { 
+        ...prev, 
+        currentRound: newRound,
+        timeRemaining 
+      };
+    });
   }, []);
 
   const updateSuggestions = useCallback((newSuggestions: Suggestion[]) => {
@@ -213,7 +227,7 @@ export function useTableState(tableCode: string) {
           }
         }
       )
-      // Round updates - critical for phase transitions (debounced to prevent flicker)
+      // Round updates - critical for phase transitions (reduced debounce for faster transitions)
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'rounds', filter: state.table.current_round_id ? `id=eq.${state.table.current_round_id}` : `table_id=eq.${state.table.id}` },
         debounce((payload) => {
@@ -221,7 +235,7 @@ export function useTableState(tableCode: string) {
             const newRound = payload.new as Round;
             updateRound(newRound);
           }
-        }, 150)
+        }, 50)
       )
       // Participant changes
       .on('postgres_changes',
