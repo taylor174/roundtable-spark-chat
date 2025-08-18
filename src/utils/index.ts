@@ -35,7 +35,7 @@ export function calculateTimeRemaining(endTime: string | null): number {
   if (!endTime) return 0;
   const now = new Date().getTime();
   const end = new Date(endTime).getTime();
-  const remaining = Math.max(0, Math.floor((end - now) / 1000));
+  const remaining = Math.floor((end - now) / 1000);
   return remaining;
 }
 
