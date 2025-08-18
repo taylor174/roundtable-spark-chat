@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Table } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { getOrCreateClientId } from '@/utils/clientId';
+import { Pause, Play } from 'lucide-react';
 
 interface HostControlsProps {
   table: Table;
@@ -32,6 +33,7 @@ export function HostControls({
   const [loading, setLoading] = useState(false);
   const [suggestionTime, setSuggestionTime] = useState(table.default_suggest_sec);
   const [votingTime, setVotingTime] = useState(table.default_vote_sec);
+  const [isPaused, setIsPaused] = useState(false);
   const { toast } = useToast();
 
   const suggestionPresets = [
@@ -248,6 +250,53 @@ export function HostControls({
     }
   };
 
+  const handlePauseToggle = async () => {
+    try {
+      setLoading(true);
+
+      if (table.current_round_id) {
+        if (isPaused) {
+          // Resume: Add time back to the round
+          const { addTimeToPhase } = await import('@/utils/roundLogic');
+          await addTimeToPhase(table.current_round_id, 30, table.id); // Add 30 seconds when resuming
+          setIsPaused(false);
+          toast({
+            title: "Session Resumed",
+            description: "Added 30 seconds to the timer.",
+          });
+        } else {
+          // Pause: Set ends_at to far future
+          const { error } = await supabase
+            .from('rounds')
+            .update({ 
+              ends_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // 1 year in future
+            })
+            .eq('id', table.current_round_id);
+
+          if (error) throw error;
+
+          setIsPaused(true);
+          toast({
+            title: "Session Paused",
+            description: "The timer has been paused.",
+          });
+        }
+      }
+
+      onRefresh?.();
+
+    } catch (error) {
+      console.error('Error toggling pause:', error);
+      toast({
+        title: "Error",
+        description: "Failed to pause/resume session. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   return (
     <Card>
@@ -335,14 +384,35 @@ export function HostControls({
           {table.status === 'running' && (
             <>
               {shouldShowAddTime(currentPhase) && (
-                <Button
-                  onClick={handleAddTime}
-                  disabled={loading}
-                  variant="outline"
-                  className="w-full md:w-auto"
-                >
-                  Add +15s
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleAddTime}
+                    disabled={loading}
+                    variant="outline"
+                    className="flex-1 md:flex-none"
+                  >
+                    Add +15s
+                  </Button>
+                  
+                  <Button
+                    onClick={handlePauseToggle}
+                    disabled={loading}
+                    variant="outline"
+                    className="flex-1 md:flex-none"
+                  >
+                    {isPaused ? (
+                      <>
+                        <Play className="mr-2 h-4 w-4" />
+                        Resume
+                      </>
+                    ) : (
+                      <>
+                        <Pause className="mr-2 h-4 w-4" />
+                        Pause
+                      </>
+                    )}
+                  </Button>
+                </div>
               )}
 
               <Button

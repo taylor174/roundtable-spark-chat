@@ -97,6 +97,13 @@ export function ResultsPanel({
       if (onWinnerSelected) {
         onWinnerSelected(selectedWinner);
       }
+
+      // Auto-advance to next round after tie resolution
+      setTimeout(() => {
+        if (onNextRound) {
+          onNextRound();
+        }
+      }, 2000); // 2 second delay to show the results
     } catch (error) {
       console.error('Error handling tie break:', error);
       toast({
