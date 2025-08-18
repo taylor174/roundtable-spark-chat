@@ -19,30 +19,73 @@ export function usePhaseManager(
   const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
+    console.log('🔍 PhaseManager Effect - Initial Check:', {
+      hasTable: !!table,
+      hasCurrentRound: !!currentRound,
+      isProcessing,
+      tableStatus: table?.status,
+      roundStatus: currentRound?.status,
+      timeRemaining,
+      isHost,
+      lastProcessedRound,
+      retryCount
+    });
+
     if (!table || !currentRound || isProcessing || table.status !== 'running') {
+      console.log('🛑 Early return due to conditions:', {
+        noTable: !table,
+        noRound: !currentRound,
+        isProcessing,
+        tableNotRunning: table?.status !== 'running'
+      });
       return;
     }
 
     // Reset retry count when round changes
     if (lastProcessedRound !== currentRound.id) {
+      console.log('🔄 Round changed, resetting retry count');
       setRetryCount(0);
     }
 
     // Prevent processing the same round multiple times (unless retrying)
     if (lastProcessedRound === currentRound.id && retryCount === 0) {
+      console.log('🛑 Already processed this round, skipping');
       return;
     }
 
     // Check if we need to advance the phase
-    const shouldAdvance = timeRemaining <= 0 && currentRound.ends_at && isTimeExpired(currentRound.ends_at);
+    const hasEndTime = !!currentRound.ends_at;
+    const isExpired = hasEndTime && isTimeExpired(currentRound.ends_at);
+    const shouldAdvance = timeRemaining <= 0 && hasEndTime && isExpired;
     
-    if (!shouldAdvance) return;
+    console.log('⏰ Phase advancement check:', {
+      timeRemaining,
+      hasEndTime,
+      isExpired,
+      shouldAdvance,
+      roundEndsAt: currentRound.ends_at
+    });
+    
+    if (!shouldAdvance) {
+      console.log('🛑 Not advancing - conditions not met');
+      return;
+    }
 
     // Single Authority Pattern: Prefer host, but allow any client after timeout
     // Allow retries with exponential backoff for failed attempts
     const shouldProcess = isHost || timeRemaining <= -5; // 5 second fallback for non-hosts
     
-    if (!shouldProcess && retryCount === 0) return;
+    console.log('👑 Authority check:', {
+      isHost,
+      timeRemaining,
+      shouldProcess,
+      retryCount
+    });
+    
+    if (!shouldProcess && retryCount === 0) {
+      console.log('🛑 Not processing - not host and not enough time passed');
+      return;
+    }
 
     const handlePhaseAdvancement = async () => {
       console.log(`🚀 Starting phase advancement for round ${currentRound.id}, status: ${currentRound.status}, attempt: ${retryCount + 1}`);
@@ -161,6 +204,21 @@ export function usePhaseManager(
     return () => clearTimeout(timeout);
 
   }, [table, currentRound, suggestions, votes, timeRemaining, clientId, isHost, isProcessing, lastProcessedRound, retryCount, onRefresh]);
+
+  // Safety mechanism: Reset stuck processing state after 30 seconds
+  useEffect(() => {
+    if (isProcessing) {
+      console.log('⏱️ Setting safety timeout for processing state');
+      const timeout = setTimeout(() => {
+        console.log('🔓 Safety timeout: Resetting stuck processing state');
+        setIsProcessing(false);
+        setLastProcessedRound(null);
+        setRetryCount(0);
+      }, 30000); // 30 seconds
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [isProcessing]);
 
   return { isProcessing };
 }

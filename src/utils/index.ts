@@ -23,6 +23,9 @@ export function generateHostToken(): string {
  * Format time in mm:ss format
  */
 export function formatTime(seconds: number): string {
+  // Never show negative time - always show 00:00 when expired
+  if (seconds <= 0) return '00:00';
+  
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
