@@ -178,7 +178,9 @@ const Table = () => {
       setIsTransitioning(true);
       
       // Create new round in lobby mode for manual start
-      await advanceRound(table.id, currentRound.number);
+      console.log('🚀 About to call advanceRound...');
+      const newRound = await advanceRound(table.id, currentRound.number);
+      console.log('🚀 advanceRound completed, new round:', newRound);
       
       toast({
         title: "Success", 
@@ -190,8 +192,15 @@ const Table = () => {
         setTimeout(() => refreshBlocks(), 100);
       }
       
+      // Force a complete refresh to ensure UI updates with new round
+      console.log('🚀 Forcing complete refresh...');
+      setTimeout(() => {
+        refresh();
+      }, 300);
+      
       // Brief transition time for UI updates
       setTimeout(() => {
+        console.log('🚀 Clearing isTransitioning...');
         setIsTransitioning(false);
       }, 1500);
       
