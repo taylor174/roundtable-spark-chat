@@ -221,7 +221,10 @@ const Table = () => {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-semibold leading-tight break-words">{table.title || `Session ${table.code}`}</h1>
-              <p className="text-lg text-muted-foreground mt-1">
+              {table.description && (
+                <p className="text-lg text-muted-foreground mt-2 mb-1">{table.description}</p>
+              )}
+              <p className="text-sm text-muted-foreground">
                 {currentPhase === 'lobby' ? 'Waiting to start' : 
                  currentPhase === 'suggest' ? 'Suggestion Phase' :
                  currentPhase === 'vote' ? 'Voting Phase' : 'Results'} • {participants.length} participants
@@ -261,12 +264,6 @@ const Table = () => {
           </div>
         )}
         
-        {/* Session Description */}
-        {table.description && (
-          <div className="mb-6">
-            <DiscussionContextCard description={table.description} />
-          </div>
-        )}
         
         <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-4 md:gap-6">
           {/* Main Content */}
