@@ -6,7 +6,7 @@ import { Suggestion, Vote, Round } from '@/types';
  */
 export async function getSuggestionsWithVotes(
   roundId: string,
-  clientId: string
+  participantId: string
 ): Promise<Array<Suggestion & { voteCount: number; hasUserVoted: boolean }>> {
   // Get suggestions
   const { data: suggestions, error: suggestionsError } = await supabase
@@ -25,18 +25,14 @@ export async function getSuggestionsWithVotes(
 
   if (votesError) throw votesError;
 
-  // Count votes and check if user voted (handle both participant IDs and host IDs)
+  // Count votes and check if user voted using consistent participant ID
   return (suggestions || []).map(suggestion => {
     const suggestionVotes = votes?.filter(v => v.suggestion_id === suggestion.id) || [];
     
-    // More robust user vote detection - check both clientId and actual participant ID
-    const hasUserVoted = votes?.some(v => {
-      const voteParticipantId = v.participant_id;
-      return (voteParticipantId === clientId || // Direct clientId match
-              voteParticipantId.includes(clientId) || // clientId contained in participantId
-              (voteParticipantId.startsWith('host_') && clientId.startsWith('host_'))) && // Both are hosts
-             v.suggestion_id === suggestion.id;
-    }) || false;
+    // Use direct participant ID matching - same as vote submission
+    const hasUserVoted = votes?.some(v => 
+      v.participant_id === participantId && v.suggestion_id === suggestion.id
+    ) || false;
     
     return {
       ...suggestion,

@@ -78,9 +78,11 @@ const Table = () => {
       }
       
       try {
-        const data = await getSuggestionsWithVotes(currentRound.id, clientId);
-        setSuggestionsWithVotes(data);
-        setWinningSuggestions(getWinningSuggestions(data));
+        if (currentParticipant) {
+          const data = await getSuggestionsWithVotes(currentRound.id, currentParticipant.id);
+          setSuggestionsWithVotes(data);
+          setWinningSuggestions(getWinningSuggestions(data));
+        }
       } catch (error) {
         console.error('Error loading suggestions with votes:', error);
         setSuggestionsWithVotes([]);
@@ -88,7 +90,7 @@ const Table = () => {
     };
 
     loadSuggestionsWithVotes();
-  }, [currentRound, suggestions, votes, clientId]);
+  }, [currentRound, suggestions, votes, currentParticipant]);
   
   const userHasVoted = currentParticipant 
     ? votes.some(vote => vote.participant_id === currentParticipant.id)
