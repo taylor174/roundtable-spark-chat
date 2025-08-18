@@ -48,6 +48,7 @@ const Table = () => {
     error,
     currentPhase,
     refresh,
+    refreshBlocks,
   } = useTableState(code || '');
   
   const [suggestionsWithVotes, setSuggestionsWithVotes] = useState<SuggestionWithVotes[]>([]);
@@ -115,7 +116,11 @@ const Table = () => {
           description: "Winner selected!",
         });
         
-        // Don't call refresh immediately - let real-time updates handle it
+        // Force refresh blocks to show winner immediately in timeline
+        if (refreshBlocks) {
+          setTimeout(() => refreshBlocks(), 100);
+        }
+        
         setTimeout(() => {
           setIsTransitioning(false);
         }, 1500);
@@ -144,6 +149,11 @@ const Table = () => {
         title: "Success", 
         description: "Next round created!",
       });
+      
+      // Force refresh blocks to ensure timeline shows latest winner
+      if (refreshBlocks) {
+        setTimeout(() => refreshBlocks(), 100);
+      }
       
       // Brief transition time for UI updates
       setTimeout(() => {
@@ -305,6 +315,7 @@ const Table = () => {
                   onWinnerSelected={handleWinnerSelected}
                   onNextRound={handleNextRound}
                   isTransitioning={isTransitioning}
+                  refreshBlocks={refreshBlocks}
                 />
               </div>
             )}
