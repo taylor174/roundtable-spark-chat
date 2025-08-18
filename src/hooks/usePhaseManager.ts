@@ -29,11 +29,6 @@ export function usePhaseManager(
       setRetryCount(0);
     }
 
-    // Prevent processing the same round multiple times (unless retrying)
-    if (lastProcessedRound === currentRound.id && retryCount === 0) {
-      return;
-    }
-
     const checkVotingCompletion = async () => {
       // For voting phase, check if all participants have voted
       if (currentRound.status === 'vote') {
@@ -45,8 +40,11 @@ export function usePhaseManager(
         const uniqueVoters = new Set(roundVotes?.map(v => v.participant_id) || []);
         const totalParticipants = participants.length;
         
+        console.log(`Round ${currentRound.number}: ${uniqueVoters.size}/${totalParticipants} participants voted`);
+        
         // End early if everyone has voted
         if (uniqueVoters.size >= totalParticipants && totalParticipants > 0) {
+          console.log('All participants have voted - ending round early');
           return true;
         }
       }
@@ -65,6 +63,11 @@ export function usePhaseManager(
       const shouldAdvance = shouldAdvanceTimer || everyoneVoted;
       
       if (!shouldAdvance) {
+        return;
+      }
+
+      // Prevent processing the same round multiple times (unless retrying or everyone voted)
+      if (lastProcessedRound === currentRound.id && retryCount === 0 && !everyoneVoted) {
         return;
       }
 
