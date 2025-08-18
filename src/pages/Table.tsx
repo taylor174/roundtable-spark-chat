@@ -98,12 +98,12 @@ const Table = () => {
     : false;
     
   
-  // Automatic phase management (disabled during manual transitions)
-  usePhaseManager(table, currentRound, suggestions, votes, timeRemaining, clientId, isHost, isTransitioning ? undefined : refresh);
+  // Automatic phase management - always enabled (phase manager handles its own processing state)
+  const { isProcessing } = usePhaseManager(table, currentRound, suggestions, votes, timeRemaining, clientId, isHost, refresh);
   
   // Event handlers
   const handleWinnerSelected = async (suggestionId: string) => {
-    if (!table || !currentRound || isTransitioning) return;
+    if (!table || !currentRound || isTransitioning || isProcessing) return;
     
     try {
       setIsTransitioning(true);
@@ -133,11 +133,16 @@ const Table = () => {
         variant: "destructive",
       });
       setIsTransitioning(false);
+    } finally {
+      // Safety fallback to reset transitioning state
+      setTimeout(() => {
+        setIsTransitioning(false);
+      }, 3000);
     }
   };
   
   const handleNextRound = async () => {
-    if (!table || !currentRound || isTransitioning) return;
+    if (!table || !currentRound || isTransitioning || isProcessing) return;
     
     try {
       setIsTransitioning(true);
@@ -168,6 +173,11 @@ const Table = () => {
         variant: "destructive",
       });
       setIsTransitioning(false);
+    } finally {
+      // Safety fallback to reset transitioning state
+      setTimeout(() => {
+        setIsTransitioning(false);
+      }, 3000);
     }
   };
 
@@ -240,18 +250,20 @@ const Table = () => {
 
       <div className="max-w-5xl mx-auto px-4 md:px-6 py-4 relative">
         {/* Loading Overlay */}
-        {isTransitioning && (
+        {(isTransitioning || isProcessing) && (
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
             <div className="text-center space-y-4">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-              <p className="text-muted-foreground">Transitioning to next round...</p>
+              <p className="text-muted-foreground">
+                {isTransitioning ? 'Transitioning to next round...' : 'Processing phase change...'}
+              </p>
             </div>
           </div>
         )}
         
         <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-4 md:gap-6">
           {/* Main Content */}
-          <div className={`space-y-6 transition-all duration-300 ${isTransitioning ? 'opacity-30' : ''}`}>
+          <div className={`space-y-6 transition-all duration-300 ${isTransitioning || isProcessing ? 'opacity-30' : ''}`}>
             {/* Current Phase Content */}
             {currentPhase === 'lobby' && (
               <Card className="animate-fade-in">
@@ -329,7 +341,7 @@ const Table = () => {
           </div>
 
           {/* Sidebar */}
-          <div className={`space-y-6 transition-all duration-300 ${isTransitioning ? 'opacity-30' : ''}`}>
+          <div className={`space-y-6 transition-all duration-300 ${isTransitioning || isProcessing ? 'opacity-30' : ''}`}>
             {/* Discussion Context Card */}
             {table.description && (
               <DiscussionContextCard description={table.description} />
