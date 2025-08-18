@@ -82,18 +82,8 @@ export function getCurrentPhase(
   
   if (!roundStatus) return 'lobby';
   
-  // More reliable phase detection with explicit status priority
-  if (roundStatus === 'suggest') {
-    // Stay in suggest phase until time runs out
-    return timeRemaining > 0 ? 'suggest' : 'vote';
-  }
-  
-  if (roundStatus === 'vote') {
-    // Stay in vote phase until time runs out
-    return timeRemaining > 0 ? 'vote' : 'result';
-  }
-  
-  if (roundStatus === 'result') return 'result';
+  if (roundStatus === 'suggest') return timeRemaining > 0 ? 'suggest' : 'vote';
+  if (roundStatus === 'vote') return timeRemaining > 0 ? 'vote' : 'result';
   
   return 'result';
 }

@@ -4,7 +4,6 @@ import { TableState, Participant, Round, Suggestion, Vote, Block, Table } from '
 import { calculateTimeRemaining, getCurrentPhase } from '@/utils';
 import { getOrCreateClientId, getHostSecret } from '@/utils/clientId';
 import { useToast } from '@/hooks/use-toast';
-import { debounce } from '@/utils/debounce';
 
 export function useTableState(tableCode: string) {
   const clientId = getOrCreateClientId();
@@ -140,21 +139,7 @@ export function useTableState(tableCode: string) {
   }, [clientId]);
 
   const updateRound = useCallback((newRound: Round) => {
-    setState(prev => {
-      const prevRound = prev.currentRound;
-      
-      // Immediately recalculate timer if ends_at changed
-      let timeRemaining = prev.timeRemaining;
-      if (newRound.ends_at !== prevRound?.ends_at) {
-        timeRemaining = calculateTimeRemaining(newRound.ends_at);
-      }
-      
-      return { 
-        ...prev, 
-        currentRound: newRound,
-        timeRemaining 
-      };
-    });
+    setState(prev => ({ ...prev, currentRound: newRound }));
   }, []);
 
   const updateSuggestions = useCallback((newSuggestions: Suggestion[]) => {
@@ -218,24 +203,27 @@ export function useTableState(tableCode: string) {
       .on('postgres_changes', 
         { event: 'UPDATE', schema: 'public', table: 'tables', filter: `id=eq.${state.table.id}` },
         (payload) => {
+          console.log('Table update received:', payload);
           const newTable = payload.new as Table;
           updateTable(newTable);
           
           // Check if table just started running - trigger immediate state refresh
           if (newTable.status === 'running' && state.table?.status !== 'running') {
+            console.log('Table started - triggering immediate state refresh');
             loadTableData();
           }
         }
       )
-      // Round updates - critical for phase transitions (reduced debounce for faster transitions)
+      // Round updates - critical for phase transitions
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'rounds', filter: state.table.current_round_id ? `id=eq.${state.table.current_round_id}` : `table_id=eq.${state.table.id}` },
-        debounce((payload) => {
+        (payload) => {
+          console.log('Round update received:', payload);
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const newRound = payload.new as Round;
             updateRound(newRound);
           }
-        }, 50)
+        }
       )
       // Participant changes
       .on('postgres_changes',
@@ -266,6 +254,22 @@ export function useTableState(tableCode: string) {
             const currentParticipant = updated.find(p => p.client_id === clientId) || null;
             return { ...prev, participants: updated, currentParticipant };
           });
+        }
+      )
+      // Round changes - critical for detecting phase transitions
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'rounds', filter: `table_id=eq.${state.table.id}` },
+        (payload) => {
+          console.log('Round update received:', payload);
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const newRound = payload.new as Round;
+            updateRound(newRound);
+            
+            // If this is the current round, update immediately
+            if (state.table?.current_round_id === newRound.id) {
+              console.log('Current round updated - phase may have changed');
+            }
+          }
         }
       )
       // Suggestion changes

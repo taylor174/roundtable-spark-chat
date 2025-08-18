@@ -2,17 +2,9 @@ import { Badge } from '@/components/ui/badge';
 import { Check, Clock } from 'lucide-react';
 
 interface VotingStatusIndicatorProps {
-  participants: Array<{
-    id: string;
-    display_name: string;
-  }>;
-  votes: Array<{
-    participant_id: string;
-    round_id: string;
-  }>;
-  currentRound: {
-    id: string;
-  };
+  participants: any[];
+  votes: any[];
+  currentRound: any;
 }
 
 export function VotingStatusIndicator({ participants, votes, currentRound }: VotingStatusIndicatorProps) {

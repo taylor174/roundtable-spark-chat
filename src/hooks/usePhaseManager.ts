@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { getSuggestionsWithVotes, getWinningSuggestions, endRound, createNextRoundAutomatically } from '@/utils/roundLogic';
+import { getSuggestionsWithVotes, getWinningSuggestions, endRound } from '@/utils/roundLogic';
 import { Table, Round, Suggestion, Vote } from '@/types';
 import { isTimeExpired } from '@/utils';
 
@@ -51,25 +51,22 @@ export function usePhaseManager(
           const suggestionsWithVotes = await getSuggestionsWithVotes(currentRound.id, clientId);
           const winningSuggestions = getWinningSuggestions(suggestionsWithVotes);
           
-          if (winningSuggestions.length >= 1) {
-            // Winner found (including automatic tie-breaking), show results briefly
-            await endRound(
-              currentRound.id, 
-              table.id, 
-              winningSuggestions[0].text,
-              winningSuggestions[0].id
-            );
+          if (winningSuggestions.length === 1) {
+            // Clear winner, advance automatically
+            await endRound(currentRound.id, table.id, winningSuggestions[0].text);
+          } else if (winningSuggestions.length > 1) {
+            // Tie - wait for host to break it
+            await supabase
+              .from('rounds')
+              .update({ 
+                status: 'result',
+                ends_at: null 
+              })
+              .eq('id', currentRound.id);
           } else {
             // No votes, end round
             await endRound(currentRound.id, table.id, 'No votes received');
           }
-        } else if (currentRound.status === 'result') {
-          // Result display period over, start next round automatically
-          await createNextRoundAutomatically(
-            table.id,
-            currentRound.number,
-            table.default_suggest_sec
-          );
         }
 
         onRefresh?.();
@@ -80,8 +77,8 @@ export function usePhaseManager(
       }
     };
 
-    // Reduced delay for faster phase transitions
-    const timeout = setTimeout(handlePhaseAdvancement, 500);
+    // Small delay to prevent race conditions
+    const timeout = setTimeout(handlePhaseAdvancement, 1000);
     return () => clearTimeout(timeout);
 
   }, [table, currentRound, suggestions, votes, timeRemaining, clientId, isProcessing, onRefresh]);
