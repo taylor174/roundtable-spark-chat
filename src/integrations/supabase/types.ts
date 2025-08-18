@@ -357,6 +357,14 @@ export type Database = {
         Args: { p_ends_at: string; p_round_id: string; p_table_id: string }
         Returns: undefined
       }
+      submit_vote_with_validation: {
+        Args: {
+          p_participant_id: string
+          p_round_id: string
+          p_suggestion_id: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never

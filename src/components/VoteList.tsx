@@ -23,19 +23,29 @@ export function VoteList({ roundId, participantId, suggestions, userHasVoted }: 
     try {
       setVoting(true);
 
-      const { error } = await supabase
-        .from('votes')
-        .insert({
-          round_id: roundId,
-          participant_id: participantId,
-          suggestion_id: suggestionId,
-        });
+      // Use the validation function to submit vote with comprehensive checking
+      const { data, error } = await supabase.rpc('submit_vote_with_validation', {
+        p_round_id: roundId,
+        p_participant_id: participantId,
+        p_suggestion_id: suggestionId
+      });
 
       if (error) throw error;
+      
+      const result = data as { success: boolean; error?: string; message?: string };
+      
+      if (!result.success) {
+        toast({
+          title: "Cannot Vote",
+          description: result.error || "Vote submission failed",
+          variant: "destructive",
+        });
+        return;
+      }
 
       toast({
         title: "Success",
-        description: MESSAGES.VOTE_SUBMITTED,
+        description: result.message || MESSAGES.VOTE_SUBMITTED,
       });
     } catch (error) {
       console.error('Error submitting vote:', error);
