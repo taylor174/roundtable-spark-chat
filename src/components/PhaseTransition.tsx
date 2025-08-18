@@ -21,9 +21,9 @@ export function PhaseTransition({ isVisible, fromPhase, toPhase }: PhaseTransiti
             clearInterval(interval);
             return 100;
           }
-          return prev + 2; // Slower progress
+          return prev + 1; // Much slower progress
         });
-      }, 100); // Longer interval
+      }, 150); // Even longer interval
 
       return () => clearInterval(interval);
     }
