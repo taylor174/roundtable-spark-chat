@@ -119,7 +119,9 @@ export function useBundleAnalytics() {
         domContentLoaded: performance.timing.domContentLoadedEventEnd - performance.timing.navigationStart
       };
 
-      console.log('Bundle Analytics:', bundleInfo);
+      if (import.meta.env.DEV) {
+        console.log('Bundle Analytics:', bundleInfo);
+      }
     }
   }, []);
 }

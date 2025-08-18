@@ -40,11 +40,15 @@ export function usePhaseManager(
         const uniqueVoters = new Set(roundVotes?.map(v => v.participant_id) || []);
         const totalParticipants = participants.length;
         
-        console.log(`Round ${currentRound.number}: ${uniqueVoters.size}/${totalParticipants} participants voted`);
+        if (import.meta.env.DEV) {
+          console.log(`Round ${currentRound.number}: ${uniqueVoters.size}/${totalParticipants} participants voted`);
+        }
         
         // End early if everyone has voted
         if (uniqueVoters.size >= totalParticipants && totalParticipants > 0) {
-          console.log('All participants have voted - ending round early');
+          if (import.meta.env.DEV) {
+            console.log('All participants have voted - ending round early');
+          }
           return true;
         }
       }

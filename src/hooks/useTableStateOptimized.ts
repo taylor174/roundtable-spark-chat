@@ -43,14 +43,18 @@ export function useTableState(tableCode: string) {
     try {
       setState(prev => ({ ...prev, loading: true, error: null }));
 
-      // Get table
-      const { data: table, error: tableError } = await supabase
+      // Get table (conditionally exclude host_secret based on host status)
+      const { data: tableData, error: tableError } = await supabase
         .from('tables')
         .select('*')
         .eq('code', tableCode)
         .single();
 
       if (tableError) throw tableError;
+      
+      // Remove host_secret from non-host clients for security
+      const isHostCheck = hostSecret === tableData.host_secret;
+      const table = isHostCheck ? tableData : { ...tableData, host_secret: '' };
 
       // Get participants
       const { data: participants, error: participantsError } = await supabase
@@ -107,8 +111,8 @@ export function useTableState(tableCode: string) {
 
       if (blocksError) throw blocksError;
 
-      // Determine current participant and host status
-      const isHost = hostSecret === table.host_secret;
+      // Determine current participant and host status  
+      const isHost = isHostCheck;
       const currentParticipant = participants.find(p => p.client_id === clientId) || null;
 
       setState({
@@ -205,7 +209,9 @@ export function useTableState(tableCode: string) {
       if (error) throw error;
       updateBlocks(blocks || []);
     } catch (error) {
-      console.error('Error refreshing blocks:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error refreshing blocks:', error);
+      }
     }
   }, [state.table?.id, updateBlocks]);
 
@@ -236,19 +242,25 @@ export function useTableState(tableCode: string) {
       .on('postgres_changes', 
         { event: 'UPDATE', schema: 'public', table: 'tables', filter: `id=eq.${state.table.id}` },
         (payload) => {
-          console.log('Table update received:', payload);
+          if (import.meta.env.DEV) {
+            console.log('Table update received:', payload);
+          }
           const newTable = payload.new as Table;
           updateTable(newTable);
           
           // Check if table just started running - trigger immediate state refresh
           if (newTable.status === 'running' && state.table?.status !== 'running') {
-            console.log('Table started - triggering immediate state refresh');
+            if (import.meta.env.DEV) {
+              console.log('Table started - triggering immediate state refresh');
+            }
             debouncedRefresh.current();
           }
           
           // Check if current_round_id changed - trigger full refresh to get new round data
           if (newTable.current_round_id !== state.table?.current_round_id) {
-            console.log('Current round changed - triggering data refresh');
+            if (import.meta.env.DEV) {
+              console.log('Current round changed - triggering data refresh');
+            }
             setTimeout(() => debouncedRefresh.current(), 100); // Small delay to ensure round exists
           }
         }
@@ -257,24 +269,32 @@ export function useTableState(tableCode: string) {
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'rounds', filter: `table_id=eq.${state.table.id}` },
         (payload) => {
-          console.log('Round update received:', payload);
+          if (import.meta.env.DEV) {
+            console.log('Round update received:', payload);
+          }
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const newRound = payload.new as Round;
             
             // Only update if this is the current round
             if (state.table?.current_round_id === newRound.id) {
-              console.log('Current round updated - updating state');
+              if (import.meta.env.DEV) {
+                console.log('Current round updated - updating state');
+              }
               updateRound(newRound);
               
               // If round just transitioned to vote phase, add small delay for sync
               if (newRound.status === 'vote' && state.currentRound?.status !== 'vote') {
-                console.log('Vote phase started - ensuring UI sync');
+                if (import.meta.env.DEV) {
+                  console.log('Vote phase started - ensuring UI sync');
+                }
                 setTimeout(() => {
                   updateRound(newRound);
                 }, 200);
               }
             } else if (payload.eventType === 'INSERT') {
-              console.log('New round created - may need to refresh if it becomes current');
+              if (import.meta.env.DEV) {
+                console.log('New round created - may need to refresh if it becomes current');
+              }
               // The table update will handle the refresh when current_round_id changes
             }
           }
@@ -355,7 +375,9 @@ export function useTableState(tableCode: string) {
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'blocks', filter: `table_id=eq.${state.table.id}` },
         (payload) => {
-          console.log('Block insert received:', payload);
+          if (import.meta.env.DEV) {
+            console.log('Block insert received:', payload);
+          }
           setState(prev => ({
             ...prev,
             blocks: [...prev.blocks, payload.new as Block]
@@ -365,7 +387,9 @@ export function useTableState(tableCode: string) {
       .on('postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'blocks', filter: `table_id=eq.${state.table.id}` },
         (payload) => {
-          console.log('Block update received:', payload);
+          if (import.meta.env.DEV) {
+            console.log('Block update received:', payload);
+          }
           setState(prev => ({
             ...prev,
             blocks: prev.blocks.map(b => 
