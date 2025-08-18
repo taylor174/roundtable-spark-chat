@@ -33,10 +33,15 @@ export function useTableState(tableCode: string) {
   const channelRef = useRef<any>(null);
   const connection = useRealtimeConnection(state.table?.id || '');
   
-  // Debounced refresh to prevent excessive calls
+  // Debounced refresh to prevent excessive calls and flicker
   const debouncedRefresh = useRef(debounce(() => {
     loadTableData();
-  }, 1000));
+  }, 500));
+
+  // Debounced state updates to batch changes
+  const debouncedStateUpdate = useRef(debounce((updater: (prev: TableState) => TableState) => {
+    setState(updater);
+  }, 100));
 
   // Load initial data with retry logic
   const loadTableData = useCallback(async () => {

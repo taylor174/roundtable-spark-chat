@@ -12,6 +12,7 @@ import { HostControls } from '@/components/HostControls';
 import { TableInfo } from '@/components/TableInfo';
 import { DiscussionContextCard } from '@/components/DiscussionContextCard';
 import { PhaseTransition } from '@/components/PhaseTransition';
+import { SmoothTransition } from '@/components/SmoothTransition';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -29,7 +30,7 @@ import { SuggestionWithVotes, WinningSuggestion } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { MESSAGES } from '@/constants';
 import { Users, Clock, List, Play } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, startTransition } from 'react';
 import { VotingStatusIndicator } from '@/components/VotingStatusIndicator';
 
 const Table = () => {
@@ -227,17 +228,17 @@ const Table = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background p-4 md:p-6">
+      <div className="min-h-screen bg-background p-4 md:p-6 animate-fade-in">
         <div className="max-w-5xl mx-auto space-y-6">
-          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full smooth-transition" />
           <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-4 md:gap-6">
             <div className="space-y-4">
-              <Skeleton className="h-40 w-full" />
-              <Skeleton className="h-60 w-full" />
+              <Skeleton className="h-40 w-full smooth-transition" />
+              <Skeleton className="h-60 w-full smooth-transition" />
             </div>
             <div className="space-y-4">
-              <Skeleton className="h-32 w-full" />
-              <Skeleton className="h-48 w-full" />
+              <Skeleton className="h-32 w-full smooth-transition" />
+              <Skeleton className="h-48 w-full smooth-transition" />
             </div>
           </div>
         </div>
@@ -258,12 +259,12 @@ const Table = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background animate-fade-in">
       {/* Header */}
-      <header className="border-b bg-card">
+      <header className="border-b bg-card smooth-transition">
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
+            <div className="smooth-transition">
               <h1 className="text-lg sm:text-xl md:text-2xl font-semibold leading-tight break-words line-clamp-2 md:line-clamp-1">
                 {currentRound && currentRound.number > 1 && blocks.length > 0 
                   ? blocks[blocks.length - 1].text 
@@ -279,7 +280,7 @@ const Table = () => {
               </p>
             </div>
             
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4 smooth-transition">
               <TableInfo
                 tableCode={table.code}
                 participantCount={participants.length}
@@ -322,94 +323,101 @@ const Table = () => {
         
         <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-4 md:gap-6">
           {/* Main Content */}
-          <div className={`space-y-6 transition-all duration-300 ${isTransitioning ? 'opacity-30' : ''}`}>
-            {/* Current Phase Content */}
-            {currentPhase === 'lobby' && (
-              <Card className="animate-fade-in">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Play className="h-5 w-5" />
-                    <span>Waiting to Start</span>
-                  </CardTitle>
-                </CardHeader>
-              <CardContent className="p-4 sm:p-6">
-                <div className="text-center py-8">
-                  <p className="text-lg mb-4">{MESSAGES.WAITING_FOR_HOST}</p>
-                    {isHost && (
-                      <p className="text-muted-foreground">
-                        Use the host controls on the right to configure and start the table.
-                      </p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            
-            {/* Suggestion Phase - Show to participants and hosts */}
-            {currentPhase === 'suggest' && (
-              <div className="animate-fade-in space-y-6">
-                {currentParticipant && currentRound && (
-                  <SuggestionForm
-                    roundId={currentRound.id}
-                    participantId={currentParticipant.id}
+          <div className="space-y-6 stable-layout">
+            <SmoothTransition 
+              isVisible={!isTransitioning} 
+              className="phase-container"
+            >
+              {/* Current Phase Content */}
+              {currentPhase === 'lobby' && (
+                <Card className="content-enter">
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Play className="h-5 w-5" />
+                      <span>Waiting to Start</span>
+                    </CardTitle>
+                  </CardHeader>
+                <CardContent className="p-4 sm:p-6">
+                  <div className="text-center py-8">
+                    <p className="text-lg mb-4">{MESSAGES.WAITING_FOR_HOST}</p>
+                      {isHost && (
+                        <p className="text-muted-foreground">
+                          Use the host controls on the right to configure and start the table.
+                        </p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* Suggestion Phase - Show to participants and hosts */}
+              {currentPhase === 'suggest' && (
+                <div className="content-enter space-y-6">
+                  {currentParticipant && currentRound && (
+                    <SuggestionForm
+                      roundId={currentRound.id}
+                      participantId={currentParticipant.id}
+                    />
+                  )}
+                  <SuggestionList 
+                    suggestions={suggestionsWithVotes}
                   />
-                )}
+                </div>
+              )}
+              
+              {/* Voting Phase - Show to participants and hosts */}
+              {currentPhase === 'vote' && (
+                <div className="content-enter">
+                  {currentParticipant && currentRound && (
+                    <VoteList
+                      suggestions={suggestionsWithVotes}
+                      roundId={currentRound.id}
+                      participantId={currentParticipant.id}
+                      userHasVoted={userHasVoted}
+                    />
+                  )}
+                </div>
+              )}
+              
+              {/* Results Phase */}
+              {currentPhase === 'result' && winningSuggestions.length > 0 && (
+                <div className="content-enter">
+                  <ResultsPanel
+                    winningSuggestions={winningSuggestions}
+                    isHost={isHost}
+                    roundNumber={currentRound?.number}
+                    tableId={table?.id}
+                    roundId={currentRound?.id}
+                    onWinnerSelected={handleWinnerSelected}
+                    onNextRound={handleNextRound}
+                    isTransitioning={isTransitioning}
+                    refreshBlocks={refreshBlocks}
+                  />
+                </div>
+              )}
+
+              {/* Show suggestions in voting and results phases */}
+              {(currentPhase === 'vote' || currentPhase === 'result') && suggestionsWithVotes.length > 0 && (
                 <SuggestionList 
                   suggestions={suggestionsWithVotes}
                 />
-              </div>
-            )}
-            
-            {/* Voting Phase - Show to participants and hosts */}
-            {currentPhase === 'vote' && (
-              <div className="animate-fade-in">
-                {currentParticipant && currentRound && (
-                  <VoteList
-                    suggestions={suggestionsWithVotes}
-                    roundId={currentRound.id}
-                    participantId={currentParticipant.id}
-                    userHasVoted={userHasVoted}
-                  />
-                )}
-              </div>
-            )}
-            
-            {/* Results Phase */}
-            {currentPhase === 'result' && winningSuggestions.length > 0 && (
-              <div className="animate-fade-in">
-                <ResultsPanel
-                  winningSuggestions={winningSuggestions}
-                  isHost={isHost}
-                  roundNumber={currentRound?.number}
-                  tableId={table?.id}
-                  roundId={currentRound?.id}
-                  onWinnerSelected={handleWinnerSelected}
-                  onNextRound={handleNextRound}
-                  isTransitioning={isTransitioning}
-                  refreshBlocks={refreshBlocks}
-                />
-              </div>
-            )}
-
-            {/* Show suggestions in voting and results phases */}
-            {(currentPhase === 'vote' || currentPhase === 'result') && suggestionsWithVotes.length > 0 && (
-              <SuggestionList 
-                suggestions={suggestionsWithVotes}
-              />
-            )}
+              )}
+            </SmoothTransition>
           </div>
 
           {/* Sidebar */}
-          <div className={`space-y-6 transition-all duration-300 ${isTransitioning ? 'opacity-30' : ''}`}>
+          <div className="space-y-6 smooth-transition">
             {/* Timeline */}
-            <Timeline 
-              blocks={blocks} 
-              currentRound={currentRound} 
-              originalTitle={table.title}
-            />
+            <div className="smooth-transition">
+              <Timeline 
+                blocks={blocks} 
+                currentRound={currentRound} 
+                originalTitle={table.title}
+              />
+            </div>
             
             {/* Participants */}
-            <Card>
+            <Card className="smooth-transition">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Users className="h-5 w-5" />
@@ -420,7 +428,7 @@ const Table = () => {
                 <div className="space-y-4">
                   <div className="space-y-2">
                     {participants.map((participant) => (
-                      <div key={participant.id} className="flex items-center justify-between">
+                      <div key={participant.id} className="flex items-center justify-between smooth-transition">
                         <span>{participant.display_name}</span>
                         {participant.is_host && (
                           <span className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded">
@@ -433,11 +441,13 @@ const Table = () => {
                   
                   {/* Show voting status during voting phase */}
                   {currentPhase === 'vote' && isHost && currentRound && (
-                    <VotingStatusIndicator 
-                      participants={participants}
-                      votes={votes}
-                      currentRound={currentRound}
-                    />
+                    <SmoothTransition isVisible={true}>
+                      <VotingStatusIndicator 
+                        participants={participants}
+                        votes={votes}
+                        currentRound={currentRound}
+                      />
+                    </SmoothTransition>
                   )}
                 </div>
               </CardContent>
@@ -445,15 +455,17 @@ const Table = () => {
 
             {/* Host Controls */}
             {isHost && (
-              <HostControls
-                table={table}
-                canStart={true}
-                currentPhase={currentPhase}
-                participantCount={participants.length}
-                participants={participants}
-                currentParticipant={currentParticipant}
-                onRefresh={refresh}
-              />
+              <div className="smooth-transition">
+                <HostControls
+                  table={table}
+                  canStart={true}
+                  currentPhase={currentPhase}
+                  participantCount={participants.length}
+                  participants={participants}
+                  currentParticipant={currentParticipant}
+                  onRefresh={refresh}
+                />
+              </div>
             )}
           </div>
         </div>

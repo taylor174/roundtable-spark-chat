@@ -68,35 +68,29 @@ export function PhaseTransition({ isVisible, fromPhase, toPhase }: PhaseTransiti
   if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-0 bg-background/95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <Card className="max-w-md w-full">
-        <CardContent className="p-8 text-center space-y-6">
-          <div className="flex items-center justify-center space-x-4">
-            <div className="flex items-center space-x-2 text-muted-foreground">
-              {getPhaseIcon(fromPhase)}
-              <span className="font-medium">{getPhaseLabel(fromPhase)}</span>
-            </div>
-            
-            <ArrowRight className="h-6 w-6 text-primary animate-pulse" />
-            
-            <div className="flex items-center space-x-2 text-primary">
-              {getPhaseIcon(toPhase)}
-              <span className="font-medium">{getPhaseLabel(toPhase)}</span>
-            </div>
+    <div className="fixed top-0 left-0 right-0 bg-background/90 backdrop-blur-sm z-40 border-b animate-fade-in">
+      <div className="max-w-4xl mx-auto p-4">
+        <div className="flex items-center justify-center space-x-4">
+          <div className="flex items-center space-x-2 text-muted-foreground">
+            {getPhaseIcon(fromPhase)}
+            <span className="text-sm font-medium">{getPhaseLabel(fromPhase)}</span>
           </div>
+          
+          <ArrowRight className="h-5 w-5 text-primary animate-pulse" />
+          
+          <div className="flex items-center space-x-2 text-primary">
+            {getPhaseIcon(toPhase)}
+            <span className="text-sm font-medium">{getPhaseLabel(toPhase)}</span>
+          </div>
+        </div>
 
-          <div className="space-y-2">
-            <Progress value={progress} className="h-2" />
-            <p className="text-sm text-muted-foreground">
-              {progress < 100 ? getMessage() : 'Almost ready...'}
-            </p>
-          </div>
-
-          <div className="animate-pulse">
-            <div className="h-2 w-2 bg-primary rounded-full mx-auto"></div>
-          </div>
-        </CardContent>
-      </Card>
+        <div className="mt-3 max-w-xs mx-auto">
+          <Progress value={progress} className="h-1" />
+          <p className="text-xs text-muted-foreground text-center mt-1">
+            {progress < 100 ? getMessage() : 'Almost ready...'}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

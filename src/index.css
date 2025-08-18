@@ -127,4 +127,22 @@ All colors MUST be HSL.
     border-radius: 0.75rem;
     box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
   }
+
+  /* Anti-flicker smooth transitions */
+  .smooth-transition {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .phase-container {
+    transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+  }
+  
+  .content-enter {
+    animation: smooth-enter 0.3s ease-out;
+  }
+
+  /* Prevent layout shift during content changes */
+  .stable-layout {
+    min-height: 200px;
+  }
 }
