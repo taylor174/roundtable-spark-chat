@@ -42,9 +42,31 @@ export async function getSuggestionsWithVotes(
 }
 
 /**
- * Get winning suggestions (handling ties)
+ * Get winning suggestions with automatic tie-breaking by submission time
  */
 export function getWinningSuggestions(
+  suggestions: Array<Suggestion & { voteCount: number }>
+): Array<Suggestion & { voteCount: number }> {
+  if (suggestions.length === 0) return [];
+  
+  const maxVotes = Math.max(...suggestions.map(s => s.voteCount));
+  const topSuggestions = suggestions.filter(s => s.voteCount === maxVotes);
+  
+  // If tied, return the one submitted earliest (automatic tie-breaking)
+  if (topSuggestions.length > 1) {
+    const earliest = topSuggestions.sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    )[0];
+    return [earliest];
+  }
+  
+  return topSuggestions;
+}
+
+/**
+ * Get winning suggestions without automatic tie-breaking (for manual resolution)
+ */
+export function getWinningSuggestionsWithTies(
   suggestions: Array<Suggestion & { voteCount: number }>
 ): Array<Suggestion & { voteCount: number }> {
   if (suggestions.length === 0) return [];
@@ -54,18 +76,20 @@ export function getWinningSuggestions(
 }
 
 /**
- * Advance to next round
+ * Advance to next round and automatically start suggestions
  */
-export async function advanceRound(tableId: string, currentRoundNumber: number): Promise<Round> {
+export async function advanceRound(tableId: string, currentRoundNumber: number, defaultSuggestSec: number): Promise<Round> {
   const nextRoundNumber = currentRoundNumber + 1;
+  const endsAt = new Date(Date.now() + defaultSuggestSec * 1000).toISOString();
   
-  // Create new round
+  // Create new round directly in suggest phase
   const { data: newRound, error } = await supabase
     .from('rounds')
     .insert({
       table_id: tableId,
       number: nextRoundNumber,
-      status: 'lobby',
+      status: 'suggest',
+      ends_at: endsAt,
     })
     .select()
     .single();
@@ -112,19 +136,24 @@ export async function startVotePhase(roundId: string, defaultVoteSec: number): P
 }
 
 /**
- * End round and create block with winning suggestion
+ * End round and create block with winning suggestion, with brief result display
  */
 export async function endRound(
   roundId: string,
   tableId: string,
-  winningSuggestionText: string
+  winningSuggestionText: string,
+  suggestionId?: string
 ): Promise<void> {
-  // Update round to result phase
+  // Set 1-second result display period
+  const resultEndsAt = new Date(Date.now() + 1000).toISOString();
+  
+  // Update round to result phase with timer
   await supabase
     .from('rounds')
     .update({
       status: 'result',
-      ends_at: null,
+      ends_at: resultEndsAt,
+      winner_suggestion_id: suggestionId || null,
     })
     .eq('id', roundId);
 
@@ -134,8 +163,26 @@ export async function endRound(
     .insert({
       table_id: tableId,
       round_id: roundId,
+      suggestion_id: suggestionId || null,
       text: winningSuggestionText,
     });
+}
+
+/**
+ * Create and start next round automatically
+ */
+export async function createNextRoundAutomatically(
+  tableId: string,
+  currentRoundNumber: number,
+  defaultSuggestSec: number
+): Promise<Round> {
+  try {
+    const newRound = await advanceRound(tableId, currentRoundNumber, defaultSuggestSec);
+    return newRound;
+  } catch (error) {
+    console.error('Error creating next round:', error);
+    throw error;
+  }
 }
 
 /**

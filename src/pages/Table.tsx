@@ -17,7 +17,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { 
   getSuggestionsWithVotes, 
-  getWinningSuggestions,
+  getWinningSuggestionsWithTies,
   advanceRound,
   endRound
 } from '@/utils/roundLogic';
@@ -80,7 +80,7 @@ const Table = () => {
       try {
         const data = await getSuggestionsWithVotes(currentRound.id, clientId);
         setSuggestionsWithVotes(data);
-        setWinningSuggestions(getWinningSuggestions(data));
+        setWinningSuggestions(getWinningSuggestionsWithTies(data));
       } catch (error) {
         console.error('Error loading suggestions with votes:', error);
         setSuggestionsWithVotes([]);
@@ -105,7 +105,7 @@ const Table = () => {
     try {
       const winningSuggestion = suggestionsWithVotes.find(s => s.id === suggestionId);
       if (winningSuggestion) {
-        await endRound(currentRound.id, table.id, winningSuggestion.text);
+        await endRound(currentRound.id, table.id, winningSuggestion.text, suggestionId);
         toast({
           title: "Success",
           description: "Winner selected!",
@@ -125,7 +125,7 @@ const Table = () => {
     if (!table || !currentRound) return;
     
     try {
-      await advanceRound(table.id, currentRound.number);
+      await advanceRound(table.id, currentRound.number, table.default_suggest_sec);
       
       toast({
         title: "Success", 
