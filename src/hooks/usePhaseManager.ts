@@ -55,25 +55,34 @@ export function usePhaseManager(
               .eq('id', table.id);
           }
         } else if (currentRound.status === 'vote') {
-          // Use atomic round completion with auto-advancement
-          const result = await completeRoundAndAdvance(
-            currentRound.id,
-            table.id,
-            currentRound.number,
-            table.default_suggest_sec,
-            clientId
-          );
-          
-          if (!result) {
-            // Either no suggestions/votes, or tie needs manual resolution
-            // Ensure global refresh is triggered even for ties
+          // Check if there are any votes before completing
+          if (votes.length === 0) {
+            await endRound(currentRound.id, table.id, 'No votes cast');
             await supabase
               .from('tables')
               .update({ updated_at: new Date().toISOString() })
               .eq('id', table.id);
-            console.log('Round completed without auto-advancement (tie or no votes)');
           } else {
-            console.log(`Round completed with winner: ${result.winner}. Next round started.`);
+            // Use atomic round completion with auto-advancement
+            const result = await completeRoundAndAdvance(
+              currentRound.id,
+              table.id,
+              currentRound.number,
+              table.default_suggest_sec,
+              clientId
+            );
+            
+            if (!result) {
+              // Tie needs manual resolution
+              // Ensure global refresh is triggered even for ties
+              await supabase
+                .from('tables')
+                .update({ updated_at: new Date().toISOString() })
+                .eq('id', table.id);
+              console.log('Round completed without auto-advancement (tie needs manual resolution)');
+            } else {
+              console.log(`Round completed with winner: ${result.winner}. Next round started.`);
+            }
           }
         }
 

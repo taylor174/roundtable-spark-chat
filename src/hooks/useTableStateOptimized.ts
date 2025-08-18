@@ -4,11 +4,15 @@ import { TableState, Participant, Round, Suggestion, Vote, Block, Table } from '
 import { calculateTimeRemaining, getCurrentPhase } from '@/utils';
 import { getOrCreateClientId, getHostSecret } from '@/utils/clientId';
 import { useToast } from '@/hooks/use-toast';
+import { useErrorHandler } from './useErrorHandler';
+import { useRealtimeConnection } from './useRealtimeConnection';
+import { withRetry, debounce } from '@/utils/retryLogic';
 
 export function useTableState(tableCode: string) {
   const clientId = getOrCreateClientId();
   const hostSecret = getHostSecret(tableCode);
   const { toast } = useToast();
+  const { handleError, handleAsyncOperation } = useErrorHandler();
   
   const [state, setState] = useState<TableState>({
     table: null,
@@ -27,8 +31,14 @@ export function useTableState(tableCode: string) {
 
   const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
   const channelRef = useRef<any>(null);
+  const connection = useRealtimeConnection(state.table?.id || '');
+  
+  // Debounced refresh to prevent excessive calls
+  const debouncedRefresh = useRef(debounce(() => {
+    loadTableData();
+  }, 1000));
 
-  // Load initial data
+  // Load initial data with retry logic
   const loadTableData = useCallback(async () => {
     try {
       setState(prev => ({ ...prev, loading: true, error: null }));
@@ -117,14 +127,19 @@ export function useTableState(tableCode: string) {
       });
 
     } catch (error) {
-      console.error('Error loading table data:', error);
+      handleError(error, { 
+        operation: 'load table data', 
+        component: 'useTableState',
+        userMessage: 'Failed to load table data. Please refresh the page.' 
+      });
+      
       setState(prev => ({
         ...prev,
         loading: false,
-        error: error instanceof Error ? error.message : 'Failed to load table data',
+        error: 'Failed to load table data',
       }));
     }
-  }, [tableCode, clientId, hostSecret]);
+  }, [tableCode, clientId, hostSecret, handleError]);
 
   // Optimized state updaters
   const updateTable = useCallback((newTable: Table) => {
@@ -210,13 +225,13 @@ export function useTableState(tableCode: string) {
           // Check if table just started running - trigger immediate state refresh
           if (newTable.status === 'running' && state.table?.status !== 'running') {
             console.log('Table started - triggering immediate state refresh');
-            loadTableData();
+            debouncedRefresh.current();
           }
           
           // Check if current_round_id changed - trigger full refresh to get new round data
           if (newTable.current_round_id !== state.table?.current_round_id) {
             console.log('Current round changed - triggering data refresh');
-            setTimeout(() => loadTableData(), 100); // Small delay to ensure round exists
+            setTimeout(() => debouncedRefresh.current(), 100); // Small delay to ensure round exists
           }
         }
       )

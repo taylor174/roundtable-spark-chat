@@ -60,22 +60,23 @@ export function ResultsPanel({
           })
           .eq('id', roundId),
         
-        // Upsert block entry (handle existing blocks)
-        supabase
-          .from('blocks')
-          .upsert({
-            table_id: tableId,
-            round_id: roundId,
-            suggestion_id: selectedWinner,
-            text: winningSuggestion.text,
-            is_tie_break: true
-          }, {
-            onConflict: 'table_id,round_id'
-          })
+        // Use safe upsert function for block creation
+        supabase.rpc('upsert_block_safe', {
+          p_table_id: tableId,
+          p_round_id: roundId,
+          p_suggestion_id: selectedWinner,
+          p_text: winningSuggestion.text,
+          p_is_tie_break: true
+        })
       ]);
 
       if (roundUpdate.error) throw roundUpdate.error;
       if (blockUpsert.error) throw blockUpsert.error;
+      
+      const blockResult = blockUpsert.data as { success: boolean; error?: string; action?: string };
+      if (blockResult && !blockResult.success) {
+        throw new Error(blockResult.error || 'Failed to create tie-break block');
+      }
 
       toast({
         title: "Success",

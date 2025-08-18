@@ -338,6 +338,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_stale_rounds: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       resolve_tie: {
         Args: {
           p_round_id: string
@@ -362,6 +366,16 @@ export type Database = {
           p_participant_id: string
           p_round_id: string
           p_suggestion_id: string
+        }
+        Returns: Json
+      }
+      upsert_block_safe: {
+        Args: {
+          p_is_tie_break?: boolean
+          p_round_id: string
+          p_suggestion_id: string
+          p_table_id: string
+          p_text: string
         }
         Returns: Json
       }

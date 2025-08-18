@@ -145,30 +145,46 @@ export async function startVotePhase(roundId: string, defaultVoteSec: number, ta
 }
 
 /**
- * End round and create block with winning suggestion
+ * End round and create block with winning suggestion (using safe upsert)
  */
 export async function endRound(
   roundId: string,
   tableId: string,
-  winningSuggestionText: string
+  winningSuggestionText: string,
+  suggestionId?: string
 ): Promise<void> {
-  // Update round to result phase
-  await supabase
-    .from('rounds')
-    .update({
-      status: 'result',
-      ends_at: null,
-    })
-    .eq('id', roundId);
+  try {
+    // Update round to result phase
+    const { error: roundError } = await supabase
+      .from('rounds')
+      .update({
+        status: 'result',
+        ends_at: null,
+        winner_suggestion_id: suggestionId || null,
+      })
+      .eq('id', roundId);
 
-  // Create block entry
-  await supabase
-    .from('blocks')
-    .insert({
-      table_id: tableId,
-      round_id: roundId,
-      text: winningSuggestionText,
+    if (roundError) throw roundError;
+
+    // Create block entry using safe upsert function
+    const { data, error: blockError } = await supabase.rpc('upsert_block_safe', {
+      p_table_id: tableId,
+      p_round_id: roundId,
+      p_suggestion_id: suggestionId || null,
+      p_text: winningSuggestionText,
+      p_is_tie_break: false
     });
+
+    if (blockError) throw blockError;
+    
+    const result = data as { success: boolean; error?: string; action?: string };
+    if (!result?.success) throw new Error(result?.error || 'Failed to create block');
+
+    console.log(`Block ${result.action} for round ${roundId}`);
+  } catch (error) {
+    console.error('Error in endRound:', error);
+    throw error;
+  }
 }
 
 /**
@@ -229,17 +245,19 @@ export async function completeRoundAndAdvance(
 
     if (roundError) throw roundError;
 
-    // Create block for winner (idempotent with unique constraint on table_id, round_id)
-    await supabase
-      .from('blocks')
-      .upsert({
-        table_id: tableId,
-        round_id: roundId,
-        text: winner.text,
-        suggestion_id: winner.id,
-      }, {
-        onConflict: 'table_id,round_id'
-      });
+    // Create block for winner using safe upsert function
+    const { data: blockData, error: blockError } = await supabase.rpc('upsert_block_safe', {
+      p_table_id: tableId,
+      p_round_id: roundId,
+      p_suggestion_id: winner.id,
+      p_text: winner.text,
+      p_is_tie_break: false
+    });
+
+    if (blockError) throw blockError;
+    
+    const blockResult = blockData as { success: boolean; error?: string; action?: string };
+    if (!blockResult?.success) throw new Error(blockResult?.error || 'Failed to create winner block');
 
     // Update current round to result
     await supabase
