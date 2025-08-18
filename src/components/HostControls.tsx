@@ -139,12 +139,12 @@ export function HostControls({
       if (table.current_round_id) {
         // Import and use the updated skipToNextPhase function
         const { skipToNextPhase } = await import('@/utils/roundLogic');
-        await skipToNextPhase(table.current_round_id, table.id, table.default_vote_sec);
+        await skipToNextPhase(table.current_round_id, table.id, table.default_vote_sec, table.default_suggest_sec);
       }
 
       toast({
-        title: "Success",
-        description: "Skipped to next phase.",
+        title: "Success", 
+        description: getSkipPhaseMessage(currentPhase),
       });
 
       onRefresh?.();
@@ -159,6 +159,30 @@ export function HostControls({
     } finally {
       setLoading(false);
     }
+  };
+
+  const getSkipPhaseMessage = (phase: string) => {
+    switch (phase) {
+      case 'suggest': return 'Moved to voting phase.';
+      case 'vote': return 'Round ended, showing results.';
+      case 'result': return 'Advanced to next round.';
+      case 'lobby': return 'Started suggestion phase.';
+      default: return 'Skipped to next phase.';
+    }
+  };
+
+  const getSkipButtonLabel = (phase: string) => {
+    switch (phase) {
+      case 'suggest': return 'Start Voting';
+      case 'vote': return 'End Round';
+      case 'result': return 'Next Round';
+      case 'lobby': return 'Start Suggestions';
+      default: return 'Skip to Next Phase';
+    }
+  };
+
+  const shouldShowAddTime = (phase: string) => {
+    return phase === 'suggest' || phase === 'vote';
   };
 
   const handleEndTable = async () => {
@@ -310,14 +334,16 @@ export function HostControls({
 
           {table.status === 'running' && (
             <>
-              <Button
-                onClick={handleAddTime}
-                disabled={loading}
-                variant="outline"
-                className="w-full md:w-auto"
-              >
-                Add +15s
-              </Button>
+              {shouldShowAddTime(currentPhase) && (
+                <Button
+                  onClick={handleAddTime}
+                  disabled={loading}
+                  variant="outline"
+                  className="w-full md:w-auto"
+                >
+                  Add +15s
+                </Button>
+              )}
 
               <Button
                 onClick={handleSkipPhase}
@@ -325,7 +351,7 @@ export function HostControls({
                 variant="outline"
                 className="w-full md:w-auto"
               >
-                Skip to Next Phase
+                {getSkipButtonLabel(currentPhase)}
               </Button>
 
               <Button

@@ -297,23 +297,33 @@ export async function addTimeToPhase(roundId: string, additionalSeconds: number,
 /**
  * Skip to next phase (with global refresh trigger)
  */
-export async function skipToNextPhase(roundId: string, tableId: string, defaultVoteSec: number): Promise<void> {
+export async function skipToNextPhase(roundId: string, tableId: string, defaultVoteSec: number, defaultSuggestSec: number): Promise<void> {
   const { data: round } = await supabase
     .from('rounds')
-    .select('status')
+    .select('status, number')
     .eq('id', roundId)
     .single();
 
   if (!round) return;
 
+  console.log(`Skipping from ${round.status} phase`);
+
   if (round.status === 'suggest') {
     await startVotePhase(roundId, defaultVoteSec, tableId);
   } else if (round.status === 'vote') {
     await endRound(roundId, tableId, 'No winner selected');
-    // Trigger global refresh
-    await supabase
-      .from('tables')
-      .update({ updated_at: new Date().toISOString() })
-      .eq('id', tableId);
+  } else if (round.status === 'result') {
+    // Advance to next round
+    const newRound = await advanceRound(tableId, round.number);
+    await startSuggestPhase(newRound.id, defaultSuggestSec, tableId);
+  } else if (round.status === 'lobby') {
+    // Start suggest phase for current round
+    await startSuggestPhase(roundId, defaultSuggestSec, tableId);
   }
+  
+  // Trigger global refresh for all transitions
+  await supabase
+    .from('tables')
+    .update({ updated_at: new Date().toISOString() })
+    .eq('id', tableId);
 }
