@@ -245,7 +245,7 @@ const Table = () => {
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-semibold leading-tight break-words line-clamp-2 md:line-clamp-1">
+              <h1 className="text-lg sm:text-xl md:text-2xl font-semibold leading-tight break-words line-clamp-2 md:line-clamp-1">
                 {currentRound && currentRound.number > 1 && blocks.length > 0 
                   ? blocks[blocks.length - 1].text 
                   : table.title || `Session ${table.code}`}
