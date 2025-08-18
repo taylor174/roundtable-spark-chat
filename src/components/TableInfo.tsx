@@ -31,7 +31,7 @@ export function TableInfo({ tableCode, participantCount, isHost }: TableInfoProp
       },
     })
       .then(setQrCodeUrl)
-      .catch(console.error);
+      .catch(() => {});
   }, [joinUrl]);
 
   const handleCopyLink = async () => {
@@ -40,7 +40,7 @@ export function TableInfo({ tableCode, participantCount, isHost }: TableInfoProp
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
-      console.error('Failed to copy:', error);
+      // Silently handle copy failure
     }
   };
 

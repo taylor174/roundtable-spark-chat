@@ -45,7 +45,6 @@ const Join = () => {
         }
       } catch (error) {
         // Silently fail - table validation will happen on join
-        console.log('Table lookup failed on join page:', error);
       }
     };
 
@@ -56,19 +55,17 @@ const Join = () => {
   useEffect(() => {
     if (!code || !tableId) return;
 
-    console.log('Setting up realtime listener for table status changes');
+    
 
     const channel = supabase
       .channel(`join_page_${tableId}`)
       .on('postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'tables', filter: `id=eq.${tableId}` },
         (payload) => {
-          console.log('Table status changed in join page:', payload);
           const newTable = payload.new as any;
           
           // If table status changed to running, auto-redirect immediately
           if (newTable.status === 'running') {
-            console.log('Table started - redirecting to session immediately');
             toast({
               title: "Session Started!",
               description: "Redirecting to the session...",
@@ -77,12 +74,9 @@ const Join = () => {
           }
         }
       )
-      .subscribe((status) => {
-        console.log('Join page realtime subscription status:', status);
-      });
+      .subscribe();
 
     return () => {
-      console.log('Cleaning up join page realtime listener');
       supabase.removeChannel(channel);
     };
   }, [code, tableId, navigate, toast]);

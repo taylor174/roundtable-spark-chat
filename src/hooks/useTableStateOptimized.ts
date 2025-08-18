@@ -203,13 +203,11 @@ export function useTableState(tableCode: string) {
       .on('postgres_changes', 
         { event: 'UPDATE', schema: 'public', table: 'tables', filter: `id=eq.${state.table.id}` },
         (payload) => {
-          console.log('Table update received:', payload);
           const newTable = payload.new as Table;
           updateTable(newTable);
           
           // Check if table just started running - trigger immediate state refresh
           if (newTable.status === 'running' && state.table?.status !== 'running') {
-            console.log('Table started - triggering immediate state refresh');
             loadTableData();
           }
         }
@@ -218,7 +216,6 @@ export function useTableState(tableCode: string) {
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'rounds', filter: state.table.current_round_id ? `id=eq.${state.table.current_round_id}` : `table_id=eq.${state.table.id}` },
         (payload) => {
-          console.log('Round update received:', payload);
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const newRound = payload.new as Round;
             updateRound(newRound);
@@ -260,15 +257,9 @@ export function useTableState(tableCode: string) {
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'rounds', filter: `table_id=eq.${state.table.id}` },
         (payload) => {
-          console.log('Round update received:', payload);
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const newRound = payload.new as Round;
             updateRound(newRound);
-            
-            // If this is the current round, update immediately
-            if (state.table?.current_round_id === newRound.id) {
-              console.log('Current round updated - phase may have changed');
-            }
           }
         }
       )

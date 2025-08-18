@@ -15,8 +15,8 @@ interface HostControlsProps {
   canStart: boolean;
   currentPhase: string;
   participantCount: number;
-  participants: any[];
-  currentParticipant: any;
+  participants: Array<{ id: string; display_name: string }>;
+  currentParticipant: { id: string; display_name: string } | null;
   onRefresh?: () => void;
 }
 
