@@ -342,6 +342,14 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      is_table_host: {
+        Args: { p_client_id: string; p_table_id: string }
+        Returns: boolean
+      }
+      is_table_participant: {
+        Args: { p_client_id: string; p_table_id: string }
+        Returns: boolean
+      }
       resolve_tie: {
         Args: {
           p_round_id: string

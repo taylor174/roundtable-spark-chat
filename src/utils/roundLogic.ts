@@ -178,7 +178,7 @@ export async function endRound(
     const result = data as { success: boolean; error?: string; action?: string };
     if (!result?.success) throw new Error(result?.error || 'Failed to create block');
 
-    console.log(`Block ${result.action} for round ${roundId}`);
+    // Block saved successfully
     
     // Trigger global refresh to ensure all clients see the new block
     await supabase
@@ -329,7 +329,7 @@ export async function skipToNextPhase(roundId: string, tableId: string, defaultV
 
   if (!round) return;
 
-  console.log(`Skipping from ${round.status} phase`);
+  // Phase skip not needed
 
   if (round.status === 'suggest') {
     await startVotePhase(roundId, defaultVoteSec, tableId);

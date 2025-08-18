@@ -19,37 +19,17 @@ export function usePhaseManager(
   const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
-    console.log('🔍 PhaseManager Effect - Initial Check:', {
-      hasTable: !!table,
-      hasCurrentRound: !!currentRound,
-      isProcessing,
-      tableStatus: table?.status,
-      roundStatus: currentRound?.status,
-      timeRemaining,
-      isHost,
-      lastProcessedRound,
-      retryCount
-    });
-
     if (!table || !currentRound || isProcessing || table.status !== 'running') {
-      console.log('🛑 Early return due to conditions:', {
-        noTable: !table,
-        noRound: !currentRound,
-        isProcessing,
-        tableNotRunning: table?.status !== 'running'
-      });
       return;
     }
 
     // Reset retry count when round changes
     if (lastProcessedRound !== currentRound.id) {
-      console.log('🔄 Round changed, resetting retry count');
       setRetryCount(0);
     }
 
     // Prevent processing the same round multiple times (unless retrying)
     if (lastProcessedRound === currentRound.id && retryCount === 0) {
-      console.log('🛑 Already processed this round, skipping');
       return;
     }
 
@@ -58,64 +38,37 @@ export function usePhaseManager(
     const isExpired = hasEndTime && isTimeExpired(currentRound.ends_at);
     const shouldAdvance = timeRemaining <= 0 && hasEndTime && isExpired;
     
-    console.log('⏰ Phase advancement check:', {
-      timeRemaining,
-      hasEndTime,
-      isExpired,
-      shouldAdvance,
-      roundEndsAt: currentRound.ends_at
-    });
-    
     if (!shouldAdvance) {
-      console.log('🛑 Not advancing - conditions not met');
       return;
     }
 
     // Single Authority Pattern: Prefer host, but allow any client after timeout
-    // Allow retries with exponential backoff for failed attempts
     const shouldProcess = isHost || timeRemaining <= -2; // 2 second fallback for non-hosts
     
-    console.log('👑 Authority check:', {
-      isHost,
-      timeRemaining,
-      shouldProcess,
-      retryCount
-    });
-    
     if (!shouldProcess && retryCount === 0) {
-      console.log('🛑 Not processing - not host and not enough time passed');
       return;
     }
 
     const handlePhaseAdvancement = async () => {
-      console.log(`🚀 Starting phase advancement for round ${currentRound.id}, status: ${currentRound.status}, attempt: ${retryCount + 1}`);
       setIsProcessing(true);
       setLastProcessedRound(currentRound.id);
       
       try {
         if (currentRound.status === 'suggest') {
-          console.log(`📝 Processing suggest phase for round ${currentRound.id}`);
-          
-          // Query database directly for accurate suggestion count - don't rely on stale local state
+          // Query database directly for accurate suggestion count
           const { data: dbSuggestions, error } = await supabase
             .from('suggestions')
             .select('id')
             .eq('round_id', currentRound.id);
           
           if (error) {
-            console.error('❌ Error fetching suggestions:', error);
-            throw error; // Let the catch block handle retry logic
+            throw error;
           }
-          
-          console.log(`📊 Phase transition: Found ${dbSuggestions?.length || 0} suggestions for round ${currentRound.id}`);
           
           // Move to voting phase if there are suggestions in database
           if (dbSuggestions && dbSuggestions.length > 0) {
-            console.log(`🗳️ Starting vote phase for round ${currentRound.id}`);
-            const result = await startVotePhase(currentRound.id, table.default_vote_sec, table.id);
-            console.log(`✅ Vote phase started successfully:`, result);
+            await startVotePhase(currentRound.id, table.default_vote_sec, table.id);
           } else {
-            console.log(`❌ No suggestions found, ending round ${currentRound.id}`);
             // No suggestions, end the round and trigger refresh
             await endRound(currentRound.id, table.id, 'No suggestions submitted');
             await supabase
@@ -124,8 +77,6 @@ export function usePhaseManager(
               .eq('id', table.id);
           }
         } else if (currentRound.status === 'vote') {
-          console.log(`🗳️ Processing vote phase for round ${currentRound.id}`);
-          
           // Double-check round is still in vote phase before processing
           const { data: freshRound } = await supabase
             .from('rounds')
@@ -134,13 +85,10 @@ export function usePhaseManager(
             .single();
           
           if (freshRound?.status !== 'vote') {
-            console.log('⏭️ Round status changed, skipping vote phase processing');
             return;
           }
           
-          console.log(`🏁 Completing round ${currentRound.id} and advancing`);
-          // Always use completeRoundAndAdvance for vote phase - it handles all cases properly
-          // including no votes, ties, and clear winners
+          // Complete the round and advance
           const result = await completeRoundAndAdvance(
             currentRound.id,
             table.id,
@@ -150,19 +98,13 @@ export function usePhaseManager(
           );
           
           if (!result) {
-            // Tie needs manual resolution or no votes case
-            // Ensure global refresh is triggered
+            // Ensure global refresh is triggered for ties/no votes
             await supabase
               .from('tables')
               .update({ updated_at: new Date().toISOString() })
               .eq('id', table.id);
-            console.log('🤝 Round completed without auto-advancement (tie needs manual resolution or no votes)');
-          } else {
-            console.log(`🏆 Round completed with winner: ${result.winner}. Next round started.`);
           }
         }
-
-        console.log(`✅ Phase advancement completed successfully for round ${currentRound.id}`);
         
         // Reset retry count on success
         setRetryCount(0);
@@ -170,16 +112,14 @@ export function usePhaseManager(
         // Force a state refresh after phase change
         setTimeout(() => {
           onRefresh?.();
-        }, 1000); // Increased timeout for better reliability
+        }, 1000);
         
       } catch (error) {
-        console.error(`❌ Error advancing phase for round ${currentRound.id}, attempt ${retryCount + 1}:`, error);
+        console.error(`Error advancing phase for round ${currentRound.id}:`, error);
         
         // Implement retry logic with exponential backoff
         const maxRetries = 3;
         if (retryCount < maxRetries) {
-          console.log(`🔄 Retrying phase advancement in ${2000 * (retryCount + 1)}ms (attempt ${retryCount + 2}/${maxRetries + 1})`);
-          
           // Reset processing state to allow retry
           setLastProcessedRound(null);
           setRetryCount(prev => prev + 1);
@@ -189,7 +129,6 @@ export function usePhaseManager(
             // This will trigger the useEffect again
           }, 2000 * (retryCount + 1));
         } else {
-          console.error(`💥 Max retries (${maxRetries}) reached for round ${currentRound.id}, giving up`);
           // Reset everything on final failure
           setLastProcessedRound(null);
           setRetryCount(0);
@@ -208,9 +147,7 @@ export function usePhaseManager(
   // Safety mechanism: Reset stuck processing state after 30 seconds
   useEffect(() => {
     if (isProcessing) {
-      console.log('⏱️ Setting safety timeout for processing state');
       const timeout = setTimeout(() => {
-        console.log('🔓 Safety timeout: Resetting stuck processing state');
         setIsProcessing(false);
         setLastProcessedRound(null);
         setRetryCount(0);
