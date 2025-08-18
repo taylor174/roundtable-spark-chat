@@ -33,23 +33,50 @@ export function usePhaseManager(
       return;
     }
 
+    const checkVotingCompletion = async () => {
+      // For voting phase, check if all participants have voted
+      if (currentRound.status === 'vote') {
+        const { data: roundVotes } = await supabase
+          .from('votes')
+          .select('participant_id')
+          .eq('round_id', currentRound.id);
+        
+        const uniqueVoters = new Set(roundVotes?.map(v => v.participant_id) || []);
+        const totalParticipants = votes.length > 0 ? 
+          new Set(votes.map(v => v.participant_id)).size : 
+          suggestions.length > 0 ? 
+          new Set(suggestions.map(s => s.participant_id)).size : 
+          1; // fallback minimum
+        
+        // End early if everyone has voted
+        if (uniqueVoters.size >= totalParticipants && totalParticipants > 0) {
+          return true;
+        }
+      }
+      
+      return false;
+    };
+
     // Check if we need to advance the phase
     const hasEndTime = !!currentRound.ends_at;
     const isExpired = hasEndTime && isTimeExpired(currentRound.ends_at);
-    const shouldAdvance = timeRemaining <= 0 && hasEndTime && isExpired;
+    const shouldAdvanceTimer = timeRemaining <= 0 && hasEndTime && isExpired;
     
-    if (!shouldAdvance) {
-      return;
-    }
-
-    // Single Authority Pattern: Prefer host, but allow any client after timeout
-    const shouldProcess = isHost || timeRemaining <= -2; // 2 second fallback for non-hosts
-    
-    if (!shouldProcess && retryCount === 0) {
-      return;
-    }
-
     const handlePhaseAdvancement = async () => {
+      // Check if everyone has voted (for early termination)
+      const everyoneVoted = await checkVotingCompletion();
+      const shouldAdvance = shouldAdvanceTimer || everyoneVoted;
+      
+      if (!shouldAdvance) {
+        return;
+      }
+
+      // Single Authority Pattern: Prefer host, but allow any client after timeout
+      const shouldProcess = isHost || timeRemaining <= -2 || everyoneVoted; // Allow early processing if everyone voted
+      
+      if (!shouldProcess && retryCount === 0) {
+        return;
+      }
       setIsProcessing(true);
       setLastProcessedRound(currentRound.id);
       
