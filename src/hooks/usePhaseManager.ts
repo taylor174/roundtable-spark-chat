@@ -43,8 +43,21 @@ export function usePhaseManager(
       
       try {
         if (currentRound.status === 'suggest') {
-          // Move to voting phase if there are suggestions
-          if (suggestions.length > 0) {
+          // Query database directly for accurate suggestion count - don't rely on stale local state
+          const { data: dbSuggestions, error } = await supabase
+            .from('suggestions')
+            .select('id')
+            .eq('round_id', currentRound.id);
+          
+          if (error) {
+            console.error('Error fetching suggestions:', error);
+            return;
+          }
+          
+          console.log(`Phase transition: Found ${dbSuggestions?.length || 0} suggestions for round ${currentRound.id}`);
+          
+          // Move to voting phase if there are suggestions in database
+          if (dbSuggestions && dbSuggestions.length > 0) {
             await startVotePhase(currentRound.id, table.default_vote_sec, table.id);
           } else {
             // No suggestions, end the round and trigger refresh
@@ -55,6 +68,17 @@ export function usePhaseManager(
               .eq('id', table.id);
           }
         } else if (currentRound.status === 'vote') {
+          // Double-check round is still in vote phase before processing
+          const { data: freshRound } = await supabase
+            .from('rounds')
+            .select('status')
+            .eq('id', currentRound.id)
+            .single();
+          
+          if (freshRound?.status !== 'vote') {
+            console.log('Round status changed, skipping vote phase processing');
+            return;
+          }
           // Always use completeRoundAndAdvance for vote phase - it handles all cases properly
           // including no votes, ties, and clear winners
           const result = await completeRoundAndAdvance(
@@ -92,8 +116,8 @@ export function usePhaseManager(
       }
     };
 
-    // Small delay to prevent race conditions and allow for authority coordination
-    const timeout = setTimeout(handlePhaseAdvancement, isHost ? 500 : 2000);
+    // Longer delays to prevent race conditions and allow real-time sync to catch up
+    const timeout = setTimeout(handlePhaseAdvancement, isHost ? 1000 : 3000);
     return () => clearTimeout(timeout);
 
   }, [table, currentRound, suggestions, votes, timeRemaining, clientId, isHost, isProcessing, lastProcessedRound, onRefresh]);
