@@ -336,7 +336,35 @@ export async function skipToNextPhase(roundId: string, tableId: string, defaultV
   if (round.status === 'suggest') {
     await startVotePhase(roundId, defaultVoteSec, tableId);
   } else if (round.status === 'vote') {
-    await endRound(roundId, tableId, 'No winner selected');
+    // Properly determine winner instead of hardcoding "No winner selected"
+    try {
+      // Get suggestions with votes for proper winner determination
+      const suggestionsWithVotes = await getSuggestionsWithVotes(roundId, 'system');
+      
+      if (suggestionsWithVotes.length === 0) {
+        await endRound(roundId, tableId, 'No suggestions submitted');
+      } else {
+        // Check if there are any votes
+        const totalVotes = suggestionsWithVotes.reduce((sum, s) => sum + s.voteCount, 0);
+        
+        if (totalVotes === 0) {
+          await endRound(roundId, tableId, 'No votes cast');
+        } else {
+          // Determine winner with tie-breaking
+          const winner = getWinnerWithTieBreak(suggestionsWithVotes);
+          
+          if (winner) {
+            await endRound(roundId, tableId, winner.text, winner.id);
+          } else {
+            // True tie that needs manual resolution
+            await endRound(roundId, tableId, 'Tie - manual resolution needed');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error determining winner in skipToNextPhase:', error);
+      await endRound(roundId, tableId, 'Error determining winner');
+    }
   } else if (round.status === 'result') {
     // Advance to next round
     const newRound = await advanceRound(tableId, round.number);
