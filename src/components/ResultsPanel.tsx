@@ -19,6 +19,7 @@ interface ResultsPanelProps {
   onWinnerSelected?: (suggestionId: string) => void;
   onNextRound?: () => void;
   isTransitioning?: boolean;
+  refreshBlocks?: () => void;
 }
 
 export function ResultsPanel({ 
@@ -29,7 +30,8 @@ export function ResultsPanel({
   roundId,
   onWinnerSelected, 
   onNextRound,
-  isTransitioning = false
+  isTransitioning = false,
+  refreshBlocks
 }: ResultsPanelProps) {
   const [showTieBreaker, setShowTieBreaker] = useState(false);
   const [selectedWinner, setSelectedWinner] = useState<string>('');
@@ -82,6 +84,11 @@ export function ResultsPanel({
         title: "Success",
         description: "Winner selected and round completed!",
       });
+
+      // Force refresh blocks to show updated timeline immediately
+      if (refreshBlocks) {
+        setTimeout(() => refreshBlocks(), 100);
+      }
 
       setShowTieBreaker(false);
       if (onWinnerSelected) {

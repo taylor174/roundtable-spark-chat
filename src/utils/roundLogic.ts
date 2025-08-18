@@ -181,6 +181,13 @@ export async function endRound(
     if (!result?.success) throw new Error(result?.error || 'Failed to create block');
 
     console.log(`Block ${result.action} for round ${roundId}`);
+    
+    // Trigger global refresh to ensure all clients see the new block
+    await supabase
+      .from('tables')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', tableId);
+      
   } catch (error) {
     console.error('Error in endRound:', error);
     throw error;

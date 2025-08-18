@@ -191,6 +191,24 @@ export function useTableState(tableCode: string) {
     setState(prev => ({ ...prev, blocks: newBlocks }));
   }, []);
 
+  // Force refresh blocks data - useful after winner selection
+  const refreshBlocks = useCallback(async () => {
+    if (!state.table?.id) return;
+    
+    try {
+      const { data: blocks, error } = await supabase
+        .from('blocks')
+        .select('*')
+        .eq('table_id', state.table.id)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      updateBlocks(blocks || []);
+    } catch (error) {
+      console.error('Error refreshing blocks:', error);
+    }
+  }, [state.table?.id, updateBlocks]);
+
   // Update timer
   const updateTimer = useCallback(() => {
     setState(prev => {
@@ -247,6 +265,14 @@ export function useTableState(tableCode: string) {
             if (state.table?.current_round_id === newRound.id) {
               console.log('Current round updated - updating state');
               updateRound(newRound);
+              
+              // If round just transitioned to vote phase, add small delay for sync
+              if (newRound.status === 'vote' && state.currentRound?.status !== 'vote') {
+                console.log('Vote phase started - ensuring UI sync');
+                setTimeout(() => {
+                  updateRound(newRound);
+                }, 200);
+              }
             } else if (payload.eventType === 'INSERT') {
               console.log('New round created - may need to refresh if it becomes current');
               // The table update will handle the refresh when current_round_id changes
@@ -325,13 +351,26 @@ export function useTableState(tableCode: string) {
           }
         }
       )
-      // Block changes
+      // Block changes - listen to all changes for immediate timeline updates
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'blocks', filter: `table_id=eq.${state.table.id}` },
         (payload) => {
+          console.log('Block insert received:', payload);
           setState(prev => ({
             ...prev,
             blocks: [...prev.blocks, payload.new as Block]
+          }));
+        }
+      )
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'blocks', filter: `table_id=eq.${state.table.id}` },
+        (payload) => {
+          console.log('Block update received:', payload);
+          setState(prev => ({
+            ...prev,
+            blocks: prev.blocks.map(b => 
+              b.id === payload.new.id ? payload.new as Block : b
+            )
           }));
         }
       )
@@ -370,6 +409,7 @@ export function useTableState(tableCode: string) {
   return {
     ...state,
     refresh: loadTableData,
+    refreshBlocks,
     currentPhase: getCurrentPhase(
       state.table?.status || 'lobby',
       state.currentRound?.status || null,
