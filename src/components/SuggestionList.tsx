@@ -1,6 +1,7 @@
 import { SuggestionWithVotes } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { TruncatedText } from '@/components/TruncatedText';
 
 interface SuggestionListProps {
   suggestions: SuggestionWithVotes[];
@@ -25,8 +26,10 @@ export function SuggestionList({ suggestions }: SuggestionListProps) {
         <Card key={suggestion.id}>
           <CardContent className="pt-4">
             <div className="flex justify-between items-start gap-3">
-              <p className="flex-1">{suggestion.text}</p>
-              <Badge variant="secondary" className="shrink-0">
+              <div className="flex-1">
+                <TruncatedText text={suggestion.text} />
+              </div>
+              <Badge variant="secondary" className="shrink-0 mt-1">
                 {suggestion.voteCount} {suggestion.voteCount === 1 ? 'vote' : 'votes'}
               </Badge>
             </div>

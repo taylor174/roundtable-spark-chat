@@ -7,8 +7,9 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { WinningSuggestion } from '@/types';
-import { Trophy, Crown, Users } from 'lucide-react';
+import { Trophy, Crown, Users, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { TruncatedText } from '@/components/TruncatedText';
 
 interface ResultsPanelProps {
   winningSuggestions: WinningSuggestion[];
@@ -36,6 +37,7 @@ export function ResultsPanel({
   const [showTieBreaker, setShowTieBreaker] = useState(false);
   const [selectedWinner, setSelectedWinner] = useState<string>('');
   const [processing, setProcessing] = useState(false);
+  const [tieResolved, setTieResolved] = useState(false);
   const { toast } = useToast();
 
   const isTie = winningSuggestions.length > 1;
@@ -91,6 +93,7 @@ export function ResultsPanel({
       }
 
       setShowTieBreaker(false);
+      setTieResolved(true);
       if (onWinnerSelected) {
         onWinnerSelected(selectedWinner);
       }
@@ -124,7 +127,7 @@ export function ResultsPanel({
             <div className="space-y-3">
               {winningSuggestions.map((suggestion) => (
                 <div key={suggestion.id} className="p-3 border rounded-lg">
-                  <p className="text-sm">{suggestion.text}</p>
+                  <TruncatedText text={suggestion.text} className="text-sm" />
                   <Badge variant="secondary" className="mt-2">
                     {suggestion.voteCount} votes
                   </Badge>
@@ -132,15 +135,22 @@ export function ResultsPanel({
               ))}
             </div>
 
-            <Button 
-              onClick={() => setShowTieBreaker(true)}
-              disabled={isTransitioning}
-              className="w-full"
-              size="lg"
-            >
-              <Crown className="mr-2 h-4 w-4" />
-              Break Tie
-            </Button>
+            {!tieResolved ? (
+              <Button 
+                onClick={() => setShowTieBreaker(true)}
+                disabled={isTransitioning}
+                className="w-full"
+                size="lg"
+              >
+                <Crown className="mr-2 h-4 w-4" />
+                Break Tie
+              </Button>
+            ) : (
+              <div className="w-full p-3 bg-green-50 border border-green-200 rounded-lg flex items-center justify-center text-green-700">
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Winner Selected
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -164,10 +174,10 @@ export function ResultsPanel({
                       />
                       <Label
                         htmlFor={`tie-${suggestion.id}`}
-                        className="flex-1 cursor-pointer text-sm"
+                        className="flex-1 cursor-pointer"
                       >
-                        {suggestion.text}
-                        <Badge variant="secondary" className="ml-2">
+                        <TruncatedText text={suggestion.text} className="text-sm" />
+                        <Badge variant="secondary" className="ml-2 mt-1">
                           {suggestion.voteCount} votes
                         </Badge>
                       </Label>
@@ -207,7 +217,7 @@ export function ResultsPanel({
           <div className="space-y-2">
             {winningSuggestions.map((suggestion) => (
               <div key={suggestion.id} className="p-3 border rounded-lg">
-                <p className="text-sm">{suggestion.text}</p>
+                <TruncatedText text={suggestion.text} className="text-sm" />
                 <Badge variant="secondary" className="mt-2">
                   {suggestion.voteCount} votes
                 </Badge>
@@ -229,7 +239,7 @@ export function ResultsPanel({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="p-4 border-2 border-amber-200 bg-amber-50 rounded-lg">
-          <p className="font-medium text-lg">{winner.text}</p>
+          <TruncatedText text={winner.text} className="font-medium text-lg" />
           <Badge variant="secondary" className="mt-2">
             {winner.voteCount} votes
           </Badge>
