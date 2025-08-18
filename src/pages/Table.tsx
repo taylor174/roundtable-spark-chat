@@ -22,7 +22,8 @@ import {
   getWinningSuggestions,
   getWinnerWithTieBreak,
   advanceRound,
-  endRound
+  endRound,
+  startSuggestPhase
 } from '@/utils/roundLogic';
 import { SuggestionWithVotes, WinningSuggestion } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -182,9 +183,13 @@ const Table = () => {
       const newRound = await advanceRound(table.id, currentRound.number);
       console.log('🚀 advanceRound completed, new round:', newRound);
       
+      // Automatically start the suggestion phase for the new round
+      console.log('🚀 Starting suggestion phase for new round...');
+      await startSuggestPhase(newRound.id, table.default_suggest_sec, table.id);
+      
       toast({
         title: "Success", 
-        description: "Next round created!",
+        description: "Next round started!",
       });
       
       // Force refresh blocks to ensure timeline shows latest winner
