@@ -49,7 +49,7 @@ export function ResultsPanel({
       if (!winningSuggestion) return;
 
       // Atomically update round and create block
-      const [roundUpdate, blockInsert] = await Promise.all([
+      const [roundUpdate, blockUpsert] = await Promise.all([
         // Update round to result phase with winner
         supabase
           .from('rounds')
@@ -60,19 +60,22 @@ export function ResultsPanel({
           })
           .eq('id', roundId),
         
-        // Insert block entry
+        // Upsert block entry (handle existing blocks)
         supabase
           .from('blocks')
-          .insert({
+          .upsert({
             table_id: tableId,
             round_id: roundId,
             suggestion_id: selectedWinner,
             text: winningSuggestion.text,
+            is_tie_break: true
+          }, {
+            onConflict: 'table_id,round_id'
           })
       ]);
 
       if (roundUpdate.error) throw roundUpdate.error;
-      if (blockInsert.error) throw blockInsert.error;
+      if (blockUpsert.error) throw blockUpsert.error;
 
       toast({
         title: "Success",
@@ -224,16 +227,6 @@ export function ResultsPanel({
           </Badge>
         </div>
 
-        {isHost && onNextRound && (
-          <Button 
-            onClick={onNextRound}
-            disabled={isTransitioning}
-            className="w-full"
-            size="lg"
-          >
-            Start Next Round
-          </Button>
-        )}
       </CardContent>
     </Card>
   );
