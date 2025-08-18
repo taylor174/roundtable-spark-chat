@@ -57,6 +57,9 @@ export function usePhaseManager(
     const isExpired = hasEndTime && isTimeExpired(currentRound.ends_at);
     const shouldAdvanceTimer = timeRemaining <= 0 && hasEndTime && isExpired;
     
+    // Special handling for first round - be more aggressive about checking
+    const isFirstRound = currentRound.number === 1;
+    
     const handlePhaseAdvancement = async () => {
       // Check if everyone has voted (for early termination)
       const everyoneVoted = await checkVotingCompletion();
@@ -72,7 +75,8 @@ export function usePhaseManager(
       }
 
       // Single Authority Pattern: Prefer host, but allow any client after timeout
-      const shouldProcess = isHost || timeRemaining <= -2 || everyoneVoted; // Allow early processing if everyone voted
+      // For first round, be more aggressive about processing
+      const shouldProcess = isHost || timeRemaining <= -2 || everyoneVoted || (isFirstRound && timeRemaining <= -1);
       
       if (!shouldProcess && retryCount === 0) {
         return;
@@ -136,10 +140,10 @@ export function usePhaseManager(
         // Reset retry count on success
         setRetryCount(0);
         
-        // Force a state refresh after phase change
+        // Force a state refresh after phase change - longer delay to prevent flicker
         setTimeout(() => {
           onRefresh?.();
-        }, 1000);
+        }, 2500);
         
       } catch (error) {
         console.error(`Error advancing phase for round ${currentRound.id}:`, error);
@@ -165,8 +169,9 @@ export function usePhaseManager(
       }
     };
 
-    // Shorter delays for faster transitions
-    const timeout = setTimeout(handlePhaseAdvancement, isHost ? 500 : 1500);
+    // Shorter delays for faster transitions, even shorter for first round
+    const delay = isFirstRound ? (isHost ? 250 : 750) : (isHost ? 500 : 1500);
+    const timeout = setTimeout(handlePhaseAdvancement, delay);
     return () => clearTimeout(timeout);
 
   }, [table, currentRound, suggestions, votes, timeRemaining, clientId, isHost, isProcessing, lastProcessedRound, retryCount, onRefresh]);
