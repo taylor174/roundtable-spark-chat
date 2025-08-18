@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { getSuggestionsWithVotes, getWinningSuggestions, endRound } from '@/utils/roundLogic';
+import { getSuggestionsWithVotes, getWinningSuggestions, endRound, completeRoundAndAdvance } from '@/utils/roundLogic';
 import { Table, Round, Suggestion, Vote } from '@/types';
 import { isTimeExpired } from '@/utils';
 
@@ -47,25 +47,21 @@ export function usePhaseManager(
             await endRound(currentRound.id, table.id, 'No suggestions submitted');
           }
         } else if (currentRound.status === 'vote') {
-          // Determine winner and move to results
-          const suggestionsWithVotes = await getSuggestionsWithVotes(currentRound.id, clientId);
-          const winningSuggestions = getWinningSuggestions(suggestionsWithVotes);
+          // Use atomic round completion with auto-advancement
+          const result = await completeRoundAndAdvance(
+            currentRound.id,
+            table.id,
+            currentRound.number,
+            table.default_suggest_sec,
+            clientId
+          );
           
-          if (winningSuggestions.length === 1) {
-            // Clear winner, advance automatically
-            await endRound(currentRound.id, table.id, winningSuggestions[0].text);
-          } else if (winningSuggestions.length > 1) {
-            // Tie - wait for host to break it
-            await supabase
-              .from('rounds')
-              .update({ 
-                status: 'result',
-                ends_at: null 
-              })
-              .eq('id', currentRound.id);
+          if (!result) {
+            // Either no suggestions/votes, or tie needs manual resolution
+            // completeRoundAndAdvance already handled the database updates
+            console.log('Round completed without auto-advancement (tie or no votes)');
           } else {
-            // No votes, end round
-            await endRound(currentRound.id, table.id, 'No votes received');
+            console.log(`Round completed with winner: ${result.winner}. Next round started.`);
           }
         }
 

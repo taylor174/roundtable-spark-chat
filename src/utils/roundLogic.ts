@@ -54,6 +54,33 @@ export function getWinningSuggestions(
 }
 
 /**
+ * Get winner with automatic tie-breaking by submission time
+ * Returns single winner or null if manual tie-break needed
+ */
+export function getWinnerWithTieBreak(
+  suggestions: Array<Suggestion & { voteCount: number }>
+): (Suggestion & { voteCount: number }) | null {
+  if (suggestions.length === 0) return null;
+  
+  // Sort by vote count DESC, then by created_at ASC (earliest submission wins ties)
+  const sorted = [...suggestions].sort((a, b) => {
+    if (b.voteCount !== a.voteCount) {
+      return b.voteCount - a.voteCount;
+    }
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+  });
+  
+  // If top two have same votes AND same timestamp (extremely rare), manual resolution needed
+  if (sorted.length > 1 && 
+      sorted[0].voteCount === sorted[1].voteCount && 
+      sorted[0].created_at === sorted[1].created_at) {
+    return null;
+  }
+  
+  return sorted[0];
+}
+
+/**
  * Advance to next round
  */
 export async function advanceRound(tableId: string, currentRoundNumber: number): Promise<Round> {
@@ -136,6 +163,103 @@ export async function endRound(
       round_id: roundId,
       text: winningSuggestionText,
     });
+}
+
+/**
+ * Complete current round and automatically advance to next round
+ * This is the atomic operation that:
+ * 1. Determines winner (with auto tie-breaking)
+ * 2. Creates block entry
+ * 3. Creates next round in suggest phase
+ * 4. Updates table to trigger refresh on all clients
+ */
+export async function completeRoundAndAdvance(
+  roundId: string,
+  tableId: string,
+  currentRoundNumber: number,
+  defaultSuggestSec: number,
+  clientId: string
+): Promise<{ winner: string; nextRound: Round } | null> {
+  try {
+    // Get suggestions with votes
+    const suggestionsWithVotes = await getSuggestionsWithVotes(roundId, clientId);
+    
+    if (suggestionsWithVotes.length === 0) {
+      // No suggestions - create final block and don't advance
+      await endRound(roundId, tableId, 'No suggestions submitted');
+      return null;
+    }
+
+    // Attempt automatic winner determination
+    const winner = getWinnerWithTieBreak(suggestionsWithVotes);
+    
+    if (!winner) {
+      // Tie needs manual resolution - just mark as result phase
+      await supabase
+        .from('rounds')
+        .update({ 
+          status: 'result',
+          ends_at: null 
+        })
+        .eq('id', roundId);
+      return null;
+    }
+
+    // We have a clear winner - proceed with atomic transition
+    const nextRoundNumber = currentRoundNumber + 1;
+    const suggestEndsAt = new Date(Date.now() + defaultSuggestSec * 1000).toISOString();
+    
+    // Execute atomic transition using a transaction-like approach
+    const { data: newRound, error: roundError } = await supabase
+      .from('rounds')
+      .insert({
+        table_id: tableId,
+        number: nextRoundNumber,
+        status: 'suggest',
+        ends_at: suggestEndsAt,
+      })
+      .select()
+      .single();
+
+    if (roundError) throw roundError;
+
+    // Create block for winner (idempotent with unique constraint on table_id, round_id)
+    await supabase
+      .from('blocks')
+      .upsert({
+        table_id: tableId,
+        round_id: roundId,
+        text: winner.text,
+        suggestion_id: winner.id,
+      }, {
+        onConflict: 'table_id,round_id'
+      });
+
+    // Update current round to result
+    await supabase
+      .from('rounds')
+      .update({
+        status: 'result',
+        ends_at: null,
+        winner_suggestion_id: winner.id,
+      })
+      .eq('id', roundId);
+
+    // Update table with new round AND updated_at to trigger refresh
+    await supabase
+      .from('tables')
+      .update({ 
+        current_round_id: newRound.id,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', tableId);
+
+    return { winner: winner.text, nextRound: newRound };
+    
+  } catch (error) {
+    console.error('Error in completeRoundAndAdvance:', error);
+    throw error;
+  }
 }
 
 /**
