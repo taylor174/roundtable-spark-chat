@@ -220,14 +220,19 @@ const Table = () => {
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-semibold leading-tight break-words">{table.title || `Session ${table.code}`}</h1>
-              {table.description && (
-                <p className="text-lg text-muted-foreground mt-2 mb-1">{table.description}</p>
-              )}
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-semibold leading-tight break-words">
+                {/* Dynamic title based on discussion thread */}
+                {currentRound && currentRound.number > 1 && blocks.length > 0 
+                  ? blocks[blocks.length - 1].text 
+                  : table.title || `Session ${table.code}`}
+              </h1>
               <p className="text-sm text-muted-foreground">
                 {currentPhase === 'lobby' ? 'Waiting to start' : 
                  currentPhase === 'suggest' ? 'Suggestion Phase' :
                  currentPhase === 'vote' ? 'Voting Phase' : 'Results'} • {participants.length} participants
+                {currentRound && currentRound.number > 1 && (
+                  <span> • Round {currentRound.number}</span>
+                )}
               </p>
             </div>
             
@@ -347,7 +352,11 @@ const Table = () => {
           {/* Sidebar */}
           <div className={`space-y-6 transition-all duration-300 ${isTransitioning || isProcessing ? 'opacity-30' : ''}`}>
             {/* Timeline */}
-            <Timeline blocks={blocks} currentRound={currentRound} />
+            <Timeline 
+              blocks={blocks} 
+              currentRound={currentRound} 
+              originalTitle={table.title}
+            />
             
             {/* Participants */}
             <Card>

@@ -7,9 +7,10 @@ import { Clock, Timer } from 'lucide-react';
 interface TimelineProps {
   blocks: Block[];
   currentRound: Round | null;
+  originalTitle?: string;
 }
 
-export function Timeline({ blocks, currentRound }: TimelineProps) {
+export function Timeline({ blocks, currentRound, originalTitle }: TimelineProps) {
   // Calculate total rounds including current pending round
   const totalRounds = currentRound ? currentRound.number : blocks.length;
   const hasPendingTieBreak = currentRound?.status === 'result' && 
@@ -35,15 +36,36 @@ export function Timeline({ blocks, currentRound }: TimelineProps) {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <Clock className="h-5 w-5" />
-          <span>Timeline ({totalRounds})</span>
-        </CardTitle>
-      </CardHeader>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Clock className="h-5 w-5" />
+            <span>Discussion Thread</span>
+          </CardTitle>
+        </CardHeader>
       <CardContent className="p-0">
         <ScrollArea className="h-[300px] w-full">
           <div className="p-4 space-y-4">
+            {/* Show original topic first */}
+            {originalTitle && (
+              <div className="relative">
+                {(blocks.length > 0 || hasPendingTieBreak) && (
+                  <div className="absolute left-4 top-8 w-0.5 h-6 bg-border" />
+                )}
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted text-muted-foreground flex items-center justify-center text-sm font-medium">
+                    📝
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">Original Topic</p>
+                    <p className="text-sm text-muted-foreground leading-relaxed mt-1">
+                      {originalTitle}
+                    </p>
+                  </div>
+                </div>
+                {(blocks.length > 0 || hasPendingTieBreak) && <Separator className="mt-4" />}
+              </div>
+            )}
+            
             {/* Render completed rounds from blocks */}
             {blocks.map((block, index) => (
               <div key={block.id} className="relative">
@@ -55,7 +77,7 @@ export function Timeline({ blocks, currentRound }: TimelineProps) {
                     {index + 1}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">Round {index + 1}</p>
+                    <p className="text-sm font-medium">Round {index + 1} Winner</p>
                     <p className="text-sm text-muted-foreground leading-relaxed mt-1">
                       {block.text}
                     </p>
