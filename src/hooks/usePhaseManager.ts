@@ -12,7 +12,8 @@ export function usePhaseManager(
   timeRemaining: number,
   clientId: string,
   isHost: boolean,
-  onRefresh?: () => void
+  onRefresh?: () => void,
+  participants: any[] = []
 ) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastProcessedRound, setLastProcessedRound] = useState<string | null>(null);
@@ -42,11 +43,7 @@ export function usePhaseManager(
           .eq('round_id', currentRound.id);
         
         const uniqueVoters = new Set(roundVotes?.map(v => v.participant_id) || []);
-        const totalParticipants = votes.length > 0 ? 
-          new Set(votes.map(v => v.participant_id)).size : 
-          suggestions.length > 0 ? 
-          new Set(suggestions.map(s => s.participant_id)).size : 
-          1; // fallback minimum
+        const totalParticipants = participants.length;
         
         // End early if everyone has voted
         if (uniqueVoters.size >= totalParticipants && totalParticipants > 0) {

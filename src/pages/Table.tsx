@@ -99,7 +99,7 @@ const Table = () => {
     
   
   // Automatic phase management - always enabled (phase manager handles its own processing state)
-  const { isProcessing } = usePhaseManager(table, currentRound, suggestions, votes, timeRemaining, clientId, isHost, refresh);
+  const { isProcessing } = usePhaseManager(table, currentRound, suggestions, votes, timeRemaining, clientId, isHost, refresh, participants);
   
   // Event handlers
   const handleWinnerSelected = async (suggestionId: string) => {

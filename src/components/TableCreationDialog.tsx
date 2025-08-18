@@ -20,7 +20,7 @@ interface TableCreationDialogProps {
 export function TableCreationDialog({ children }: TableCreationDialogProps) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
+  
   const [suggestTime, setSuggestTime] = useState(30); // 30 seconds default
   const [voteTime, setVoteTime] = useState(60); // 60 seconds default
   const [loading, setLoading] = useState(false);
@@ -68,7 +68,7 @@ export function TableCreationDialog({ children }: TableCreationDialogProps) {
           code: tableCode,
           host_secret: hostSecret,
           title: title.trim(),
-          description: description.trim() || null,
+          description: null,
           default_suggest_sec: suggestTime,
           default_vote_sec: voteTime,
           status: 'lobby',
@@ -140,17 +140,6 @@ export function TableCreationDialog({ children }: TableCreationDialogProps) {
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Optional: What topic will you be exploring?"
-              rows={4}
-              className="resize-y"
-            />
-          </div>
 
           <Card className="p-4">
             <h4 className="font-medium mb-3">Phase Timing</h4>
