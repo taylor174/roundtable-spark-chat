@@ -19,8 +19,8 @@ export default function Home() {
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold mb-2">Classroom Sessions</h1>
-          <p className="text-lg text-muted-foreground">Interactive group discussions and decision making</p>
+          <h1 className="text-4xl font-bold mb-2">Roundtable Sessions</h1>
+          <p className="text-lg text-muted-foreground">Structured group debate and fast decisions.</p>
         </div>
 
         <div className="text-center mb-12">
@@ -28,8 +28,7 @@ export default function Home() {
             How it works
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            Instructors create sessions, students join with a simple code, suggest ideas, vote on options, 
-            and see results in real-time. Perfect for brainstorming, decision making, and group activities.
+            Create a table, invite people with a code, share proposals, vote, and watch consensus form in real time. Great for cabinet briefings, strategy meetings, workshops, and classrooms.
           </p>
         </div>
 
@@ -38,16 +37,16 @@ export default function Home() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Plus className="h-5 w-5" />
-                For Instructors
+                For Hosts
               </CardTitle>
               <CardDescription>
-                Create a new session and get a code to share with students
+                Create a new table and get a code to share with participants.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <TableCreationDialog>
                 <Button size="lg" className="w-full">
-                  Create New Session
+                  Start New Table
                 </Button>
               </TableCreationDialog>
             </CardContent>
@@ -57,18 +56,18 @@ export default function Home() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                For Students
+                For Participants
               </CardTitle>
               <CardDescription>
-                Enter the session code provided by your instructor
+                Have a code from your host? Join the table to submit ideas and vote.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="joinCode">Session Code</Label>
+                <Label htmlFor="joinCode">Table Code</Label>
                 <Input
                   id="joinCode"
-                  placeholder="Enter code (e.g., ABC123)"
+                  placeholder="Enter code (e.g., R1NMEC)"
                   value={joinCode}
                   onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                   maxLength={6}
@@ -80,7 +79,7 @@ export default function Home() {
                 disabled={!joinCode.trim() || !isValidTableCode(joinCode)}
                 onClick={() => navigate(`/t/${joinCode}/join`)}
               >
-                Join Session
+                Join Table
               </Button>
             </CardContent>
           </Card>
