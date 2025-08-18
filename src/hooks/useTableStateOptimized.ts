@@ -212,16 +212,30 @@ export function useTableState(tableCode: string) {
             console.log('Table started - triggering immediate state refresh');
             loadTableData();
           }
+          
+          // Check if current_round_id changed - trigger full refresh to get new round data
+          if (newTable.current_round_id !== state.table?.current_round_id) {
+            console.log('Current round changed - triggering data refresh');
+            setTimeout(() => loadTableData(), 100); // Small delay to ensure round exists
+          }
         }
       )
-      // Round updates - critical for phase transitions
+      // Round updates - critical for phase transitions (listen to ALL rounds for this table)
       .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'rounds', filter: state.table.current_round_id ? `id=eq.${state.table.current_round_id}` : `table_id=eq.${state.table.id}` },
+        { event: '*', schema: 'public', table: 'rounds', filter: `table_id=eq.${state.table.id}` },
         (payload) => {
           console.log('Round update received:', payload);
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const newRound = payload.new as Round;
-            updateRound(newRound);
+            
+            // Only update if this is the current round
+            if (state.table?.current_round_id === newRound.id) {
+              console.log('Current round updated - updating state');
+              updateRound(newRound);
+            } else if (payload.eventType === 'INSERT') {
+              console.log('New round created - may need to refresh if it becomes current');
+              // The table update will handle the refresh when current_round_id changes
+            }
           }
         }
       )
@@ -254,22 +268,6 @@ export function useTableState(tableCode: string) {
             const currentParticipant = updated.find(p => p.client_id === clientId) || null;
             return { ...prev, participants: updated, currentParticipant };
           });
-        }
-      )
-      // Round changes - critical for detecting phase transitions
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'rounds', filter: `table_id=eq.${state.table.id}` },
-        (payload) => {
-          console.log('Round update received:', payload);
-          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            const newRound = payload.new as Round;
-            updateRound(newRound);
-            
-            // If this is the current round, update immediately
-            if (state.table?.current_round_id === newRound.id) {
-              console.log('Current round updated - phase may have changed');
-            }
-          }
         }
       )
       // Suggestion changes
