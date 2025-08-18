@@ -47,9 +47,6 @@ const Table = () => {
     error,
     currentPhase,
     refresh,
-    panicRefresh,
-    isConnectionStale,
-    isPanicMode,
   } = useTableState(code || '');
   
   const [suggestionsWithVotes, setSuggestionsWithVotes] = useState<SuggestionWithVotes[]>([]);
@@ -368,9 +365,6 @@ const Table = () => {
                 participants={participants}
                 currentParticipant={currentParticipant}
                 onRefresh={refresh}
-                onPanicRefresh={panicRefresh}
-                isConnectionStale={isConnectionStale}
-                isPanicMode={isPanicMode}
               />
             )}
 

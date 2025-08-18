@@ -9,7 +9,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Table } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { getOrCreateClientId } from '@/utils/clientId';
-import { getFeatureFlags } from '@/config/flags';
 
 interface HostControlsProps {
   table: Table;
@@ -19,9 +18,6 @@ interface HostControlsProps {
   participants: Array<{ id: string; display_name: string }>;
   currentParticipant: { id: string; display_name: string } | null;
   onRefresh?: () => void;
-  onPanicRefresh?: () => void;
-  isConnectionStale?: boolean;
-  isPanicMode?: boolean;
 }
 
 export function HostControls({ 
@@ -31,16 +27,12 @@ export function HostControls({
   participantCount,
   participants,
   currentParticipant,
-  onRefresh,
-  onPanicRefresh,
-  isConnectionStale = false,
-  isPanicMode = false
+  onRefresh 
 }: HostControlsProps) {
   const [loading, setLoading] = useState(false);
   const [suggestionTime, setSuggestionTime] = useState(table.default_suggest_sec);
   const [votingTime, setVotingTime] = useState(table.default_vote_sec);
   const { toast } = useToast();
-  const flags = getFeatureFlags();
 
   const suggestionPresets = [
     { label: '30 seconds', value: 30 },
@@ -313,41 +305,6 @@ export function HostControls({
           </div>
         )}
 
-
-        {/* Safety Controls */}
-        {flags.connectionWatchdog && (isConnectionStale || isPanicMode) && (
-          <div className="space-y-2 p-3 border rounded-lg bg-destructive/10">
-            <div className="text-sm font-medium text-destructive">
-              {isPanicMode ? '🚨 Connection Critical' : '⚠️ Connection Stale'}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {isPanicMode 
-                ? 'No updates for 30+ seconds. Use panic refresh.' 
-                : 'Attempting automatic recovery...'}
-            </div>
-            {isPanicMode && onPanicRefresh && (
-              <Button
-                onClick={onPanicRefresh}
-                variant="destructive"
-                size="sm"
-                className="w-full"
-              >
-                🚨 Panic Refresh (Hard Reload)
-              </Button>
-            )}
-          </div>
-        )}
-
-        {/* Feature Flags Debug (dev only) */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="text-xs text-muted-foreground space-y-1">
-            <div>🚩 Realtime: {flags.realtimeUI ? 'ON' : 'OFF'}</div>
-            <div>📡 Polling: {flags.lightPolling ? 'ON' : 'OFF'}</div>
-            <div>🔍 Watchdog: {flags.connectionWatchdog ? 'ON' : 'OFF'}</div>
-          </div>
-        )}
-
-        <Separator />
 
         {/* Actions */}
         <div className="space-y-2">

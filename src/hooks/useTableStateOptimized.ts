@@ -4,15 +4,11 @@ import { TableState, Participant, Round, Suggestion, Vote, Block, Table } from '
 import { calculateTimeRemaining, getCurrentPhase } from '@/utils';
 import { getOrCreateClientId, getHostSecret } from '@/utils/clientId';
 import { useToast } from '@/hooks/use-toast';
-import { useConnectionWatchdog } from '@/hooks/useConnectionWatchdog';
-import { useLightPolling } from '@/hooks/useLightPolling';
-import { getFeatureFlags } from '@/config/flags';
 
 export function useTableState(tableCode: string) {
   const clientId = getOrCreateClientId();
   const hostSecret = getHostSecret(tableCode);
   const { toast } = useToast();
-  const flags = getFeatureFlags();
   
   const [state, setState] = useState<TableState>({
     table: null,
@@ -31,36 +27,6 @@ export function useTableState(tableCode: string) {
 
   const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
   const channelRef = useRef<any>(null);
-
-  // Connection monitoring and safety nets
-  const watchdog = useConnectionWatchdog(
-    state.table?.status === 'running',
-    getCurrentPhase(state.table?.status || 'lobby', state.currentRound?.status || null, state.timeRemaining),
-    {
-      staleThreshold: 10, // 10 seconds without updates
-      panicThreshold: 30, // 30 seconds for panic mode
-      onStaleConnection: () => {
-        console.log('🔄 Connection stale, attempting refresh...');
-        loadTableData();
-      },
-      onPanicMode: () => {
-        console.log('🚨 Panic mode activated - connection severely stale');
-      }
-    }
-  );
-
-  // Light polling fallback for legacy mode
-  useLightPolling(
-    true, // Always available as fallback
-    getCurrentPhase(state.table?.status || 'lobby', state.currentRound?.status || null, state.timeRemaining),
-    {
-      interval: 15000, // 15 seconds
-      onPoll: () => {
-        console.log('📡 Light polling refresh...');
-        loadTableData();
-      }
-    }
-  );
 
   // Load initial data
   const loadTableData = useCallback(async () => {
@@ -223,12 +189,6 @@ export function useTableState(tableCode: string) {
   // Set up real-time subscriptions with optimized updates
   useEffect(() => {
     if (!state.table?.id) return;
-    
-    // Skip realtime setup if realtime UI is disabled (use polling instead)
-    if (!flags.realtimeUI) {
-      console.log('🔄 Realtime UI disabled, using polling fallback');
-      return;
-    }
 
     // Clean up existing channel
     if (channelRef.current) {
@@ -245,7 +205,6 @@ export function useTableState(tableCode: string) {
         (payload) => {
           const newTable = payload.new as Table;
           updateTable(newTable);
-          watchdog.markActive();
           
           // Check if table just started running - trigger immediate state refresh
           if (newTable.status === 'running' && state.table?.status !== 'running') {
@@ -260,7 +219,6 @@ export function useTableState(tableCode: string) {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const newRound = payload.new as Round;
             updateRound(newRound);
-            watchdog.markActive();
           }
         }
       )
@@ -269,7 +227,6 @@ export function useTableState(tableCode: string) {
         { event: 'INSERT', schema: 'public', table: 'participants', filter: `table_id=eq.${state.table.id}` },
         (payload) => {
           const newParticipant = payload.new as Participant;
-          watchdog.markActive();
           setState(prev => {
             const updated = [...prev.participants, newParticipant];
             const currentParticipant = updated.find(p => p.client_id === clientId) || null;
@@ -289,7 +246,6 @@ export function useTableState(tableCode: string) {
       .on('postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'participants', filter: `table_id=eq.${state.table.id}` },
         (payload) => {
-          watchdog.markActive();
           setState(prev => {
             const updated = prev.participants.filter(p => p.id !== payload.old.id);
             const currentParticipant = updated.find(p => p.client_id === clientId) || null;
@@ -304,7 +260,6 @@ export function useTableState(tableCode: string) {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const newRound = payload.new as Round;
             updateRound(newRound);
-            watchdog.markActive();
           }
         }
       )
@@ -313,7 +268,6 @@ export function useTableState(tableCode: string) {
         { event: 'INSERT', schema: 'public', table: 'suggestions' },
         (payload) => {
           const newSuggestion = payload.new as Suggestion;
-          watchdog.markActive();
           if (state.currentRound && newSuggestion.round_id === state.currentRound.id) {
             setState(prev => ({
               ...prev,
@@ -326,7 +280,6 @@ export function useTableState(tableCode: string) {
         { event: 'UPDATE', schema: 'public', table: 'suggestions' },
         (payload) => {
           const updatedSuggestion = payload.new as Suggestion;
-          watchdog.markActive();
           if (state.currentRound && updatedSuggestion.round_id === state.currentRound.id) {
             setState(prev => ({
               ...prev,
@@ -342,7 +295,6 @@ export function useTableState(tableCode: string) {
         { event: 'INSERT', schema: 'public', table: 'votes' },
         (payload) => {
           const newVote = payload.new as Vote;
-          watchdog.markActive();
           if (state.currentRound && newVote.round_id === state.currentRound.id) {
             setState(prev => ({
               ...prev,
@@ -355,13 +307,10 @@ export function useTableState(tableCode: string) {
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'blocks', filter: `table_id=eq.${state.table.id}` },
         (payload) => {
-          watchdog.markActive();
-          if (flags.blocksEnabled) {
-            setState(prev => ({
-              ...prev,
-              blocks: [...prev.blocks, payload.new as Block]
-            }));
-          }
+          setState(prev => ({
+            ...prev,
+            blocks: [...prev.blocks, payload.new as Block]
+          }));
         }
       )
       .subscribe();
@@ -374,7 +323,7 @@ export function useTableState(tableCode: string) {
         channelRef.current = null;
       }
     };
-  }, [state.table?.id, state.currentRound?.id, clientId, updateTable, updateRound, toast, loadTableData, flags.realtimeUI, flags.blocksEnabled, watchdog]);
+  }, [state.table?.id, state.currentRound?.id, clientId, updateTable, updateRound, toast, loadTableData]);
 
   // Set up timer interval
   useEffect(() => {
@@ -404,12 +353,5 @@ export function useTableState(tableCode: string) {
       state.currentRound?.status || null,
       state.timeRemaining
     ),
-    // Safety net controls
-    panicRefresh: () => {
-      console.log('🚨 PANIC REFRESH - Hard reload triggered');
-      window.location.reload();
-    },
-    isConnectionStale: watchdog.isStale,
-    isPanicMode: watchdog.isPanicMode,
   };
 }
