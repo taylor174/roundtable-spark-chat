@@ -172,14 +172,12 @@ const Table = () => {
     try {
       setIsTransitioning(true);
       
-      // Create new round and automatically start suggestion phase
-      const { startSuggestPhase } = await import('@/utils/roundLogic');
-      const newRound = await advanceRound(table.id, currentRound.number);
-      await startSuggestPhase(newRound.id, table.default_suggest_sec, table.id);
+      // Create new round in lobby mode for manual start
+      await advanceRound(table.id, currentRound.number);
       
       toast({
-        title: "Next Round Started", 
-        description: `Round ${newRound.number} is now ready for suggestions.`,
+        title: "Success", 
+        description: "Next round created!",
       });
       
       // Force refresh blocks to ensure timeline shows latest winner
