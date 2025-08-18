@@ -167,9 +167,14 @@ const Table = () => {
   };
   
   const handleNextRound = async () => {
-    if (!table || !currentRound || isTransitioning || isProcessing) return;
+    console.log('🚀 handleNextRound called!', { table: !!table, currentRound: !!currentRound, isTransitioning, isProcessing });
+    if (!table || !currentRound || isTransitioning || isProcessing) {
+      console.log('🚀 handleNextRound early return due to conditions');
+      return;
+    }
     
     try {
+      console.log('🚀 handleNextRound starting execution...');
       setIsTransitioning(true);
       
       // Create new round in lobby mode for manual start

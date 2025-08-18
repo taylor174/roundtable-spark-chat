@@ -46,11 +46,15 @@ export function ResultsPanel({
   const handleTieBreak = async () => {
     if (!selectedWinner || !tableId || !roundId || processing) return;
     
+    console.log('🎯 Starting tie break process...', { selectedWinner, tableId, roundId, processing });
+    
     try {
       setProcessing(true);
       
       const winningSuggestion = winningSuggestions.find(s => s.id === selectedWinner);
       if (!winningSuggestion) return;
+
+      console.log('🎯 Found winning suggestion:', winningSuggestion);
 
       // Atomically update round and create block
       const [roundUpdate, blockUpsert] = await Promise.all([
@@ -74,6 +78,8 @@ export function ResultsPanel({
         })
       ]);
 
+      console.log('🎯 Database operations completed:', { roundUpdate, blockUpsert });
+
       if (roundUpdate.error) throw roundUpdate.error;
       if (blockUpsert.error) throw blockUpsert.error;
       
@@ -95,18 +101,23 @@ export function ResultsPanel({
       setShowTieBreaker(false);
       setTieResolved(true);
       if (onWinnerSelected) {
+        console.log('🎯 Calling onWinnerSelected...');
         onWinnerSelected(selectedWinner);
       }
       
       // Automatically advance to next round after a short delay
       if (onNextRound) {
+        console.log('🎯 About to call onNextRound in 2 seconds...');
         setTimeout(() => {
+          console.log('🎯 Calling onNextRound now!');
           setProcessing(false); // Ensure processing is false before advancing
           onNextRound();
         }, 2000);
+      } else {
+        console.log('🎯 No onNextRound function provided!');
       }
     } catch (error) {
-      console.error('Error handling tie break:', error);
+      console.error('🎯 Error handling tie break:', error);
       toast({
         title: "Error",
         description: "Failed to break tie. Please try again.",
