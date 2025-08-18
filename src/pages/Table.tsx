@@ -384,7 +384,7 @@ const Table = () => {
             )}
 
             {/* Timeline */}
-            <Timeline blocks={blocks} />
+            <Timeline blocks={blocks} currentRound={currentRound} />
           </div>
         </div>
       </div>

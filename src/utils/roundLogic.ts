@@ -71,11 +71,9 @@ export function getWinnerWithTieBreak(
     return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
   });
   
-  // If top two have same votes AND same timestamp (extremely rare), manual resolution needed
-  if (sorted.length > 1 && 
-      sorted[0].voteCount === sorted[1].voteCount && 
-      sorted[0].created_at === sorted[1].created_at) {
-    return null;
+  // Check if there's a true tie (multiple suggestions with same vote count)
+  if (sorted.length > 1 && sorted[0].voteCount === sorted[1].voteCount) {
+    return null; // Require manual tie-breaking
   }
   
   return sorted[0];

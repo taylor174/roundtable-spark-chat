@@ -1,15 +1,21 @@
-import { Block } from '@/types';
+import { Block, Round } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Clock } from 'lucide-react';
+import { Clock, Timer } from 'lucide-react';
 
 interface TimelineProps {
   blocks: Block[];
+  currentRound: Round | null;
 }
 
-export function Timeline({ blocks }: TimelineProps) {
-  if (blocks.length === 0) {
+export function Timeline({ blocks, currentRound }: TimelineProps) {
+  // Calculate total rounds including current pending round
+  const totalRounds = currentRound ? currentRound.number : blocks.length;
+  const hasPendingTieBreak = currentRound?.status === 'result' && 
+    !blocks.find(block => block.round_id === currentRound.id);
+
+  if (blocks.length === 0 && !hasPendingTieBreak) {
     return (
       <Card>
         <CardHeader>
@@ -32,15 +38,16 @@ export function Timeline({ blocks }: TimelineProps) {
       <CardHeader>
         <CardTitle className="flex items-center space-x-2">
           <Clock className="h-5 w-5" />
-          <span>Timeline ({blocks.length})</span>
+          <span>Timeline ({totalRounds})</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
         <ScrollArea className="h-[300px] w-full">
           <div className="p-4 space-y-4">
+            {/* Render completed rounds from blocks */}
             {blocks.map((block, index) => (
               <div key={block.id} className="relative">
-                {index < blocks.length - 1 && (
+                {(index < blocks.length - 1 || hasPendingTieBreak) && (
                   <div className="absolute left-4 top-8 w-0.5 h-6 bg-border" />
                 )}
                 <div className="flex items-start space-x-3">
@@ -62,9 +69,29 @@ export function Timeline({ blocks }: TimelineProps) {
                     </p>
                   </div>
                 </div>
-                {index < blocks.length - 1 && <Separator className="mt-4" />}
+                {(index < blocks.length - 1 || hasPendingTieBreak) && <Separator className="mt-4" />}
               </div>
             ))}
+            
+            {/* Render pending tie-break round */}
+            {hasPendingTieBreak && (
+              <div className="relative">
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center text-sm font-medium">
+                    <Timer className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">Round {currentRound.number}</p>
+                    <p className="text-sm text-orange-600 leading-relaxed mt-1">
+                      Pending tie-break - waiting for host decision
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      In progress...
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </ScrollArea>
       </CardContent>
