@@ -18,7 +18,7 @@ interface ResultsPanelProps {
   roundId?: string;
   onWinnerSelected?: (suggestionId: string) => void;
   onNextRound?: () => void;
-  isTransitioning?: boolean;
+  
 }
 
 export function ResultsPanel({ 
@@ -29,7 +29,7 @@ export function ResultsPanel({
   roundId,
   onWinnerSelected, 
   onNextRound,
-  isTransitioning = false
+  
 }: ResultsPanelProps) {
   const [showTieBreaker, setShowTieBreaker] = useState(false);
   const [selectedWinner, setSelectedWinner] = useState<string>('');
@@ -123,7 +123,7 @@ export function ResultsPanel({
 
             <Button 
               onClick={() => setShowTieBreaker(true)}
-              disabled={isTransitioning}
+              disabled={processing}
               className="w-full"
               size="lg"
             >
@@ -227,7 +227,7 @@ export function ResultsPanel({
         {isHost && onNextRound && (
           <Button 
             onClick={onNextRound}
-            disabled={isTransitioning}
+            disabled={processing}
             className="w-full"
             size="lg"
           >

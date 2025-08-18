@@ -4,6 +4,7 @@ import { TableState, Participant, Round, Suggestion, Vote, Block, Table } from '
 import { calculateTimeRemaining, getCurrentPhase } from '@/utils';
 import { getOrCreateClientId, getHostSecret } from '@/utils/clientId';
 import { useToast } from '@/hooks/use-toast';
+import { debounce } from '@/utils/debounce';
 
 export function useTableState(tableCode: string) {
   const clientId = getOrCreateClientId();
@@ -212,15 +213,15 @@ export function useTableState(tableCode: string) {
           }
         }
       )
-      // Round updates - critical for phase transitions
+      // Round updates - critical for phase transitions (debounced to prevent flicker)
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'rounds', filter: state.table.current_round_id ? `id=eq.${state.table.current_round_id}` : `table_id=eq.${state.table.id}` },
-        (payload) => {
+        debounce((payload) => {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const newRound = payload.new as Round;
             updateRound(newRound);
           }
-        }
+        }, 150)
       )
       // Participant changes
       .on('postgres_changes',
@@ -251,16 +252,6 @@ export function useTableState(tableCode: string) {
             const currentParticipant = updated.find(p => p.client_id === clientId) || null;
             return { ...prev, participants: updated, currentParticipant };
           });
-        }
-      )
-      // Round changes - critical for detecting phase transitions
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'rounds', filter: `table_id=eq.${state.table.id}` },
-        (payload) => {
-          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            const newRound = payload.new as Round;
-            updateRound(newRound);
-          }
         }
       )
       // Suggestion changes

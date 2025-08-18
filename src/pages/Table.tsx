@@ -27,6 +27,7 @@ import { MESSAGES } from '@/constants';
 import { Users, Clock, List, Play } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { VotingStatusIndicator } from '@/components/VotingStatusIndicator';
+import { PhaseContainer } from '@/components/PhaseContainer';
 
 const Table = () => {
   const { code } = useParams<{ code: string }>();
@@ -51,7 +52,7 @@ const Table = () => {
   
   const [suggestionsWithVotes, setSuggestionsWithVotes] = useState<SuggestionWithVotes[]>([]);
   const [winningSuggestions, setWinningSuggestions] = useState<WinningSuggestion[]>([]);
-  const [isTransitioning, setIsTransitioning] = useState(false);
+  
   const { toast } = useToast();
 
   // Redirect non-hosts to join page if they don't have a participant record
@@ -94,16 +95,14 @@ const Table = () => {
     : false;
     
   
-  // Automatic phase management (disabled during manual transitions)
-  usePhaseManager(table, currentRound, suggestions, votes, timeRemaining, clientId, isTransitioning ? undefined : refresh);
+  // Automatic phase management
+  usePhaseManager(table, currentRound, suggestions, votes, timeRemaining, clientId, refresh);
   
   // Event handlers
   const handleWinnerSelected = async (suggestionId: string) => {
-    if (!table || !currentRound || isTransitioning) return;
+    if (!table || !currentRound) return;
     
     try {
-      setIsTransitioning(true);
-      
       const winningSuggestion = suggestionsWithVotes.find(s => s.id === suggestionId);
       if (winningSuggestion) {
         await endRound(currentRound.id, table.id, winningSuggestion.text);
@@ -111,11 +110,6 @@ const Table = () => {
           title: "Success",
           description: "Winner selected!",
         });
-        
-        // Don't call refresh immediately - let real-time updates handle it
-        setTimeout(() => {
-          setIsTransitioning(false);
-        }, 1500);
       }
     } catch (error) {
       console.error('Error selecting winner:', error);
@@ -124,27 +118,19 @@ const Table = () => {
         description: "Failed to select winner. Please try again.",
         variant: "destructive",
       });
-      setIsTransitioning(false);
     }
   };
   
   const handleNextRound = async () => {
-    if (!table || !currentRound || isTransitioning) return;
+    if (!table || !currentRound) return;
     
     try {
-      setIsTransitioning(true);
-      
       await advanceRound(table.id, currentRound.number);
       
       toast({
         title: "Success", 
         description: "Next round started!",
       });
-      
-      // Extended transition time to handle all real-time updates
-      setTimeout(() => {
-        setIsTransitioning(false);
-      }, 3000);
       
     } catch (error) {
       console.error('Error starting next round:', error);
@@ -153,7 +139,6 @@ const Table = () => {
         description: "Failed to start next round. Please try again.",
         variant: "destructive",
       });
-      setIsTransitioning(false);
     }
   };
 
@@ -224,45 +209,37 @@ const Table = () => {
         </div>
       </header>
 
-      <div className="max-w-5xl mx-auto px-4 md:px-6 py-4 relative">
-        {/* Loading Overlay */}
-        {isTransitioning && (
-          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
-            <div className="text-center space-y-4">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-              <p className="text-muted-foreground">Transitioning to next round...</p>
-            </div>
-          </div>
-        )}
-        
+      <div className="max-w-5xl mx-auto px-4 md:px-6 py-4">
         <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-4 md:gap-6">
           {/* Main Content */}
-          <div className={`space-y-6 transition-all duration-300 ${isTransitioning ? 'opacity-30' : ''}`}>
-            {/* Current Phase Content */}
-            {currentPhase === 'lobby' && (
-              <Card className="animate-fade-in">
+          <div className="space-y-6 relative min-h-[400px]">
+            {/* All Phase Components - Always Mounted */}
+            
+            {/* Lobby Phase */}
+            <PhaseContainer isVisible={currentPhase === 'lobby'}>
+              <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center space-x-2">
                     <Play className="h-5 w-5" />
                     <span>Waiting to Start</span>
                   </CardTitle>
                 </CardHeader>
-              <CardContent className="p-4 sm:p-6">
-                <div className="text-center py-8">
-                  <p className="text-lg mb-4">{MESSAGES.WAITING_FOR_HOST}</p>
-                    {isHost && (
-                      <p className="text-muted-foreground">
-                        Use the host controls on the right to configure and start the table.
-                      </p>
-                    )}
-                  </div>
-                </CardContent>
+                <CardContent className="p-4 sm:p-6">
+                  <div className="text-center py-8">
+                    <p className="text-lg mb-4">{MESSAGES.WAITING_FOR_HOST}</p>
+                      {isHost && (
+                        <p className="text-muted-foreground">
+                          Use the host controls on the right to configure and start the table.
+                        </p>
+                      )}
+                    </div>
+                  </CardContent>
               </Card>
-            )}
+            </PhaseContainer>
             
-            {/* Suggestion Phase - Show to participants and hosts */}
-            {currentPhase === 'suggest' && (
-              <div className="animate-fade-in space-y-6">
+            {/* Suggestion Phase */}
+            <PhaseContainer isVisible={currentPhase === 'suggest'}>
+              <div className="space-y-6">
                 {currentParticipant && currentRound && (
                   <SuggestionForm
                     roundId={currentRound.id}
@@ -273,11 +250,11 @@ const Table = () => {
                   suggestions={suggestionsWithVotes}
                 />
               </div>
-            )}
+            </PhaseContainer>
             
-            {/* Voting Phase - Show to participants and hosts */}
-            {currentPhase === 'vote' && (
-              <div className="animate-fade-in">
+            {/* Voting Phase */}
+            <PhaseContainer isVisible={currentPhase === 'vote'}>
+              <div className="space-y-6">
                 {currentParticipant && currentRound && (
                   <VoteList
                     suggestions={suggestionsWithVotes}
@@ -286,35 +263,41 @@ const Table = () => {
                     userHasVoted={userHasVoted}
                   />
                 )}
+                {/* Show suggestions in voting phase */}
+                {suggestionsWithVotes.length > 0 && (
+                  <SuggestionList 
+                    suggestions={suggestionsWithVotes}
+                  />
+                )}
               </div>
-            )}
+            </PhaseContainer>
             
             {/* Results Phase */}
-            {currentPhase === 'result' && winningSuggestions.length > 0 && (
-              <div className="animate-fade-in">
-                <ResultsPanel
-                  winningSuggestions={winningSuggestions}
-                  isHost={isHost}
-                  roundNumber={currentRound?.number}
-                  tableId={table?.id}
-                  roundId={currentRound?.id}
-                  onWinnerSelected={handleWinnerSelected}
-                  onNextRound={handleNextRound}
-                  isTransitioning={isTransitioning}
-                />
+            <PhaseContainer isVisible={currentPhase === 'result'}>
+              <div className="space-y-6">
+                {winningSuggestions.length > 0 && (
+                  <ResultsPanel
+                    winningSuggestions={winningSuggestions}
+                    isHost={isHost}
+                    roundNumber={currentRound?.number}
+                    tableId={table?.id}
+                    roundId={currentRound?.id}
+                    onWinnerSelected={handleWinnerSelected}
+                    onNextRound={handleNextRound}
+                  />
+                )}
+                {/* Show suggestions in results phase */}
+                {suggestionsWithVotes.length > 0 && (
+                  <SuggestionList 
+                    suggestions={suggestionsWithVotes}
+                  />
+                )}
               </div>
-            )}
-
-            {/* Show suggestions in voting and results phases */}
-            {(currentPhase === 'vote' || currentPhase === 'result') && suggestionsWithVotes.length > 0 && (
-              <SuggestionList 
-                suggestions={suggestionsWithVotes}
-              />
-            )}
+            </PhaseContainer>
           </div>
 
           {/* Sidebar */}
-          <div className={`space-y-6 transition-all duration-300 ${isTransitioning ? 'opacity-30' : ''}`}>
+          <div className="space-y-6">
             {/* Discussion Context Card */}
             {table.description && (
               <DiscussionContextCard description={table.description} />
