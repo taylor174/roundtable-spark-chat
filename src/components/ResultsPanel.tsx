@@ -101,6 +101,7 @@ export function ResultsPanel({
       // Automatically advance to next round after a short delay
       if (onNextRound) {
         setTimeout(() => {
+          setProcessing(false); // Ensure processing is false before advancing
           onNextRound();
         }, 2000);
       }
