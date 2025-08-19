@@ -36,8 +36,14 @@ export class AdvancedPenetrationTesting {
   private toast: any;
 
   constructor() {
-    const { toast } = useToast();
-    this.toast = toast;
+    // Note: useToast must be used inside React component context
+    try {
+      const { toast } = useToast();
+      this.toast = toast;
+    } catch (error) {
+      // Fallback for non-React context
+      this.toast = (options: any) => console.log('Toast:', options);
+    }
   }
 
   async runFullPenetrationTest(): Promise<PenetrationTestResults> {

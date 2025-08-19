@@ -27,8 +27,15 @@ export class ComprehensiveQASystem {
   private toast: any;
 
   constructor() {
-    const { toast } = useToast();
-    this.toast = toast;
+    // Note: useToast must be used inside React component context
+    // For standalone usage, we'll handle toast differently
+    try {
+      const { toast } = useToast();
+      this.toast = toast;
+    } catch (error) {
+      // Fallback for non-React context
+      this.toast = (options: any) => console.log('Toast:', options);
+    }
   }
 
   async runFullQA(): Promise<ComprehensiveTestResults> {
