@@ -92,24 +92,24 @@ export function usePhaseManager(
       setLastProcessedRound(currentRound.id);
       
       try {
-        // Try atomic server-side advancement first
+        // Try enhanced atomic server-side advancement first (v2)
         try {
-          const { data, error } = await supabase.functions.invoke('force-phase-advance', {
-            body: {
-              roundId: currentRound.id,
-              tableId: table.id,
-              clientId: clientId
-            }
+          const { data, error } = await supabase.rpc('advance_phase_atomic_v2', {
+            p_round_id: currentRound.id,
+            p_table_id: table.id,
+            p_client_id: clientId
           });
 
-          if (data?.success) {
-            console.log('Server-side phase advancement successful:', data.result);
+          if (error) throw error;
+          const result = data as any;
+          if (result?.success) {
+            console.log('Enhanced atomic phase advancement successful:', result);
             return { success: true };
           } else {
-            console.warn('Server-side advancement failed, falling back to client-side:', data?.error);
+            console.warn('Enhanced atomic advancement failed, falling back to client-side:', result?.error);
           }
         } catch (serverError) {
-          console.warn('Server-side advancement error, falling back to client-side:', serverError);
+          console.warn('Enhanced atomic advancement error, falling back to client-side:', serverError);
         }
 
         // Fallback to client-side advancement with retry logic

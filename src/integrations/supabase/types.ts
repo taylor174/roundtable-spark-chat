@@ -342,6 +342,10 @@ export type Database = {
         Args: { p_client_id: string; p_round_id: string; p_table_id: string }
         Returns: Json
       }
+      advance_phase_atomic_v2: {
+        Args: { p_client_id: string; p_round_id: string; p_table_id: string }
+        Returns: Json
+      }
       cleanup_stale_rounds: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -393,6 +397,10 @@ export type Database = {
           p_table_id: string
           p_text: string
         }
+        Returns: Json
+      }
+      validate_table_session: {
+        Args: { p_client_id: string; p_table_id: string }
         Returns: Json
       }
     }
