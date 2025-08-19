@@ -64,13 +64,6 @@ export type Database = {
             referencedRelation: "tables"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "blocks_table_id_fkey"
-            columns: ["table_id"]
-            isOneToOne: false
-            referencedRelation: "tables_safe"
-            referencedColumns: ["id"]
-          },
         ]
       }
       chat_messages: {
@@ -131,13 +124,6 @@ export type Database = {
             columns: ["table_id"]
             isOneToOne: false
             referencedRelation: "tables"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "participants_table_id_fkey"
-            columns: ["table_id"]
-            isOneToOne: false
-            referencedRelation: "tables_safe"
             referencedColumns: ["id"]
           },
         ]
@@ -203,13 +189,6 @@ export type Database = {
             columns: ["table_id"]
             isOneToOne: false
             referencedRelation: "tables"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "rounds_table_id_fkey"
-            columns: ["table_id"]
-            isOneToOne: false
-            referencedRelation: "tables_safe"
             referencedColumns: ["id"]
           },
           {
@@ -356,51 +335,7 @@ export type Database = {
       }
     }
     Views: {
-      tables_safe: {
-        Row: {
-          auto_advance: boolean | null
-          code: string | null
-          created_at: string | null
-          current_round_id: string | null
-          default_suggest_sec: number | null
-          default_vote_sec: number | null
-          description: string | null
-          id: string | null
-          phase_ends_at: string | null
-          status: string | null
-          title: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          auto_advance?: boolean | null
-          code?: string | null
-          created_at?: string | null
-          current_round_id?: string | null
-          default_suggest_sec?: number | null
-          default_vote_sec?: number | null
-          description?: string | null
-          id?: string | null
-          phase_ends_at?: string | null
-          status?: string | null
-          title?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          auto_advance?: boolean | null
-          code?: string | null
-          created_at?: string | null
-          current_round_id?: string | null
-          default_suggest_sec?: number | null
-          default_vote_sec?: number | null
-          description?: string | null
-          id?: string | null
-          phase_ends_at?: string | null
-          status?: string | null
-          title?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       advance_phase_atomic: {
@@ -421,6 +356,23 @@ export type Database = {
       }
       get_public_table_info: {
         Args: { table_code?: string }
+        Returns: {
+          auto_advance: boolean
+          code: string
+          created_at: string
+          current_round_id: string
+          default_suggest_sec: number
+          default_vote_sec: number
+          description: string
+          id: string
+          phase_ends_at: string
+          status: string
+          title: string
+          updated_at: string
+        }[]
+      }
+      get_safe_table_data: {
+        Args: { p_table_code?: string }
         Returns: {
           auto_advance: boolean
           code: string

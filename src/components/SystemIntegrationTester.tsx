@@ -25,7 +25,7 @@ export function SystemIntegrationTester() {
       // Test 1: Security - Host Secret Protection
       console.log('🔒 Testing security fixes...');
       try {
-        const { data } = await supabase.from('tables_safe').select('*').limit(1);
+        const { data } = await supabase.rpc('get_safe_table_data').limit(1);
         const hasHostSecret = data?.some(item => 'host_secret' in item);
         
         testResults.push({
@@ -160,7 +160,7 @@ export function SystemIntegrationTester() {
       console.log('🚀 Testing performance...');
       const startTime = Date.now();
       try {
-        await supabase.from('tables_safe').select('*').limit(5);
+        await supabase.rpc('get_safe_table_data').limit(5);
         const queryTime = Date.now() - startTime;
         
         testResults.push({

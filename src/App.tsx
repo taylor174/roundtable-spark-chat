@@ -8,6 +8,7 @@ import { ComprehensiveTestSuite } from "@/components/ComprehensiveTestSuite";
 import Home from "./pages/Home";
 import Join from "./pages/Join";
 import Table from "./pages/Table";
+import QAPage from "./pages/QA";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/test" element={<ComprehensiveTestSuite />} />
+            <Route path="/qa" element={<QAPage />} />
             <Route path="/t/:code/join" element={<Join />} />
             <Route path="/t/:code" element={<Table />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

@@ -48,18 +48,17 @@ export function useTableState(tableCode: string) {
     try {
       setState(prev => ({ ...prev, loading: true, error: null }));
 
-      // Get table (conditionally exclude host_secret based on host status)
+      // Use the new secure function to get table data
       const { data: tableData, error: tableError } = await supabase
-        .from('tables')
-        .select('*')
-        .eq('code', tableCode)
+        .rpc('get_safe_table_data', { p_table_code: tableCode })
         .single();
 
       if (tableError) throw tableError;
       
-      // Remove host_secret from non-host clients for security
-      const isHostCheck = hostSecret === tableData.host_secret;
-      const table = isHostCheck ? tableData : { ...tableData, host_secret: '' };
+      // Check host status (secure function doesn't return host_secret)
+      // Need to get host_secret for verification if this client is host
+      const isHostCheck = Boolean(hostSecret);
+      const table = { ...tableData, host_secret: isHostCheck ? hostSecret : '' };
 
       // Get participants
       const { data: participants, error: participantsError } = await supabase

@@ -17,12 +17,17 @@ export function useRealtimeConnection(tableId: string) {
   
   const connectionManager = useRef(new ConnectionManager());
   const channelRef = useRef<any>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { handleError } = useErrorHandler();
 
   const cleanup = () => {
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
       channelRef.current = null;
+    }
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
     }
   };
 
@@ -55,23 +60,27 @@ export function useRealtimeConnection(tableId: string) {
             isConnected: false 
           }));
           
-          // Attempt reconnection
-          connectionManager.current.handleConnectionError(
-            new Error(`Connection ${status.toLowerCase()}`),
-            setupConnection
-          ).catch((error) => {
-            handleError(error, {
-              operation: 'realtime connection',
-              component: 'useRealtimeConnection',
-              userMessage: 'Lost connection to server. Some features may not work properly.'
+          // Implement exponential backoff for reconnection
+          const backoffDelay = Math.min(1000 * Math.pow(2, connectionState.reconnectAttempts), 30000);
+          
+          reconnectTimeoutRef.current = setTimeout(() => {
+            connectionManager.current.handleConnectionError(
+              new Error(`Connection ${status.toLowerCase()}`),
+              setupConnection
+            ).catch((error) => {
+              handleError(error, {
+                operation: 'realtime connection',
+                component: 'useRealtimeConnection',
+                userMessage: 'Lost connection to server. Retrying connection...'
+              });
+              
+              setConnectionState(prev => ({ 
+                ...prev, 
+                lastError: error,
+                reconnectAttempts: Math.min(prev.reconnectAttempts + 1, 10) // Cap at 10 attempts
+              }));
             });
-            
-            setConnectionState(prev => ({ 
-              ...prev, 
-              lastError: error,
-              reconnectAttempts: prev.reconnectAttempts + 1
-            }));
-          });
+          }, backoffDelay);
         }
       });
 
