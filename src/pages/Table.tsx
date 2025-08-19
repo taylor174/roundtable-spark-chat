@@ -32,6 +32,7 @@ import { MESSAGES } from '@/constants';
 import { Users, Clock, List, Play } from 'lucide-react';
 import { useEffect, useState, startTransition } from 'react';
 import { VotingStatusIndicator } from '@/components/VotingStatusIndicator';
+import { BackButton } from '@/components/BackButton';
 
 const Table = () => {
   const { code } = useParams<{ code: string }>();
@@ -249,11 +250,19 @@ const Table = () => {
   if (error || !table) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4 md:p-6">
-        <Alert className="max-w-md">
-          <AlertDescription>
-            {error || 'Table not found'}
-          </AlertDescription>
-        </Alert>
+        <div className="max-w-md space-y-4">
+          <Alert>
+            <AlertDescription>
+              {error || 'Table not found'}
+            </AlertDescription>
+          </Alert>
+          <div className="text-center">
+            <BackButton 
+              variant="outline"
+              showConfirmation={false}
+            />
+          </div>
+        </div>
       </div>
     );
   }
@@ -281,6 +290,25 @@ const Table = () => {
             </div>
             
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4 smooth-transition">
+              {/* Back Button - Always show in lobby, show with confirmation for active sessions, always show when closed */}
+              {(currentPhase === 'lobby' || table.status === 'closed') && (
+                <BackButton 
+                  variant="ghost" 
+                  size="sm"
+                  showConfirmation={false}
+                />
+              )}
+              
+              {table.status === 'running' && currentPhase !== 'lobby' && (
+                <BackButton 
+                  variant="ghost" 
+                  size="sm"
+                  showConfirmation={true}
+                  confirmationTitle="Leave Active Session?"
+                  confirmationDescription="The session is currently active. Are you sure you want to leave?"
+                />
+              )}
+              
               <TableInfo
                 tableCode={table.code}
                 participantCount={participants.length}

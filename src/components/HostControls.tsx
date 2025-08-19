@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Table } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { getOrCreateClientId } from '@/utils/clientId';
+import { BackButton } from '@/components/BackButton';
 
 interface HostControlsProps {
   table: Table;
@@ -322,14 +323,27 @@ export function HostControls({
         <div className="space-y-2">
           
           {table.status === 'lobby' && (
-            <Button
-              onClick={handleStartTable}
-              disabled={loading}
-              className="w-full md:w-auto"
-              size="lg"
-            >
-              {loading ? 'Starting...' : 'Start Table'}
-            </Button>
+            <>
+              <Button
+                onClick={handleStartTable}
+                disabled={loading}
+                className="w-full md:w-auto"
+                size="lg"
+              >
+                {loading ? 'Starting...' : 'Start Table'}
+              </Button>
+              
+              <BackButton
+                variant="outline"
+                size="sm"
+                className="w-full md:w-auto"
+                confirmationTitle="Cancel Session?"
+                confirmationDescription="This will end the session and return everyone to the home page."
+                showConfirmation={true}
+              >
+                Cancel Session
+              </BackButton>
+            </>
           )}
 
           {table.status === 'running' && (
