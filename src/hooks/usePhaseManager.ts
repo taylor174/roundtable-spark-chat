@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { getSuggestionsWithVotes, startVotePhase, endRound, completeRoundAndAdvance } from '@/utils/roundLogic';
 import { Table, Round, Suggestion, Vote } from '@/types';
 import { isTimeExpired } from '@/utils';
+import { withRetry } from '@/utils/retryLogic';
+import { useErrorHandler } from '@/hooks/useErrorHandler';
 
 export function usePhaseManager(
   table: Table | null,
@@ -18,6 +20,7 @@ export function usePhaseManager(
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastProcessedRound, setLastProcessedRound] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const { handleAsyncOperation } = useErrorHandler();
 
   useEffect(() => {
     if (!table || !currentRound || isProcessing || table.status !== 'running') {
@@ -89,57 +92,72 @@ export function usePhaseManager(
       setLastProcessedRound(currentRound.id);
       
       try {
-        if (currentRound.status === 'suggest') {
-          // Query database directly for accurate suggestion count
-          const { data: dbSuggestions, error } = await supabase
-            .from('suggestions')
-            .select('id')
-            .eq('round_id', currentRound.id);
-          
-          if (error) {
-            throw error;
+        // Wrap all phase operations in retry logic
+        await withRetry(async () => {
+          if (currentRound.status === 'suggest') {
+            // Query database directly for accurate suggestion count
+            const { data: dbSuggestions, error } = await supabase
+              .from('suggestions')
+              .select('id')
+              .eq('round_id', currentRound.id);
+            
+            if (error) {
+              throw error;
+            }
+            
+            // Move to voting phase if there are suggestions in database
+            if (dbSuggestions && dbSuggestions.length > 0) {
+              await startVotePhase(currentRound.id, table.default_vote_sec, table.id);
+            } else {
+              // No suggestions, end the round and trigger refresh
+              await endRound(currentRound.id, table.id, 'No suggestions submitted');
+              await supabase
+                .from('tables')
+                .update({ updated_at: new Date().toISOString() })
+                .eq('id', table.id);
+            }
+          } else if (currentRound.status === 'vote') {
+            // Double-check round is still in vote phase before processing
+            const { data: freshRound } = await supabase
+              .from('rounds')
+              .select('status')
+              .eq('id', currentRound.id)
+              .single();
+            
+            if (freshRound?.status !== 'vote') {
+              return;
+            }
+            
+            // Complete the round and advance
+            const result = await completeRoundAndAdvance(
+              currentRound.id,
+              table.id,
+              currentRound.number,
+              table.default_suggest_sec,
+              clientId
+            );
+            
+            if (!result) {
+              // Ensure global refresh is triggered for ties/no votes
+              await supabase
+                .from('tables')
+                .update({ updated_at: new Date().toISOString() })
+                .eq('id', table.id);
+            }
           }
           
-          // Move to voting phase if there are suggestions in database
-          if (dbSuggestions && dbSuggestions.length > 0) {
-            await startVotePhase(currentRound.id, table.default_vote_sec, table.id);
-          } else {
-            // No suggestions, end the round and trigger refresh
-            await endRound(currentRound.id, table.id, 'No suggestions submitted');
-            await supabase
-              .from('tables')
-              .update({ updated_at: new Date().toISOString() })
-              .eq('id', table.id);
-          }
-        } else if (currentRound.status === 'vote') {
-          // Double-check round is still in vote phase before processing
-          const { data: freshRound } = await supabase
-            .from('rounds')
-            .select('status')
-            .eq('id', currentRound.id)
-            .single();
-          
-          if (freshRound?.status !== 'vote') {
-            return;
-          }
-          
-          // Complete the round and advance
-          const result = await completeRoundAndAdvance(
-            currentRound.id,
-            table.id,
-            currentRound.number,
-            table.default_suggest_sec,
-            clientId
-          );
-          
-          if (!result) {
-            // Ensure global refresh is triggered for ties/no votes
-            await supabase
-              .from('tables')
-              .update({ updated_at: new Date().toISOString() })
-              .eq('id', table.id);
-          }
-        }
+          return { success: true };
+        }, {
+          maxAttempts: 3,
+          delay: 1000,
+          backoffMultiplier: 2,
+          retryCondition: (error) => 
+            error?.message?.includes('network') || 
+            error?.message?.includes('timeout') ||
+            error?.message?.includes('constraint') ||
+            error?.code === 'PGRST301' ||
+            error?.code === 'PGRST116'
+        });
         
         // Reset retry count on success
         setRetryCount(0);

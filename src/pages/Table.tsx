@@ -11,6 +11,7 @@ import { Timeline } from '@/components/Timeline';
 import { HostControls } from '@/components/HostControls';
 import { TableInfo } from '@/components/TableInfo';
 import { DiscussionContextCard } from '@/components/DiscussionContextCard';
+import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { PhaseTransition } from '@/components/PhaseTransition';
 import { SmoothTransition } from '@/components/SmoothTransition';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -279,14 +280,17 @@ const Table = () => {
                   ? blocks[blocks.length - 1].text 
                   : table.title || `Session ${table.code}`}
               </h1>
-              <p className="text-sm text-muted-foreground">
-                {currentPhase === 'lobby' ? 'Waiting to start' : 
-                 currentPhase === 'suggest' ? 'Suggestion Phase' :
-                 currentPhase === 'vote' ? 'Voting Phase' : 'Results'} • {participants.length} participants
-                {currentRound && currentRound.number > 1 && (
-                  <span> • Round {currentRound.number}</span>
-                )}
-              </p>
+               <div className="flex items-center gap-2">
+                 <p className="text-sm text-muted-foreground">
+                   {currentPhase === 'lobby' ? 'Waiting to start' : 
+                   currentPhase === 'suggest' ? 'Suggestion Phase' :
+                   currentPhase === 'vote' ? 'Voting Phase' : 'Results'} • {participants.length} participants
+                   {currentRound && currentRound.number > 1 && (
+                     <span> • Round {currentRound.number}</span>
+                   )}
+                 </p>
+                 <ConnectionStatus />
+               </div>
             </div>
             
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4 smooth-transition">
