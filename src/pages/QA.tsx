@@ -1,5 +1,5 @@
-import { QADashboard } from '@/components/QADashboard';
+import { AdvancedQADashboard } from '@/components/AdvancedQADashboard';
 
 export default function QAPage() {
-  return <QADashboard />;
+  return <AdvancedQADashboard />;
 }

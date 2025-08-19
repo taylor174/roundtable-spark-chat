@@ -371,6 +371,24 @@ export type Database = {
           updated_at: string
         }[]
       }
+      get_table_with_secrets: {
+        Args: { p_client_id: string; p_table_id: string }
+        Returns: {
+          auto_advance: boolean
+          code: string
+          created_at: string
+          current_round_id: string
+          default_suggest_sec: number
+          default_vote_sec: number
+          description: string
+          host_secret: string
+          id: string
+          phase_ends_at: string
+          status: string
+          title: string
+          updated_at: string
+        }[]
+      }
       is_current_user_host: {
         Args: { table_id: string }
         Returns: boolean
@@ -423,6 +441,10 @@ export type Database = {
       validate_table_session: {
         Args: { p_client_id: string; p_table_id: string }
         Returns: Json
+      }
+      verify_host_access: {
+        Args: { p_client_id: string; p_table_id: string }
+        Returns: boolean
       }
     }
     Enums: {
