@@ -61,6 +61,8 @@ export function TableCreationDialog({ children }: TableCreationDialogProps) {
     try {
       const tableCode = generateTableCode();
       const hostSecret = generateHostSecret();
+      
+      console.log('Creating table with:', { tableCode, suggestTime, voteTime, title: title.trim() });
 
       const { data: table, error } = await supabase
         .from('tables')
@@ -76,6 +78,8 @@ export function TableCreationDialog({ children }: TableCreationDialogProps) {
         .select()
         .single();
 
+      console.log('Table creation result:', { table, error });
+
       if (error) throw error;
 
       // Store host secret
@@ -85,7 +89,9 @@ export function TableCreationDialog({ children }: TableCreationDialogProps) {
       const { getOrCreateClientId } = await import('@/utils/clientId');
       const clientId = getOrCreateClientId();
 
-      await supabase
+      console.log('Adding host participant:', { tableId: table.id, clientId });
+
+      const { error: participantError } = await supabase
         .from('participants')
         .insert({
           table_id: table.id,
@@ -93,6 +99,13 @@ export function TableCreationDialog({ children }: TableCreationDialogProps) {
           display_name: 'Host',
           is_host: true,
         });
+
+      console.log('Participant creation result:', { participantError });
+      
+      if (participantError) {
+        console.error('Participant creation failed:', participantError);
+        // Don't throw here - table creation succeeded, just participant failed
+      }
 
       toast({
         title: "Table created successfully!",
