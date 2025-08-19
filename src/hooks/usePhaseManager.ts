@@ -104,6 +104,16 @@ export function usePhaseManager(
           const result = data as any;
           if (result?.success) {
             console.log('Enhanced atomic phase advancement successful:', result);
+            
+            // Handle automatic round advancement for clear winners
+            if (result.action === 'completed_and_advanced') {
+              console.log('Round automatically advanced to next round:', result.new_round_id);
+              // Force immediate refresh to show new round
+              setTimeout(() => {
+                onRefresh?.();
+              }, 1000);
+            }
+            
             return { success: true };
           } else {
             console.warn('Enhanced atomic advancement failed, falling back to client-side:', result?.error);
