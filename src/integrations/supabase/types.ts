@@ -338,6 +338,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      advance_phase_atomic: {
+        Args: { p_client_id: string; p_round_id: string; p_table_id: string }
+        Returns: Json
+      }
       cleanup_stale_rounds: {
         Args: Record<PropertyKey, never>
         Returns: undefined

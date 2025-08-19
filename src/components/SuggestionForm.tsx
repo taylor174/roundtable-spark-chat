@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { withRetry } from '@/utils/retryLogic';
 import { useErrorHandler } from '@/hooks/useErrorHandler';
 import { useDebounce } from '@/hooks/useDebounce';
+import { ErrorRetryButton } from '@/components/ErrorRetryButton';
 
 interface SuggestionFormProps {
   roundId: string;
@@ -218,9 +219,16 @@ export function SuggestionForm({ roundId, participantId }: SuggestionFormProps) 
             <span className="text-sm text-muted-foreground">
               {APP_CONFIG.MAX_SUGGESTION_LENGTH - suggestion.length} characters remaining
             </span>
-            <Button type="submit" disabled={loading || suggestion.trim().length === 0}>
-              {loading ? (isEditing ? 'Updating...' : 'Submitting...') : (isEditing ? 'Save Changes' : 'Submit Suggestion')}
-            </Button>
+            <div className="flex gap-2">
+              <Button type="submit" disabled={loading || suggestion.trim().length === 0}>
+                {loading ? (isEditing ? 'Updating...' : 'Submitting...') : (isEditing ? 'Save Changes' : 'Submit Suggestion')}
+              </Button>
+              {(loading || isOffline) && (
+                <ErrorRetryButton onRetry={() => handleSubmit({ preventDefault: () => {} } as any)}>
+                  Retry
+                </ErrorRetryButton>
+              )}
+            </div>
           </div>
         </form>
       </CardContent>

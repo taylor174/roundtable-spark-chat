@@ -92,7 +92,27 @@ export function usePhaseManager(
       setLastProcessedRound(currentRound.id);
       
       try {
-        // Wrap all phase operations in retry logic
+        // Try atomic server-side advancement first
+        try {
+          const { data, error } = await supabase.functions.invoke('force-phase-advance', {
+            body: {
+              roundId: currentRound.id,
+              tableId: table.id,
+              clientId: clientId
+            }
+          });
+
+          if (data?.success) {
+            console.log('Server-side phase advancement successful:', data.result);
+            return { success: true };
+          } else {
+            console.warn('Server-side advancement failed, falling back to client-side:', data?.error);
+          }
+        } catch (serverError) {
+          console.warn('Server-side advancement error, falling back to client-side:', serverError);
+        }
+
+        // Fallback to client-side advancement with retry logic
         await withRetry(async () => {
           if (currentRound.status === 'suggest') {
             // Query database directly for accurate suggestion count
