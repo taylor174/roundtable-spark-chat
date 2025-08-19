@@ -346,6 +346,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      is_current_user_host: {
+        Args: { table_id: string }
+        Returns: boolean
+      }
       is_table_host: {
         Args: { p_client_id: string; p_table_id: string }
         Returns: boolean
