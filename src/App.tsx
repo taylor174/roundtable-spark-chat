@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ComprehensiveTestSuite } from "@/components/ComprehensiveTestSuite";
 import Home from "./pages/Home";
 import Join from "./pages/Join";
 import Table from "./pages/Table";
@@ -20,6 +21,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Home />} />
+            <Route path="/test" element={<ComprehensiveTestSuite />} />
             <Route path="/t/:code/join" element={<Join />} />
             <Route path="/t/:code" element={<Table />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
