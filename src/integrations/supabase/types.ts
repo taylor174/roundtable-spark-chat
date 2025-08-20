@@ -524,6 +524,10 @@ export type Database = {
         Args: { p_client_id: string; p_table_id: string }
         Returns: boolean
       }
+      mark_participant_offline: {
+        Args: { p_participant_id: string }
+        Returns: undefined
+      }
       resolve_tie: {
         Args: {
           p_round_id: string
