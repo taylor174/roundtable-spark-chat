@@ -64,13 +64,6 @@ export type Database = {
             referencedRelation: "tables"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "blocks_table_id_fkey"
-            columns: ["table_id"]
-            isOneToOne: false
-            referencedRelation: "tables_public"
-            referencedColumns: ["id"]
-          },
         ]
       }
       chat_messages: {
@@ -139,13 +132,6 @@ export type Database = {
             referencedRelation: "tables"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "participants_table_id_fkey"
-            columns: ["table_id"]
-            isOneToOne: false
-            referencedRelation: "tables_public"
-            referencedColumns: ["id"]
-          },
         ]
       }
       profiles: {
@@ -209,13 +195,6 @@ export type Database = {
             columns: ["table_id"]
             isOneToOne: false
             referencedRelation: "tables"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "rounds_table_id_fkey"
-            columns: ["table_id"]
-            isOneToOne: false
-            referencedRelation: "tables_public"
             referencedColumns: ["id"]
           },
           {
@@ -362,51 +341,7 @@ export type Database = {
       }
     }
     Views: {
-      tables_public: {
-        Row: {
-          auto_advance: boolean | null
-          code: string | null
-          created_at: string | null
-          current_round_id: string | null
-          default_suggest_sec: number | null
-          default_vote_sec: number | null
-          description: string | null
-          id: string | null
-          phase_ends_at: string | null
-          status: string | null
-          title: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          auto_advance?: boolean | null
-          code?: string | null
-          created_at?: string | null
-          current_round_id?: string | null
-          default_suggest_sec?: number | null
-          default_vote_sec?: number | null
-          description?: string | null
-          id?: string | null
-          phase_ends_at?: string | null
-          status?: string | null
-          title?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          auto_advance?: boolean | null
-          code?: string | null
-          created_at?: string | null
-          current_round_id?: string | null
-          default_suggest_sec?: number | null
-          default_vote_sec?: number | null
-          description?: string | null
-          id?: string | null
-          phase_ends_at?: string | null
-          status?: string | null
-          title?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       advance_phase_atomic: {
