@@ -1,5 +1,5 @@
-import { AdvancedQADashboard } from '@/components/AdvancedQADashboard';
+import { DeepQARunner } from '@/components/DeepQARunner';
 
 export default function QAPage() {
-  return <AdvancedQADashboard />;
+  return <DeepQARunner />;
 }

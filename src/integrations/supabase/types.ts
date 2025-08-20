@@ -453,6 +453,41 @@ export type Database = {
           updated_at: string
         }[]
       }
+      get_table_host_data: {
+        Args: { p_client_id: string; p_table_id: string }
+        Returns: {
+          auto_advance: boolean
+          code: string
+          created_at: string
+          current_round_id: string
+          default_suggest_sec: number
+          default_vote_sec: number
+          description: string
+          host_secret: string
+          id: string
+          phase_ends_at: string
+          status: string
+          title: string
+          updated_at: string
+        }[]
+      }
+      get_table_public_data: {
+        Args: { p_table_id: string }
+        Returns: {
+          auto_advance: boolean
+          code: string
+          created_at: string
+          current_round_id: string
+          default_suggest_sec: number
+          default_vote_sec: number
+          description: string
+          id: string
+          phase_ends_at: string
+          status: string
+          title: string
+          updated_at: string
+        }[]
+      }
       get_table_with_secrets: {
         Args: { p_client_id: string; p_table_id: string }
         Returns: {
