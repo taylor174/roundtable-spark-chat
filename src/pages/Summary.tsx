@@ -82,20 +82,36 @@ export default function Summary() {
 
   if (error || !data) {
     const isTableNotFound = error?.includes('Table not found');
+    const isParticipantsError = error?.includes('Failed to load participants');
+    const isBlocksError = error?.includes('Failed to load discussion rounds');
+    
+    let errorMessage = 'Failed to load discussion summary';
+    if (isTableNotFound) {
+      errorMessage = `Discussion with code "${code}" not found`;
+    } else if (isParticipantsError) {
+      errorMessage = 'Unable to load participant information';
+    } else if (isBlocksError) {
+      errorMessage = 'Unable to load discussion history';
+    } else if (error) {
+      errorMessage = error;
+    }
+
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Card className="max-w-md">
           <CardContent className="pt-6 text-center">
             <p className="text-muted-foreground mb-4">
-              {isTableNotFound 
-                ? `Discussion with code "${code}" not found` 
-                : error || 'Failed to load discussion summary'
-              }
+              {errorMessage}
             </p>
-            <Button onClick={() => navigate('/')}>
-              <Home className="h-4 w-4 mr-2" />
-              Back to Home
-            </Button>
+            <div className="space-y-2">
+              <Button onClick={() => window.location.reload()} variant="outline" className="w-full">
+                Try Again
+              </Button>
+              <Button onClick={() => navigate('/')} className="w-full">
+                <Home className="h-4 w-4 mr-2" />
+                Back to Home
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

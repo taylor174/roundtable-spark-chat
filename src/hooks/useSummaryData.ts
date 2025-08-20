@@ -41,6 +41,7 @@ export function useSummaryData(tableCode: string) {
         }
 
         // Get blocks (completed rounds)
+        console.log('Loading blocks for table_id:', tableData.id);
         const { data: blocksData, error: blocksError } = await supabase
           .from('blocks')
           .select('*')
@@ -48,19 +49,28 @@ export function useSummaryData(tableCode: string) {
           .order('created_at', { ascending: true });
 
         if (blocksError) {
-          throw blocksError;
+          console.error('Database error loading blocks:', blocksError);
+          throw new Error(`Failed to load discussion rounds: ${blocksError.message}`);
         }
 
         // Get participants
+        console.log('Loading participants for table_id:', tableData.id);
         const { data: participantsData, error: participantsError } = await supabase
           .from('participants')
           .select('*')
           .eq('table_id', tableData.id)
-          .order('created_at', { ascending: true });
+          .order('joined_at', { ascending: true });
 
         if (participantsError) {
-          throw participantsError;
+          console.error('Database error loading participants:', participantsError);
+          throw new Error(`Failed to load participants: ${participantsError.message}`);
         }
+
+        console.log('Successfully loaded summary data:', {
+          table: tableData.code,
+          blocksCount: blocksData?.length || 0,
+          participantsCount: participantsData?.length || 0
+        });
 
         setData({
           table: tableData,
