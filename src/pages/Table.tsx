@@ -64,6 +64,13 @@ const Table = () => {
   
   // Initialize presence tracking
   usePresenceTracking(table?.id || null, clientId);
+
+  // Navigate to summary when table is closed and has blocks
+  useEffect(() => {
+    if (table?.status === 'closed' && blocks.length > 0) {
+      navigate(`/t/${code}/summary`);
+    }
+  }, [table?.status, blocks.length, code, navigate]);
   
   const [suggestionsWithVotes, setSuggestionsWithVotes] = useState<SuggestionWithVotes[]>([]);
   const [winningSuggestions, setWinningSuggestions] = useState<WinningSuggestion[]>([]);
@@ -269,6 +276,8 @@ const Table = () => {
             <BackButton 
               variant="outline"
               showConfirmation={false}
+              redirectToSummary={false}
+              tableCode={code}
             />
           </div>
         </div>
@@ -303,23 +312,27 @@ const Table = () => {
            
            <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2 xs:gap-3 smooth-transition flex-shrink-0">
               {/* Back Button - Always show in lobby, show with confirmation for active sessions, always show when closed */}
-              {(currentPhase === 'lobby' || table.status === 'closed') && (
-                <BackButton 
-                  variant="ghost" 
-                  size="sm"
-                  showConfirmation={false}
-                />
-              )}
-              
-              {table.status === 'running' && currentPhase !== 'lobby' && (
-                <BackButton 
-                  variant="ghost" 
-                  size="sm"
-                  showConfirmation={true}
-                  confirmationTitle="Leave Active Session?"
-                  confirmationDescription="The session is currently active. Are you sure you want to leave?"
-                />
-              )}
+               {(currentPhase === 'lobby' || table.status === 'closed') && (
+                 <BackButton 
+                   variant="ghost" 
+                   size="sm"
+                   showConfirmation={false}
+                   redirectToSummary={blocks.length > 0}
+                   tableCode={code}
+                 />
+               )}
+               
+               {table.status === 'running' && currentPhase !== 'lobby' && (
+                 <BackButton 
+                   variant="ghost" 
+                   size="sm"
+                   showConfirmation={true}
+                   confirmationTitle="Leave Active Session?"
+                   confirmationDescription="The session is currently active. Are you sure you want to leave?"
+                   redirectToSummary={blocks.length > 0}
+                   tableCode={code}
+                 />
+               )}
               
                <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2">
                  <TableInfo

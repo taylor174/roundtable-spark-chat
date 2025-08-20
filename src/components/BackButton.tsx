@@ -21,6 +21,8 @@ interface BackButtonProps {
   confirmationDescription?: string;
   className?: string;
   children?: React.ReactNode;
+  redirectToSummary?: boolean;
+  tableCode?: string;
 }
 
 export function BackButton({
@@ -30,12 +32,18 @@ export function BackButton({
   confirmationTitle = 'Leave Session?',
   confirmationDescription = 'Are you sure you want to leave this session? You may lose your progress.',
   className = '',
-  children
+  children,
+  redirectToSummary = false,
+  tableCode
 }: BackButtonProps) {
   const navigate = useNavigate();
 
   const handleGoBack = () => {
-    navigate('/');
+    if (redirectToSummary && tableCode) {
+      navigate(`/t/${tableCode}/summary`);
+    } else {
+      navigate('/');
+    }
   };
 
   const ButtonContent = children || (
