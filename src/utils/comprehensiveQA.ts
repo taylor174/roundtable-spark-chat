@@ -1,5 +1,4 @@
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 
 interface TestResult {
   test: string;
@@ -24,18 +23,10 @@ interface ComprehensiveTestResults {
 }
 
 export class ComprehensiveQASystem {
-  private toast: any;
+  private toast: (options: any) => void;
 
-  constructor() {
-    // Note: useToast must be used inside React component context
-    // For standalone usage, we'll handle toast differently
-    try {
-      const { toast } = useToast();
-      this.toast = toast;
-    } catch (error) {
-      // Fallback for non-React context
-      this.toast = (options: any) => console.log('Toast:', options);
-    }
+  constructor(toast?: (options: any) => void) {
+    this.toast = toast || ((options: any) => console.log('Toast:', options));
   }
 
   async runFullQA(): Promise<ComprehensiveTestResults> {

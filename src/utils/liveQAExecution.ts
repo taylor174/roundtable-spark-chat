@@ -23,9 +23,9 @@ export class LiveQAExecution {
   private penetration: AdvancedPenetrationTesting;
   private enterprise: EnterpriseQAFramework;
 
-  constructor() {
-    this.comprehensive = new ComprehensiveQASystem();
-    this.penetration = new AdvancedPenetrationTesting();
+  constructor(toast?: (options: any) => void) {
+    this.comprehensive = new ComprehensiveQASystem(toast);
+    this.penetration = new AdvancedPenetrationTesting(toast);
     this.enterprise = new EnterpriseQAFramework();
   }
 
@@ -211,5 +211,7 @@ export class LiveQAExecution {
   }
 }
 
-// Export for direct usage
-export const liveQA = new LiveQAExecution();
+// Factory function instead of singleton to avoid hook violations
+export function createLiveQA(toast?: (options: any) => void) {
+  return new LiveQAExecution(toast);
+}
