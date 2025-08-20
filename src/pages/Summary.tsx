@@ -81,12 +81,16 @@ export default function Summary() {
   }
 
   if (error || !data) {
+    const isTableNotFound = error?.includes('Table not found');
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Card className="max-w-md">
           <CardContent className="pt-6 text-center">
             <p className="text-muted-foreground mb-4">
-              {error || 'Discussion not found'}
+              {isTableNotFound 
+                ? `Discussion with code "${code}" not found` 
+                : error || 'Failed to load discussion summary'
+              }
             </p>
             <Button onClick={() => navigate('/')}>
               <Home className="h-4 w-4 mr-2" />

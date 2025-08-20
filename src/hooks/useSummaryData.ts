@@ -29,9 +29,14 @@ export function useSummaryData(tableCode: string) {
           .from('tables')
           .select('*')
           .eq('code', tableCode)
-          .single();
+          .maybeSingle();
 
         if (tableError) {
+          console.error('Database error loading table:', tableError);
+          throw new Error(`Database error: ${tableError.message}`);
+        }
+
+        if (!tableData) {
           throw new Error('Table not found');
         }
 
