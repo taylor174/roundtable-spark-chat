@@ -200,7 +200,7 @@ const Join = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md mx-auto">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Join Session</CardTitle>
           <CardDescription>
@@ -226,7 +226,7 @@ const Join = () => {
             onClick={handleJoin}
             disabled={loading || !displayName.trim()}
             className="w-full"
-            size="lg"
+            size="touch"
           >
             {loading ? (
               <>

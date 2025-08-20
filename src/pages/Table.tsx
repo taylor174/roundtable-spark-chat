@@ -35,6 +35,10 @@ import { useEffect, useState, startTransition } from 'react';
 import { VotingStatusIndicator } from '@/components/VotingStatusIndicator';
 import { BackButton } from '@/components/BackButton';
 import { usePresenceTracking } from '@/hooks/usePresenceTracking';
+import { ResponsiveSidebar, SidebarMobileToggle } from '@/components/ResponsiveSidebar';
+import { MobileOptimizedCard } from '@/components/MobileOptimizedCard';
+import { TouchOptimizedButton } from '@/components/TouchOptimizedButton';
+import { Menu } from 'lucide-react';
 
 const Table = () => {
   const { code } = useParams<{ code: string }>();
@@ -277,15 +281,15 @@ const Table = () => {
       {/* Header */}
       <header className="border-b bg-card smooth-transition">
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-4">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="smooth-transition">
-              <h1 className="text-lg sm:text-xl md:text-2xl font-semibold leading-tight break-words line-clamp-2 md:line-clamp-1">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="smooth-transition min-w-0 flex-1">
+              <h1 className="text-lg sm:text-xl lg:text-2xl font-semibold leading-tight break-words line-clamp-2 lg:line-clamp-1">
                 {currentRound && currentRound.number > 1 && blocks.length > 0 
                   ? blocks[blocks.length - 1].text 
                   : table.title || `Session ${table.code}`}
               </h1>
-               <div className="flex items-center gap-2">
-                 <p className="text-sm text-muted-foreground">
+               <div className="flex flex-wrap items-center gap-2 mt-1">
+                 <p className="text-xs sm:text-sm text-muted-foreground">
                    {currentPhase === 'lobby' ? 'Waiting to start' : 
                    currentPhase === 'suggest' ? 'Suggestion Phase' :
                    currentPhase === 'vote' ? 'Voting Phase' : 'Results'} • {participants.length} participants
@@ -295,9 +299,9 @@ const Table = () => {
                  </p>
                  <ConnectionStatus />
                </div>
-            </div>
-            
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4 smooth-transition">
+           </div>
+           
+           <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2 xs:gap-3 smooth-transition flex-shrink-0">
               {/* Back Button - Always show in lobby, show with confirmation for active sessions, always show when closed */}
               {(currentPhase === 'lobby' || table.status === 'closed') && (
                 <BackButton 
@@ -317,20 +321,86 @@ const Table = () => {
                 />
               )}
               
-              <TableInfo
-                tableCode={table.code}
-                participantCount={participants.length}
-                isHost={isHost}
-              />
-              {currentPhase !== 'lobby' && (
-                <div className="text-right">
-                  <Timer 
-                    timeRemaining={timeRemaining}
-                    phase={currentPhase}
-                    isActive={table.status === 'running'}
-                  />
-                </div>
-              )}
+               <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2">
+                 <TableInfo
+                   tableCode={table.code}
+                   participantCount={participants.length}
+                   isHost={isHost}
+                 />
+                 {currentPhase !== 'lobby' && (
+                   <div className="xs:text-right">
+                     <Timer 
+                       timeRemaining={timeRemaining}
+                       phase={currentPhase}
+                       isActive={table.status === 'running'}
+                     />
+                   </div>
+                 )}
+                 
+                 {/* Mobile Sidebar Toggle */}
+                 <SidebarMobileToggle>
+                   <ResponsiveSidebar
+                     trigger={
+                       <TouchOptimizedButton 
+                         variant="outline" 
+                         size="icon" 
+                         touchSize="default"
+                         aria-label="View sidebar"
+                       >
+                         <Menu className="h-4 w-4" />
+                       </TouchOptimizedButton>
+                     }
+                   >
+                     <div className="space-y-4">
+                       {/* Timeline */}
+                       <div>
+                         <h3 className="font-semibold mb-3">Timeline</h3>
+                         <Timeline 
+                           blocks={blocks} 
+                           currentRound={currentRound} 
+                           originalTitle={table.title}
+                         />
+                       </div>
+                       
+                       {/* Participants */}
+                       <div>
+                         <h3 className="font-semibold mb-3 flex items-center gap-2">
+                           <Users className="h-4 w-4" />
+                           Participants ({participants.length})
+                         </h3>
+                         <div className="space-y-2">
+                           {participants.map((participant) => (
+                             <div key={participant.id} className="flex items-center justify-between p-2 rounded-md bg-muted/50">
+                               <span className="text-sm font-medium truncate">
+                                 {participant.display_name}
+                               </span>
+                               {participant.is_host && (
+                                 <Badge variant="secondary" className="text-xs">Host</Badge>
+                               )}
+                             </div>
+                           ))}
+                         </div>
+                       </div>
+                       
+                       {/* Host Controls */}
+                       {isHost && (
+                         <div>
+                           <h3 className="font-semibold mb-3">Host Controls</h3>
+                            <HostControls
+                              table={table}
+                              canStart={true}
+                              currentPhase={currentPhase}
+                              participantCount={participants.length}
+                              participants={participants}
+                              currentParticipant={currentParticipant}
+                              onRefresh={refresh}
+                            />
+                         </div>
+                       )}
+                     </div>
+                   </ResponsiveSidebar>
+                 </SidebarMobileToggle>
+               </div>
             </div>
           </div>
         </div>
@@ -357,7 +427,7 @@ const Table = () => {
         )}
         
         
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-4 md:gap-6">
+        <div className="responsive-grid">
           {/* Main Content */}
           <div className="space-y-6 stable-layout">
             <SmoothTransition 
@@ -441,8 +511,8 @@ const Table = () => {
             </SmoothTransition>
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6 smooth-transition">
+          {/* Desktop Sidebar - Hidden on mobile */}
+          <div className="hidden md:block space-y-6 smooth-transition">
             {/* Timeline */}
             <div className="smooth-transition">
               <Timeline 

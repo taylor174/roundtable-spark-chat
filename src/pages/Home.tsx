@@ -17,23 +17,23 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted">
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-6 sm:py-8">
         {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold mb-2">Roundtable Sessions</h1>
-          <p className="text-lg text-muted-foreground">Structured group debate and fast decisions.</p>
+        <div className="text-center mb-8 sm:mb-12">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2">Roundtable Sessions</h1>
+          <p className="text-base sm:text-lg text-muted-foreground">Structured group debate and fast decisions.</p>
         </div>
 
-        <div className="text-center mb-12">
-          <h2 className="text-2xl font-semibold mb-4">
+        <div className="text-center mb-8 sm:mb-12">
+          <h2 className="text-xl sm:text-2xl font-semibold mb-4">
             How it works
           </h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto px-4">
             Create a table, invite people with a code, share proposals, vote, and watch consensus form in real time. Great for cabinet briefings, strategy meetings, workshops, and classrooms.
           </p>
         </div>
 
-        <div className="max-w-md mx-auto space-y-4">
+        <div className="max-w-md mx-auto space-y-4 px-4 sm:px-0">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -46,7 +46,7 @@ export default function Home() {
             </CardHeader>
             <CardContent>
               <TableCreationDialog>
-                <Button size="lg" className="w-full">
+                <Button size="touch" className="w-full">
                   Start New Table
                 </Button>
               </TableCreationDialog>
@@ -75,7 +75,7 @@ export default function Home() {
                 />
               </div>
               <Button 
-                size="lg" 
+                size="touch" 
                 className="w-full"
                 disabled={!joinCode.trim() || !isValidTableCode(joinCode)}
                 onClick={() => navigate(`/t/${joinCode}/join`)}
