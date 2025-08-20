@@ -7,6 +7,7 @@ import { Plus, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { TableCreationDialog } from '@/components/TableCreationDialog';
+import { QARunner } from '@/components/QARunner';
 import { isValidTableCode } from '@/utils';
 
 export default function Home() {
@@ -83,6 +84,11 @@ export default function Home() {
               </Button>
             </CardContent>
           </Card>
+        </div>
+
+        {/* QA Section */}
+        <div className="max-w-4xl mx-auto mt-12">
+          <QARunner />
         </div>
       </div>
     </div>

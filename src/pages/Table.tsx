@@ -34,6 +34,7 @@ import { Users, Clock, List, Play } from 'lucide-react';
 import { useEffect, useState, startTransition } from 'react';
 import { VotingStatusIndicator } from '@/components/VotingStatusIndicator';
 import { BackButton } from '@/components/BackButton';
+import { usePresenceTracking } from '@/hooks/usePresenceTracking';
 
 const Table = () => {
   const { code } = useParams<{ code: string }>();
@@ -56,6 +57,9 @@ const Table = () => {
     refresh,
     refreshBlocks,
   } = useTableState(code || '');
+  
+  // Initialize presence tracking
+  usePresenceTracking(table?.id || null, clientId);
   
   const [suggestionsWithVotes, setSuggestionsWithVotes] = useState<SuggestionWithVotes[]>([]);
   const [winningSuggestions, setWinningSuggestions] = useState<WinningSuggestion[]>([]);
