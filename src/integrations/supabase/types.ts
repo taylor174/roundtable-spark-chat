@@ -106,7 +106,9 @@ export type Database = {
           display_name: string
           id: string
           is_host: boolean
+          is_online: boolean | null
           joined_at: string
+          last_seen_at: string | null
           table_id: string
         }
         Insert: {
@@ -114,7 +116,9 @@ export type Database = {
           display_name: string
           id?: string
           is_host?: boolean
+          is_online?: boolean | null
           joined_at?: string
+          last_seen_at?: string | null
           table_id: string
         }
         Update: {
@@ -122,7 +126,9 @@ export type Database = {
           display_name?: string
           id?: string
           is_host?: boolean
+          is_online?: boolean | null
           joined_at?: string
+          last_seen_at?: string | null
           table_id?: string
         }
         Relationships: [
