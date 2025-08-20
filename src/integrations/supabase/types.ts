@@ -551,6 +551,10 @@ export type Database = {
         }
         Returns: Json
       }
+      update_participant_presence: {
+        Args: { p_client_id: string; p_table_id: string }
+        Returns: undefined
+      }
       upsert_block_safe: {
         Args: {
           p_is_tie_break?: boolean
