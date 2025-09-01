@@ -95,6 +95,7 @@ export type Database = {
       }
       participants: {
         Row: {
+          active_from_round: number | null
           client_id: string
           display_name: string
           id: string
@@ -105,6 +106,7 @@ export type Database = {
           table_id: string
         }
         Insert: {
+          active_from_round?: number | null
           client_id: string
           display_name: string
           id?: string
@@ -115,6 +117,7 @@ export type Database = {
           table_id: string
         }
         Update: {
+          active_from_round?: number | null
           client_id?: string
           display_name?: string
           id?: string

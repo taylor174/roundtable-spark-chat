@@ -14,6 +14,7 @@ import { DiscussionContextCard } from '@/components/DiscussionContextCard';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { PhaseTransition } from '@/components/PhaseTransition';
 import { SmoothTransition } from '@/components/SmoothTransition';
+import { PendingParticipantScreen } from '@/components/PendingParticipantScreen';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -95,6 +96,18 @@ const Table = () => {
 
     checkParticipant();
   }, [code, currentParticipant, loading, navigate]);
+
+  // Determine active participants (those who can currently participate)
+  const activeParticipants = participants.filter(p => 
+    !p.active_from_round || 
+    (currentRound && currentRound.number >= p.active_from_round)
+  );
+
+  // Check if current participant is pending (waiting for their turn)
+  const isCurrentParticipantPending = currentParticipant && 
+    currentParticipant.active_from_round && 
+    currentRound && 
+    currentRound.number < currentParticipant.active_from_round;
   
   // Load suggestions with votes
   useEffect(() => {
@@ -124,8 +137,8 @@ const Table = () => {
     : false;
     
   
-  // Automatic phase management - always enabled (phase manager handles its own processing state)
-  const { isProcessing } = usePhaseManager(table, currentRound, suggestions, votes, timeRemaining, clientId, isHost, refresh, participants);
+  // Automatic phase management - pass active participants for accurate counts
+  const { isProcessing } = usePhaseManager(table, currentRound, suggestions, votes, timeRemaining, clientId, isHost, refresh, activeParticipants);
   
   // Handle phase transition animations
   useEffect(() => {
@@ -287,6 +300,17 @@ const Table = () => {
 
   return (
     <div className="min-h-screen bg-background animate-fade-in">
+      {/* Show pending participant screen if waiting */}
+      {isCurrentParticipantPending && (
+        <PendingParticipantScreen
+          currentRound={currentRound}
+          activeFromRound={currentParticipant.active_from_round!}
+          participantName={currentParticipant.display_name}
+          timeRemaining={timeRemaining}
+          onRefresh={refresh}
+        />
+      )}
+
       {/* Header */}
       <header className="border-b bg-card smooth-transition">
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-4">
@@ -301,7 +325,10 @@ const Table = () => {
                  <p className="text-xs sm:text-sm text-muted-foreground">
                    {currentPhase === 'lobby' ? 'Waiting to start' : 
                    currentPhase === 'suggest' ? 'Suggestion Phase' :
-                   currentPhase === 'vote' ? 'Voting Phase' : 'Results'} • {participants.length} participants
+                   currentPhase === 'vote' ? 'Voting Phase' : 'Results'} • {activeParticipants.length} active
+                   {participants.length > activeParticipants.length && (
+                     <span> • {participants.length - activeParticipants.length} waiting</span>
+                   )}
                    {currentRound && currentRound.number > 1 && (
                      <span> • Round {currentRound.number}</span>
                    )}
@@ -469,10 +496,10 @@ const Table = () => {
                 </Card>
               )}
               
-              {/* Suggestion Phase - Show to participants and hosts */}
+              {/* Suggestion Phase - Only show form to active participants */}
               {currentPhase === 'suggest' && (
                 <div className="content-enter space-y-6">
-                  {currentParticipant && currentRound && (
+                  {currentParticipant && currentRound && !isCurrentParticipantPending && (
                     <SuggestionForm
                       roundId={currentRound.id}
                       participantId={currentParticipant.id}
@@ -484,10 +511,10 @@ const Table = () => {
                 </div>
               )}
               
-              {/* Voting Phase - Show to participants and hosts */}
+              {/* Voting Phase - Only show voting to active participants */}
               {currentPhase === 'vote' && (
                 <div className="content-enter">
-                  {currentParticipant && currentRound && (
+                  {currentParticipant && currentRound && !isCurrentParticipantPending && (
                     <VoteList
                       suggestions={suggestionsWithVotes}
                       roundId={currentRound.id}
@@ -524,7 +551,7 @@ const Table = () => {
             </SmoothTransition>
           </div>
 
-          {/* Desktop Sidebar - Hidden on mobile */}
+          {/* Desktop Sidebar - Show all participants with status */}
           <div className="hidden md:block space-y-6 smooth-transition">
             {/* Timeline */}
             <div className="smooth-transition">
@@ -546,23 +573,38 @@ const Table = () => {
                <CardContent className="p-4 sm:p-6">
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    {participants.map((participant) => (
-                      <div key={participant.id} className="flex items-center justify-between smooth-transition">
-                        <span>{participant.display_name}</span>
-                        {participant.is_host && (
-                          <span className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded">
-                            Host
+                    {participants.map((participant) => {
+                      const isPending = participant.active_from_round && 
+                        currentRound && 
+                        currentRound.number < participant.active_from_round;
+                      
+                      return (
+                        <div key={participant.id} className="flex items-center justify-between smooth-transition">
+                          <span className={isPending ? 'text-muted-foreground' : ''}>
+                            {participant.display_name}
                           </span>
-                        )}
-                      </div>
-                    ))}
+                          <div className="flex items-center space-x-1">
+                            {participant.is_host && (
+                              <Badge variant="secondary" className="text-xs">
+                                Host
+                              </Badge>
+                            )}
+                            {isPending && (
+                              <Badge variant="outline" className="text-xs">
+                                Round {participant.active_from_round}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                   
-                  {/* Show voting status during voting phase */}
+                  {/* Show voting status during voting phase for active participants only */}
                   {currentPhase === 'vote' && isHost && currentRound && (
                     <SmoothTransition isVisible={true}>
                       <VotingStatusIndicator 
-                        participants={participants}
+                        participants={activeParticipants}
                         votes={votes}
                         currentRound={currentRound}
                       />
@@ -579,8 +621,8 @@ const Table = () => {
                   table={table}
                   canStart={true}
                   currentPhase={currentPhase}
-                  participantCount={participants.length}
-                  participants={participants}
+                  participantCount={activeParticipants.length}
+                  participants={activeParticipants}
                   currentParticipant={currentParticipant}
                   onRefresh={refresh}
                 />
