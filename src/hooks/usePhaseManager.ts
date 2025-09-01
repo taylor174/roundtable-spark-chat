@@ -27,6 +27,11 @@ export function usePhaseManager(
       return;
     }
 
+    // Only process if we're the host for more reliable phase management
+    if (!isHost) {
+      return;
+    }
+
     // Reset retry count when round changes
     if (lastProcessedRound !== currentRound.id) {
       setRetryCount(0);
@@ -43,6 +48,12 @@ export function usePhaseManager(
         const uniqueVoters = new Set(roundVotes?.map(v => v.participant_id) || []);
         const totalParticipants = participants.length;
         
+        console.log('Vote completion check:', { 
+          uniqueVoters: uniqueVoters.size, 
+          totalParticipants,
+          roundId: currentRound.id 
+        });
+        
         // End early if everyone has voted
         if (uniqueVoters.size >= totalParticipants && totalParticipants > 0) {
           return true;
@@ -55,162 +66,99 @@ export function usePhaseManager(
     // Check if we need to advance the phase
     const hasEndTime = !!currentRound.ends_at;
     const isExpired = hasEndTime && isTimeExpired(currentRound.ends_at);
-    const shouldAdvanceTimer = timeRemaining <= 0 && hasEndTime && isExpired;
-    
-    // Special handling for first round - be more aggressive about checking
-    const isFirstRound = currentRound.number === 1;
+    const shouldAdvanceTimer = timeRemaining <= 0 && hasEndTime;
     
     const handlePhaseAdvancement = async () => {
       // Check if everyone has voted (for early termination)
       const everyoneVoted = await checkVotingCompletion();
       const shouldAdvance = shouldAdvanceTimer || everyoneVoted;
       
+      console.log('Phase advancement check:', {
+        shouldAdvanceTimer,
+        everyoneVoted,
+        shouldAdvance,
+        timeRemaining,
+        hasEndTime,
+        roundStatus: currentRound.status,
+        roundId: currentRound.id
+      });
+      
       if (!shouldAdvance) {
         return;
       }
 
-      // Prevent processing the same round multiple times (unless retrying or everyone voted)
+      // Prevent processing the same round multiple times
       if (lastProcessedRound === currentRound.id && retryCount === 0 && !everyoneVoted) {
+        console.log('Skipping duplicate processing for round:', currentRound.id);
         return;
       }
 
-      // Single Authority Pattern: Prefer host, but allow any client after timeout
-      // For first round, be more aggressive about processing
-      const shouldProcess = isHost || timeRemaining <= -2 || everyoneVoted || (isFirstRound && timeRemaining <= -1);
-      
-      if (!shouldProcess && retryCount === 0) {
-        return;
-      }
+      console.log('Starting phase advancement for round:', currentRound.id);
       setIsProcessing(true);
       setLastProcessedRound(currentRound.id);
       
       try {
-        // Try enhanced atomic server-side advancement first (v2)
-        try {
-          const { data, error } = await supabase.rpc('advance_phase_atomic_v2', {
-            p_round_id: currentRound.id,
-            p_table_id: table.id,
-            p_client_id: clientId
-          });
+        // Use the enhanced atomic server-side advancement
+        const { data, error } = await supabase.rpc('advance_phase_atomic_v2', {
+          p_round_id: currentRound.id,
+          p_table_id: table.id,
+          p_client_id: clientId
+        });
 
-          if (error) throw error;
-          const result = data as any;
-          if (result?.success) {
-            // Handle automatic round advancement for clear winners
-            if (result.action === 'completed_and_advanced') {
-              // Force immediate refresh to show new round
-              setTimeout(() => {
-                onRefresh?.();
-              }, 1000);
-            }
-            
-            return { success: true };
-          }
-        } catch (serverError) {
-          // Fall back to client-side logic
+        if (error) {
+          console.error('Phase advancement RPC error:', error);
+          throw error;
         }
 
-        // Fallback to client-side advancement with retry logic
-        await withRetry(async () => {
-          if (currentRound.status === 'suggest') {
-            // Query database directly for accurate suggestion count
-            const { data: dbSuggestions, error } = await supabase
-              .from('suggestions')
-              .select('id')
-              .eq('round_id', currentRound.id);
-            
-            if (error) {
-              throw error;
-            }
-            
-            // Move to voting phase if there are suggestions in database
-            if (dbSuggestions && dbSuggestions.length > 0) {
-              await startVotePhase(currentRound.id, table.default_vote_sec, table.id);
-            } else {
-              // No suggestions, end the round and trigger refresh
-              await endRound(currentRound.id, table.id, 'No suggestions submitted');
-              await supabase
-                .from('tables')
-                .update({ updated_at: new Date().toISOString() })
-                .eq('id', table.id);
-            }
-          } else if (currentRound.status === 'vote') {
-            // Double-check round is still in vote phase before processing
-            const { data: freshRound } = await supabase
-              .from('rounds')
-              .select('status')
-              .eq('id', currentRound.id)
-              .single();
-            
-            if (freshRound?.status !== 'vote') {
-              return;
-            }
-            
-            // Complete the round and advance
-            const result = await completeRoundAndAdvance(
-              currentRound.id,
-              table.id,
-              currentRound.number,
-              table.default_suggest_sec,
-              clientId
-            );
-            
-            if (!result) {
-              // Ensure global refresh is triggered for ties/no votes
-              await supabase
-                .from('tables')
-                .update({ updated_at: new Date().toISOString() })
-                .eq('id', table.id);
-            }
-          }
+        const result = data as any;
+        console.log('Phase advancement result:', result);
+        
+        if (result?.success) {
+          // Reset retry count on success
+          setRetryCount(0);
+          
+          // Trigger refresh after successful advancement
+          setTimeout(() => {
+            onRefresh?.();
+          }, 200);
           
           return { success: true };
-        }, {
-          maxAttempts: 3,
-          delay: 1000,
-          backoffMultiplier: 2,
-          retryCondition: (error) => 
-            error?.message?.includes('network') || 
-            error?.message?.includes('timeout') ||
-            error?.message?.includes('constraint') ||
-            error?.code === 'PGRST301' ||
-            error?.code === 'PGRST116'
-        });
-        
-        // Reset retry count on success
-        setRetryCount(0);
-        
-        // Force a state refresh after phase change - longer delay to prevent flicker
-        setTimeout(() => {
-          onRefresh?.();
-        }, 2500);
-        
+        } else {
+          throw new Error(result?.error || 'Phase advancement failed');
+        }
+
       } catch (error) {
         console.error(`Error advancing phase for round ${currentRound.id}:`, error);
         
         // Implement retry logic with exponential backoff
-        const maxRetries = 3;
+        const maxRetries = 2;
         if (retryCount < maxRetries) {
           // Reset processing state to allow retry
           setLastProcessedRound(null);
           setRetryCount(prev => prev + 1);
           
-          // Schedule retry with exponential backoff
+          console.log(`Retrying phase advancement, attempt ${retryCount + 1}`);
+          
+          // Schedule retry with backoff
           setTimeout(() => {
-            // This will trigger the useEffect again
-          }, 2000 * (retryCount + 1));
+            setIsProcessing(false); // Allow retry
+          }, 1000 * (retryCount + 1));
         } else {
           // Reset everything on final failure
           setLastProcessedRound(null);
           setRetryCount(0);
+          console.error('Max retries reached for phase advancement');
         }
       } finally {
-        setIsProcessing(false);
+        if (retryCount === 0) {
+          // Only reset if not retrying
+          setIsProcessing(false);
+        }
       }
     };
 
-    // Shorter delays for faster transitions, even shorter for first round
-    const delay = isFirstRound ? (isHost ? 250 : 750) : (isHost ? 500 : 1500);
+    // Immediate execution for hosts, slight delay for participants
+    const delay = isHost ? 100 : 500;
     const timeout = setTimeout(handlePhaseAdvancement, delay);
     return () => clearTimeout(timeout);
 

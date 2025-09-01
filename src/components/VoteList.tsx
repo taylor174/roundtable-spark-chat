@@ -20,9 +20,12 @@ export function VoteList({ roundId, participantId, suggestions, userHasVoted }: 
   const { toast } = useToast();
 
   const handleVote = async (suggestionId: string) => {
-    try {
-      setVoting(true);
+    if (voting || userHasVoted) return;
+    
+    console.log('Vote attempt:', { roundId, participantId, suggestionId, userHasVoted });
+    setVoting(true);
 
+    try {
       // Use the validation function to submit vote with comprehensive checking
       const { data, error } = await supabase.rpc('submit_vote_with_validation', {
         p_round_id: roundId,
@@ -30,7 +33,17 @@ export function VoteList({ roundId, participantId, suggestions, userHasVoted }: 
         p_suggestion_id: suggestionId
       });
 
-      if (error) throw error;
+      console.log('Vote RPC result:', { data, error });
+
+      if (error) {
+        console.error('RPC error:', error);
+        toast({
+          title: "Error",
+          description: error.message || "Failed to submit vote",
+          variant: "destructive",
+        });
+        return;
+      }
       
       const result = data as { success: boolean; error?: string; message?: string };
       
@@ -47,6 +60,12 @@ export function VoteList({ roundId, participantId, suggestions, userHasVoted }: 
         title: "Success",
         description: result.message || MESSAGES.VOTE_SUBMITTED,
       });
+
+      // Immediate refresh to show vote result
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+
     } catch (error) {
       console.error('Error submitting vote:', error);
       toast({
