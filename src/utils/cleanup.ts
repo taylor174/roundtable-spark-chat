@@ -28,7 +28,7 @@ export async function cleanupExpiredRounds() {
       return false;
     }
 
-    console.log('Successfully cleaned up expired rounds');
+    
     return true;
   } catch (error) {
     console.error('Error in cleanup operation:', error);

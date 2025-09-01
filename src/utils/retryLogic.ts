@@ -39,7 +39,7 @@ export async function withRetry<T>(
         throw error;
       }
 
-      console.warn(`Operation failed (attempt ${attempt}/${maxAttempts}):`, error);
+      // Operation failed, will retry if attempts remaining
       
       // Wait before retrying
       await new Promise(resolve => setTimeout(resolve, currentDelay));
@@ -83,7 +83,7 @@ export class ConnectionManager {
       this.reconnectAttempts++;
       const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
       
-      console.warn(`Connection lost, retrying in ${delay}ms (attempt ${this.reconnectAttempts})`);
+      // Connection lost, retrying with exponential backoff
       
       setTimeout(() => {
         reconnectFn();

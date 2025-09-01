@@ -48,12 +48,6 @@ export function usePhaseManager(
         const uniqueVoters = new Set(roundVotes?.map(v => v.participant_id) || []);
         const totalParticipants = participants.length;
         
-        console.log('Vote completion check:', { 
-          uniqueVoters: uniqueVoters.size, 
-          totalParticipants,
-          roundId: currentRound.id 
-        });
-        
         // End early if everyone has voted
         if (uniqueVoters.size >= totalParticipants && totalParticipants > 0) {
           return true;
@@ -73,27 +67,17 @@ export function usePhaseManager(
       const everyoneVoted = await checkVotingCompletion();
       const shouldAdvance = shouldAdvanceTimer || everyoneVoted;
       
-      console.log('Phase advancement check:', {
-        shouldAdvanceTimer,
-        everyoneVoted,
-        shouldAdvance,
-        timeRemaining,
-        hasEndTime,
-        roundStatus: currentRound.status,
-        roundId: currentRound.id
-      });
-      
       if (!shouldAdvance) {
         return;
       }
 
       // Prevent processing the same round multiple times
       if (lastProcessedRound === currentRound.id && retryCount === 0 && !everyoneVoted) {
-        console.log('Skipping duplicate processing for round:', currentRound.id);
+        
         return;
       }
 
-      console.log('Starting phase advancement for round:', currentRound.id);
+      
       setIsProcessing(true);
       setLastProcessedRound(currentRound.id);
       
@@ -111,7 +95,7 @@ export function usePhaseManager(
         }
 
         const result = data as any;
-        console.log('Phase advancement result:', result);
+        
         
         if (result?.success) {
           // Reset retry count on success
@@ -137,7 +121,7 @@ export function usePhaseManager(
           setLastProcessedRound(null);
           setRetryCount(prev => prev + 1);
           
-          console.log(`Retrying phase advancement, attempt ${retryCount + 1}`);
+          
           
           // Schedule retry with backoff
           setTimeout(() => {
@@ -168,7 +152,7 @@ export function usePhaseManager(
   useEffect(() => {
     if (isProcessing) {
       const timeout = setTimeout(() => {
-        console.warn('Phase manager processing timeout - resetting state');
+        // Phase manager processing timeout - resetting state
         setIsProcessing(false);
         setLastProcessedRound(null);
         setRetryCount(0);

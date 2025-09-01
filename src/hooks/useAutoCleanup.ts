@@ -31,7 +31,7 @@ export function useAutoCleanup(options: AutoCleanupOptions = {}) {
       const success = await cleanupExpiredRounds();
       
       if (!success) {
-        console.warn('Cleanup operation failed');
+        // Cleanup operation failed silently
       }
       
       // Also run the database cleanup function
