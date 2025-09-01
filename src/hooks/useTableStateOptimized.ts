@@ -32,6 +32,7 @@ export function useTableState(tableCode: string) {
   const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
   const channelRef = useRef<any>(null);
   const connection = useRealtimeConnection(state.table?.id || '');
+  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Debounced refresh to prevent excessive calls and flicker
   const debouncedRefresh = useRef(debounce(() => {
@@ -363,70 +364,96 @@ export function useTableState(tableCode: string) {
     }
 
     // Create stable functions to avoid recreating subscriptions
-    const handleTableUpdate = (payload: any) => {
+    const handleTableUpdate = async (payload: any) => {
       console.log('📊 [REAL-TIME] Table update received:', payload.new);
       const newTable = payload.new as Table;
       
-      // IMMEDIATE STATE UPDATE - don't wait for callbacks
-      setState(prev => ({ ...prev, table: newTable }));
-      
-      // CRITICAL: Detect table status change to 'running'
+      // CRITICAL: Detect table status change to 'running' - handle IMMEDIATELY
       if (newTable.status === 'running') {
-        console.log('🎯 [CRITICAL] Table started! Force refreshing all data...');
+        console.log('🎯 [CRITICAL] Table started! Immediate synchronization...');
         
-        // Force immediate data refresh for ALL participants
-        setTimeout(async () => {
-          try {
-            console.log('🔄 [CRITICAL] Loading fresh table data after start...');
-            
-            // Fetch current round data
-            if (newTable.current_round_id) {
-              const { data: roundData, error: roundError } = await supabase
-                .from('rounds')
-                .select('*')
-                .eq('id', newTable.current_round_id)
-                .single();
-              
-              if (!roundError && roundData) {
-                console.log('✅ [CRITICAL] Fresh round data loaded:', roundData);
-                setState(prev => ({ ...prev, currentRound: roundData }));
-              }
-              
-              // Fetch suggestions for this round
-              const { data: suggestionsData } = await supabase
-                .from('suggestions')
-                .select('*')
-                .eq('round_id', newTable.current_round_id);
-              
-              if (suggestionsData) {
-                console.log('✅ [CRITICAL] Fresh suggestions loaded:', suggestionsData.length);
-                setState(prev => ({ ...prev, suggestions: suggestionsData }));
-              }
-              
-              // Fetch votes for this round
-              const { data: votesData } = await supabase
-                .from('votes')
-                .select('*')
-                .eq('round_id', newTable.current_round_id);
-              
-              if (votesData) {
-                console.log('✅ [CRITICAL] Fresh votes loaded:', votesData.length);
-                setState(prev => ({ ...prev, votes: votesData }));
-              }
-            }
-          } catch (error) {
-            console.error('❌ [CRITICAL] Failed to refresh data after table start:', error);
+        try {
+          // Fetch ALL data in parallel for atomic update
+          const promises = [];
+          
+          // Fetch current round data
+          if (newTable.current_round_id) {
+            promises.push(
+              supabase.from('rounds').select('*').eq('id', newTable.current_round_id).single()
+            );
+            promises.push(
+              supabase.from('suggestions').select('*').eq('round_id', newTable.current_round_id)
+            );
+            promises.push(
+              supabase.from('votes').select('*').eq('round_id', newTable.current_round_id)
+            );
           }
-        }, 100); // Very quick refresh
+          
+          const results = await Promise.all(promises);
+          const [roundResult, suggestionsResult, votesResult] = results;
+          
+          // ATOMIC STATE UPDATE - everything at once
+          setState(prev => {
+            const newState = {
+              ...prev,
+              table: newTable,
+              currentRound: roundResult?.data || null,
+              suggestions: suggestionsResult?.data || [],
+              votes: votesResult?.data || [],
+              timeRemaining: roundResult?.data?.ends_at ? calculateTimeRemaining(roundResult.data.ends_at) : 0
+            };
+            
+            console.log('✅ [CRITICAL] ATOMIC STATE UPDATE:', {
+              table: newTable.status,
+              round: newState.currentRound?.status,
+              phase: getCurrentPhase(newTable.status, newState.currentRound?.status || null, newState.timeRemaining),
+              suggestions: newState.suggestions.length,
+              votes: newState.votes.length,
+              timeRemaining: newState.timeRemaining
+            });
+            
+            return newState;
+          });
+          
+        } catch (error) {
+          console.error('❌ [CRITICAL] Failed to sync data after table start:', error);
+          // Fallback: update table at minimum
+          setState(prev => ({ ...prev, table: newTable }));
+        }
+      } else {
+        // Regular table update (not starting)
+        setState(prev => ({ ...prev, table: newTable }));
       }
     };
 
-    const handleRoundUpdate = (payload: any) => {
+    const handleRoundUpdate = async (payload: any) => {
       console.log('⚡ [REAL-TIME] Round update received:', payload);
       if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
         const newRound = payload.new as Round;
         console.log('✅ [REAL-TIME] Updating round state:', newRound);
-        setState(prev => ({ ...prev, currentRound: newRound }));
+        
+        // For critical phase transitions, ensure we have all associated data
+        if (newRound.status === 'suggest' || newRound.status === 'vote') {
+          try {
+            const [suggestionsResult, votesResult] = await Promise.all([
+              supabase.from('suggestions').select('*').eq('round_id', newRound.id),
+              supabase.from('votes').select('*').eq('round_id', newRound.id)
+            ]);
+            
+            setState(prev => ({
+              ...prev,
+              currentRound: newRound,
+              suggestions: suggestionsResult.data || [],
+              votes: votesResult.data || [],
+              timeRemaining: newRound.ends_at ? calculateTimeRemaining(newRound.ends_at) : 0
+            }));
+          } catch (error) {
+            // Fallback to just updating the round
+            setState(prev => ({ ...prev, currentRound: newRound }));
+          }
+        } else {
+          setState(prev => ({ ...prev, currentRound: newRound }));
+        }
       }
     };
 
@@ -559,6 +586,46 @@ export function useTableState(tableCode: string) {
       }
     };
   }, [state.table?.id]); // CRITICAL: Only depend on table ID - nothing else!
+
+  // Emergency state synchronization guard - ensures participants never get "stuck"
+  useEffect(() => {
+    if (!state.table || !state.currentRound) return;
+    
+    // Clear any existing sync timeout
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+    }
+    
+    // Set up periodic state validation during critical transitions
+    if (state.table.status === 'running' && state.currentRound.status === 'suggest') {
+      syncTimeoutRef.current = setTimeout(() => {
+        const currentPhase = getCurrentPhase(
+          state.table?.status || 'lobby',
+          state.currentRound?.status || null,
+          state.timeRemaining
+        );
+        
+        console.log('🔍 [SYNC-GUARD] State validation check:', {
+          tableStatus: state.table?.status,
+          roundStatus: state.currentRound?.status,
+          currentPhase,
+          timeRemaining: state.timeRemaining
+        });
+        
+        // If participant thinks they're in lobby but table is running, force sync
+        if (currentPhase === 'lobby' && state.table?.status === 'running') {
+          console.warn('⚠️ [SYNC-GUARD] Detected sync issue - forcing immediate refresh');
+          loadTableData();
+        }
+      }, 2000); // Check after 2 seconds
+    }
+    
+    return () => {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+    };
+  }, [state.table?.status, state.currentRound?.status, state.timeRemaining, loadTableData]);
 
   // Set up timer interval
   useEffect(() => {
