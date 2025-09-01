@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { SummaryTimeline } from '@/components/SummaryTimeline';
 import { useSummaryData } from '@/hooks/useSummaryData';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
-import { Home, Download, Share2 } from 'lucide-react';
+import { Home, Download, Share2, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Summary() {
@@ -138,6 +138,16 @@ export default function Summary() {
               <Button variant="outline" size="sm" onClick={handleExport}>
                 <Download className="h-4 w-4 mr-2" />
                 Export
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <a 
+                  href="https://docs.google.com/forms/d/12bGHXGWlxTrCjf5pxiAo3Es-AxdrnqO0VvVQnvqUYB0/edit" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Feedback
+                </a>
               </Button>
               <Button onClick={() => navigate('/')}>
                 <Home className="h-4 w-4 mr-2" />
