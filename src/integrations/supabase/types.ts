@@ -385,6 +385,10 @@ export type Database = {
           status: string
         }[]
       }
+      force_cleanup_expired_rounds: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       get_public_table_info: {
         Args: { table_code?: string }
         Returns: {
