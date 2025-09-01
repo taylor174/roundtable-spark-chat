@@ -577,6 +577,10 @@ const Table = () => {
                       roundId={currentRound.id}
                       participantId={currentParticipant.id}
                       userHasVoted={userHasVoted}
+                      onVoteSuccess={() => {
+                        // Trigger immediate refresh for real-time vote count updates
+                        refresh();
+                      }}
                     />
                   )}
                 </div>

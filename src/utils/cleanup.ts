@@ -20,14 +20,11 @@ export async function cleanupExpiredRounds() {
       return false;
     }
 
-    // Sync table phase_ends_at with current round manually
-    const { error: tablesError } = await supabase
-      .from('tables')
-      .update({ phase_ends_at: null })
-      .not('current_round_id', 'is', null);
+    // Use the database function for cleanup
+    const { error: cleanupError } = await supabase.rpc('force_cleanup_expired_rounds');
     
-    if (tablesError) {
-      console.error('Error syncing table timing:', tablesError);
+    if (cleanupError) {
+      console.error('Error running cleanup function:', cleanupError);
       return false;
     }
 
