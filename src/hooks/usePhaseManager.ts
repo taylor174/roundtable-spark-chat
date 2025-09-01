@@ -162,16 +162,17 @@ export function usePhaseManager(
     const timeout = setTimeout(handlePhaseAdvancement, delay);
     return () => clearTimeout(timeout);
 
-  }, [table, currentRound, suggestions, votes, timeRemaining, clientId, isHost, isProcessing, lastProcessedRound, retryCount, onRefresh]);
+  }, [table?.current_round_id, currentRound?.status, timeRemaining, isHost, onRefresh, participants]);
 
-  // Safety mechanism: Reset stuck processing state after 30 seconds
+  // Safety mechanism: Reset stuck processing state after 15 seconds
   useEffect(() => {
     if (isProcessing) {
       const timeout = setTimeout(() => {
+        console.warn('Phase manager processing timeout - resetting state');
         setIsProcessing(false);
         setLastProcessedRound(null);
         setRetryCount(0);
-      }, 30000); // 30 seconds
+      }, 15000); // 15 seconds
       
       return () => clearTimeout(timeout);
     }
