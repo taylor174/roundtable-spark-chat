@@ -76,26 +76,28 @@ export function SummaryTimeline({ blocks, originalTitle, participants }: Summary
                 {index + 1}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="bg-card border rounded-lg p-4 shadow-sm">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-semibold text-primary">Round {index + 1} Winner</h3>
-                    <Badge variant="outline" className="text-xs">
-                      {new Date(block.created_at).toLocaleDateString()}
-                    </Badge>
+                  <div className="bg-card border rounded-lg p-4 shadow-sm">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-primary">
+                        Round {index + 1} Winner{block.winnerName ? ` - ${block.winnerName}` : ''}
+                      </h3>
+                      <Badge variant="outline" className="text-xs">
+                        {new Date(block.created_at).toLocaleDateString()}
+                      </Badge>
+                    </div>
+                    <p className="text-foreground leading-relaxed mb-3">
+                      {block.text}
+                    </p>
+                    <div className="flex items-center text-xs text-muted-foreground">
+                      <Clock className="h-3 w-3 mr-1" />
+                      {new Date(block.created_at).toLocaleString([], {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </div>
                   </div>
-                  <p className="text-foreground leading-relaxed mb-3">
-                    {block.text}
-                  </p>
-                  <div className="flex items-center text-xs text-muted-foreground">
-                    <Clock className="h-3 w-3 mr-1" />
-                    {new Date(block.created_at).toLocaleString([], {
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </div>
-                </div>
               </div>
             </div>
           </div>

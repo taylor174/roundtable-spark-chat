@@ -88,7 +88,12 @@ export function VoteList({ roundId, participantId, suggestions, userHasVoted }: 
             <Card key={suggestion.id} className="relative">
               <CardContent className="pt-4">
                 <div className="flex justify-between items-start gap-3">
-                  <p className="flex-1">{suggestion.text}</p>
+                  <div className="flex-1">
+                    <p>{suggestion.text}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      by {suggestion.authorName}
+                    </p>
+                  </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <Badge variant="secondary">
                       {suggestion.voteCount} {suggestion.voteCount === 1 ? 'vote' : 'votes'}

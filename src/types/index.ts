@@ -19,7 +19,9 @@ export type SuggestionInsert = Tables['suggestions']['Insert'];
 export type Vote = Tables['votes']['Row'];
 export type VoteInsert = Tables['votes']['Insert'];
 
-export type Block = Tables['blocks']['Row'];
+export type Block = Tables['blocks']['Row'] & {
+  winnerName?: string;
+};
 export type BlockInsert = Tables['blocks']['Insert'];
 
 export interface TableState {
@@ -40,6 +42,7 @@ export interface TableState {
 export interface SuggestionWithVotes extends Suggestion {
   voteCount: number;
   hasUserVoted: boolean;
+  authorName: string;
 }
 
 export interface WinningSuggestion extends Suggestion {

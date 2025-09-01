@@ -106,10 +106,15 @@ export function useTableState(tableCode: string) {
         votes = votesData || [];
       }
 
-      // Get blocks (timeline)
+      // Get blocks (timeline) with winner names
       const { data: blocks, error: blocksError } = await supabase
         .from('blocks')
-        .select('*')
+        .select(`
+          *,
+          suggestions!blocks_suggestion_id_fkey(
+            participants!suggestions_participant_id_fkey(display_name)
+          )
+        `)
         .eq('table_id', table.id)
         .order('created_at', { ascending: true });
 
@@ -119,13 +124,19 @@ export function useTableState(tableCode: string) {
       const isHost = isHostCheck;
       const currentParticipant = participants.find(p => p.client_id === clientId) || null;
 
+      // Process blocks to add winner names
+      const processedBlocks = (blocks || []).map(block => ({
+        ...block,
+        winnerName: (block as any).suggestions?.participants?.display_name || undefined
+      }));
+
       setState({
         table,
         participants: participants || [],
         currentRound: currentRound || null,
         suggestions,
         votes: votes || [],
-        blocks: blocks || [],
+        blocks: processedBlocks,
         currentParticipant,
         clientId,
         isHost,

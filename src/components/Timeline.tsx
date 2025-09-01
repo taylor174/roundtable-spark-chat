@@ -78,7 +78,9 @@ export function Timeline({ blocks, currentRound, originalTitle }: TimelineProps)
                     {index + 1}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">Round {index + 1} Winner</p>
+                    <p className="text-sm font-medium">
+                      Round {index + 1} Winner{block.winnerName ? ` - ${block.winnerName}` : ''}
+                    </p>
                     <p className="text-sm text-muted-foreground leading-relaxed mt-1">
                       {block.text}
                     </p>
