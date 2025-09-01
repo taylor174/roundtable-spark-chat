@@ -390,42 +390,65 @@ const Table = () => {
                          <Menu className="h-4 w-4" />
                        </TouchOptimizedButton>
                      }
-                   >
-                     <div className="space-y-4">
-                       {/* Timeline */}
-                       <div>
-                         <h3 className="font-semibold mb-3">Timeline</h3>
-                         <Timeline 
-                           blocks={blocks} 
-                           currentRound={currentRound} 
-                           originalTitle={table.title}
-                         />
-                       </div>
-                       
-                       {/* Participants */}
-                       <div>
-                         <h3 className="font-semibold mb-3 flex items-center gap-2">
-                           <Users className="h-4 w-4" />
-                           Participants ({participants.length})
-                         </h3>
-                         <div className="space-y-2">
-                           {participants.map((participant) => (
-                             <div key={participant.id} className="flex items-center justify-between p-2 rounded-md bg-muted/50">
-                               <span className="text-sm font-medium truncate">
-                                 {participant.display_name}
-                               </span>
-                               {participant.is_host && (
-                                 <Badge variant="secondary" className="text-xs">Host</Badge>
-                               )}
-                             </div>
-                           ))}
-                         </div>
-                       </div>
-                       
-                       {/* Host Controls */}
-                       {isHost && (
-                         <div>
-                           <h3 className="font-semibold mb-3">Host Controls</h3>
+                    >
+                      {/* Timeline Section */}
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3 pb-2 border-b border-border">
+                          <List className="h-5 w-5 text-primary" />
+                          <h3 className="text-lg font-semibold">Timeline</h3>
+                        </div>
+                        <div className="px-1">
+                          <Timeline 
+                            blocks={blocks} 
+                            currentRound={currentRound} 
+                            originalTitle={table.title}
+                          />
+                        </div>
+                      </div>
+                        
+                      {/* Participants Section */}
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3 pb-2 border-b border-border">
+                          <Users className="h-5 w-5 text-primary" />
+                          <h3 className="text-lg font-semibold">
+                            Participants ({participants.length})
+                          </h3>
+                        </div>
+                        <div className="space-y-3">
+                          {participants.map((participant) => (
+                            <div 
+                              key={participant.id} 
+                              className="flex items-center justify-between p-4 rounded-lg bg-muted/30 border border-border/50"
+                            >
+                              <span className="text-base font-medium truncate">
+                                {participant.display_name}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                {participant.is_host && (
+                                  <Badge variant="secondary" className="text-xs font-medium">
+                                    Host
+                                  </Badge>
+                                )}
+                                {participant.active_from_round && currentRound && 
+                                 currentRound.number < participant.active_from_round && (
+                                  <Badge variant="outline" className="text-xs">
+                                    Waiting
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                        
+                      {/* Host Controls Section */}
+                      {isHost && (
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-3 pb-2 border-b border-border">
+                            <Play className="h-5 w-5 text-primary" />
+                            <h3 className="text-lg font-semibold">Host Controls</h3>
+                          </div>
+                          <div className="px-1">
                             <HostControls
                               table={table}
                               canStart={true}
@@ -435,9 +458,9 @@ const Table = () => {
                               currentParticipant={currentParticipant}
                               onRefresh={refresh}
                             />
-                         </div>
-                       )}
-                     </div>
+                          </div>
+                        </div>
+                      )}
                    </ResponsiveSidebar>
                  </SidebarMobileToggle>
                </div>

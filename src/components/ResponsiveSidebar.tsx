@@ -41,12 +41,30 @@ export function ResponsiveSidebar({
         <SheetContent 
           side={side} 
           className={cn(
-            "w-[280px] sm:w-[320px] p-0 overflow-y-auto",
+            "w-[90vw] max-w-[400px] p-0 overflow-y-auto",
+            "bg-background border-l border-border",
             className
           )}
         >
-          <div className="p-4">
-            {children}
+          <div className="flex flex-col h-full">
+            {/* Header with close button */}
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <h2 className="text-lg font-semibold">Menu</h2>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setOpen(false)}
+                className="h-8 w-8"
+                aria-label="Close menu"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            {/* Content with proper spacing */}
+            <div className="flex-1 p-6 space-y-8 overflow-y-auto">
+              {children}
+            </div>
           </div>
         </SheetContent>
       </Sheet>
