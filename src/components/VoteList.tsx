@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Check } from 'lucide-react';
+import { Check, Loader2 } from 'lucide-react';
 import { SuggestionWithVotes } from '@/types';
 import { MESSAGES } from '@/constants';
 import { useToast } from '@/hooks/use-toast';
@@ -13,21 +13,20 @@ interface VoteListProps {
   participantId: string;
   suggestions: SuggestionWithVotes[];
   userHasVoted: boolean;
+  onVoteSuccess?: () => void;
 }
 
-export function VoteList({ roundId, participantId, suggestions, userHasVoted }: VoteListProps) {
-  const [voting, setVoting] = useState(false);
+export function VoteList({ roundId, participantId, suggestions, userHasVoted, onVoteSuccess }: VoteListProps) {
+  const [voting, setVoting] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const handleVote = async (suggestionId: string) => {
+  const handleVote = useCallback(async (suggestionId: string) => {
     if (voting || userHasVoted) return;
     
-    console.log('Vote attempt:', { roundId, participantId, suggestionId, userHasVoted });
-    setVoting(true);
+    setVoting(suggestionId);
 
     try {
-      // Direct vote insertion for testing
-      const { error: directError } = await supabase
+      const { error } = await supabase
         .from('votes')
         .insert({
           round_id: roundId,
@@ -35,37 +34,37 @@ export function VoteList({ roundId, participantId, suggestions, userHasVoted }: 
           suggestion_id: suggestionId
         });
 
-      if (directError) {
-        console.error('Direct insert error:', directError);
+      if (error) {
         toast({
           title: "Error",
-          description: directError.message || "Failed to submit vote",
+          description: error.message?.includes('duplicate') 
+            ? "You've already voted in this round!"
+            : "Failed to submit vote. Please try again.",
           variant: "destructive",
         });
         return;
       }
 
       toast({
-        title: "Success",
-        description: "Vote submitted successfully!",
+        title: "Vote Submitted! ✓",
+        description: "Your vote has been recorded.",
+        className: "border-emerald-200 bg-emerald-50 text-emerald-900",
       });
 
-      // Quick refresh - no page reload
-      setTimeout(() => {
-        window.location.reload();
-      }, 300);
+      // Trigger refresh callback instead of page reload
+      onVoteSuccess?.();
 
     } catch (error) {
       console.error('Error submitting vote:', error);
       toast({
-        title: "Error", 
-        description: "Failed to submit vote. Please try again.",
+        title: "Network Error", 
+        description: "Check your connection and try again.",
         variant: "destructive",
       });
     } finally {
-      setVoting(false);
+      setVoting(null);
     }
-  };
+  }, [roundId, participantId, voting, userHasVoted, toast, onVoteSuccess]);
 
   if (suggestions.length === 0) {
     return (
@@ -110,9 +109,17 @@ export function VoteList({ roundId, participantId, suggestions, userHasVoted }: 
                       <Button
                         size="sm"
                         onClick={() => handleVote(suggestion.id)}
-                        disabled={voting}
+                        disabled={voting !== null}
+                        className="min-w-[70px]"
                       >
-                        Vote
+                        {voting === suggestion.id ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                            Voting...
+                          </>
+                        ) : (
+                          'Vote'
+                        )}
                       </Button>
                     )}
                     {suggestion.hasUserVoted && (

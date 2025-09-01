@@ -162,7 +162,7 @@ export function usePhaseManager(
     const timeout = setTimeout(handlePhaseAdvancement, delay);
     return () => clearTimeout(timeout);
 
-  }, [table?.current_round_id, currentRound?.status, timeRemaining, isHost, onRefresh, participants]);
+  }, [table?.current_round_id, currentRound?.status, timeRemaining, isHost]);
 
   // Safety mechanism: Reset stuck processing state after 15 seconds
   useEffect(() => {

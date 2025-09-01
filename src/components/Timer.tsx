@@ -107,7 +107,10 @@ export function Timer({ timeRemaining, phase, isActive = true, endTime }: TimerP
             {isActive ? formatTime(displayTime) : '--:--'}
           </div>
           <div className="text-sm text-muted-foreground">
-            {phase === 'suggest' ? 'Suggesting' : 'Voting'} Time
+            {displayTime === 0 && isActive ? "Time's up!" : 
+             phase === 'suggest' ? 'Suggesting' : 
+             phase === 'vote' ? 'Voting' : 
+             phase === 'result' ? 'Results' : 'Phase'} Time
             {!isActive && ' (paused)'}
             {isDriftWarning && ' (may be inaccurate)'}
           </div>
