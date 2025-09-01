@@ -60,10 +60,28 @@ export function useTableState(tableCode: string) {
       const tableData = tableDataArray[0];
 
       
-      // Check host status (secure function doesn't return host_secret)
-      // Need to get host_secret for verification if this client is host
-      const isHostCheck = Boolean(hostSecret);
-      const table = { ...tableData, host_secret: isHostCheck ? hostSecret : '' };
+      
+      // Check host status using secure host function if host secret provided
+      let isHostCheck = false;
+      let table = { ...tableData, host_secret: '' };
+      
+      if (hostSecret) {
+        try {
+          const { data: hostData, error: hostError } = await supabase
+            .rpc('get_table_host_data_secure', { 
+              p_table_code: tableCode, 
+              p_host_secret: hostSecret 
+            });
+          
+          if (!hostError && hostData && hostData.length > 0) {
+            isHostCheck = true;
+            table = hostData[0];
+          }
+        } catch (error) {
+          console.log('Host verification failed:', error);
+          // Continue as non-host user
+        }
+      }
 
       // Get participants
       const { data: participants, error: participantsError } = await supabase
