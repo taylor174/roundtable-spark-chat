@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { getHostSecret } from '@/utils/clientId';
-import { useTableState } from '@/hooks/useTableStateOptimized';
+import { useOptimizedTableState } from '@/hooks/useOptimizedTableState';
 import { usePhaseManager } from '@/hooks/usePhaseManager';
 import { Timer } from '@/components/Timer';
 import { SuggestionForm } from '@/components/SuggestionForm';
@@ -48,7 +48,6 @@ const Table = () => {
   // Validate table code exists and handle invalid routes
   useEffect(() => {
     if (!code || code.trim() === '') {
-      console.warn('No table code provided, redirecting to home');
       navigate('/', { 
         replace: true,
         state: { error: 'Invalid table URL. Please check the link and try again.' }
@@ -58,7 +57,6 @@ const Table = () => {
     
     // Basic validation for table code format (alphanumeric, reasonable length)
     if (!/^[a-zA-Z0-9]{3,20}$/.test(code)) {
-      console.warn('Invalid table code format:', code);
       navigate('/', { 
         replace: true,
         state: { error: `Invalid table code format: "${code}". Table codes should be 3-20 alphanumeric characters.` }
@@ -82,8 +80,7 @@ const Table = () => {
     error,
     currentPhase,
     refresh,
-    refreshBlocks,
-  } = useTableState(code || '');
+  } = useOptimizedTableState(code || '');
   
   // Initialize presence tracking
   usePresenceTracking(table?.id || null, clientId);
@@ -108,7 +105,6 @@ const Table = () => {
   // Handle table not found or loading errors with better messaging
   useEffect(() => {
     if (error) {
-      console.warn('Table error detected:', error);
       
       if (error.includes('not found')) {
         navigate('/', { 
@@ -116,8 +112,6 @@ const Table = () => {
           state: { error: `Table "${code}" not found. Please check the code and try again.` } 
         });
       } else if (error.includes('Failed to load table data')) {
-        // This is the main error we're fixing - provide helpful message
-        console.error('Table data loading failed:', error);
         navigate('/', { 
           replace: true, 
           state: { error: `Unable to load table data. Please check your connection and try again.` } 
@@ -172,7 +166,6 @@ const Table = () => {
           setWinningSuggestions(getWinningSuggestions(data));
         }
       } catch (error) {
-        console.error('Error loading suggestions with votes:', error);
         setSuggestionsWithVotes([]);
       }
     };
@@ -221,17 +214,14 @@ const Table = () => {
           description: "Winner selected!",
         });
         
-        // Force refresh blocks to show winner immediately in timeline
-        if (refreshBlocks) {
-          setTimeout(() => refreshBlocks(), 100);
-        }
+        // Force refresh to show winner immediately in timeline
+        setTimeout(() => refresh(), 100);
         
         setTimeout(() => {
           setIsTransitioning(false);
         }, 1500);
       }
     } catch (error) {
-      console.error('Error selecting winner:', error);
       toast({
         title: "Error",
         description: "Failed to select winner. Please try again.",
@@ -247,23 +237,17 @@ const Table = () => {
   };
   
   const handleNextRound = async () => {
-    console.log('🚀 handleNextRound called!', { table: !!table, currentRound: !!currentRound, isTransitioning, isProcessing });
     if (!table || !currentRound || isTransitioning || isProcessing) {
-      console.log('🚀 handleNextRound early return due to conditions');
       return;
     }
     
     try {
-      console.log('🚀 handleNextRound starting execution...');
       setIsTransitioning(true);
       
       // Create new round in lobby mode for manual start
-      console.log('🚀 About to call advanceRound...');
       const newRound = await advanceRound(table.id, currentRound.number);
-      console.log('🚀 advanceRound completed, new round:', newRound);
       
       // Automatically start the suggestion phase for the new round
-      console.log('🚀 Starting suggestion phase for new round...');
       await startSuggestPhase(newRound.id, table.default_suggest_sec, table.id);
       
       toast({
@@ -271,25 +255,20 @@ const Table = () => {
         description: "Next round started!",
       });
       
-      // Force refresh blocks to ensure timeline shows latest winner
-      if (refreshBlocks) {
-        setTimeout(() => refreshBlocks(), 100);
-      }
+      // Force refresh to ensure timeline shows latest winner
+      setTimeout(() => refresh(), 100);
       
       // Force a complete refresh to ensure UI updates with new round
-      console.log('🚀 Forcing complete refresh...');
       setTimeout(() => {
         refresh();
       }, 300);
       
       // Brief transition time for UI updates
       setTimeout(() => {
-        console.log('🚀 Clearing isTransitioning...');
         setIsTransitioning(false);
       }, 1500);
       
     } catch (error) {
-      console.error('Error starting next round:', error);
       toast({
         title: "Error",
         description: "Failed to start next round. Please try again.",
@@ -608,7 +587,6 @@ const Table = () => {
                     onWinnerSelected={handleWinnerSelected}
                     onNextRound={handleNextRound}
                     isTransitioning={isTransitioning}
-                    refreshBlocks={refreshBlocks}
                   />
                 </div>
               )}

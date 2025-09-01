@@ -56,14 +56,11 @@ export function useTableState(tableCode: string) {
     while (attempt < maxRetries) {
       try {
         setState(prev => ({ ...prev, loading: true, error: null }));
-        console.log(`Loading table data for: ${tableCode} (attempt ${attempt + 1})`);
-
         // Use the new secure function to get table data with better error handling
         const { data: tableDataArray, error: tableError } = await supabase
           .rpc('get_safe_table_data', { p_table_code: tableCode });
 
         if (tableError) {
-          console.error('Table data error:', tableError);
           handleError(tableError, { 
             operation: 'load table data', 
             component: 'useTableState',
@@ -74,7 +71,6 @@ export function useTableState(tableCode: string) {
 
         if (!tableDataArray || tableDataArray.length === 0) {
           const notFoundError = new Error(`Table with code "${tableCode}" not found`);
-          console.warn('Table not found:', tableCode);
           handleError(notFoundError, { 
             operation: 'find table', 
             component: 'useTableState',
@@ -84,46 +80,27 @@ export function useTableState(tableCode: string) {
         }
         
         const tableData = tableDataArray[0];
-        console.log('Table found:', tableData);
 
-      
-      
-      // Check host status using secure host function if host secret provided
-      let isHostCheck = false;
-      let table = { ...tableData, host_secret: '' };
-      
-      console.log('Host verification debug:', {
-        hasHostSecret: !!hostSecret,
-        hostSecretLength: hostSecret?.length || 0,
-        tableCode,
-        localStorageValue: localStorage.getItem(`host_secret_${tableCode}`)
-      });
-      
-      if (hostSecret) {
-        try {
-          console.log('Attempting host verification for table:', tableCode);
-          const { data: hostData, error: hostError } = await supabase
-            .rpc('get_table_host_data_secure', { 
-              p_table_code: tableCode, 
-              p_host_secret: hostSecret 
-            });
-          
-          console.log('Host verification result:', { hostData, hostError });
-          
-          if (!hostError && hostData && hostData.length > 0) {
-            isHostCheck = true;
-            table = hostData[0];
-            console.log('✅ Host verification successful');
-          } else {
-            console.log('❌ Host verification failed:', hostError?.message || 'No data');
+        // Check host status using secure host function if host secret provided
+        let isHostCheck = false;
+        let table = { ...tableData, host_secret: '' };
+        
+        if (hostSecret) {
+          try {
+            const { data: hostData, error: hostError } = await supabase
+              .rpc('get_table_host_data_secure', { 
+                p_table_code: tableCode, 
+                p_host_secret: hostSecret 
+              });
+            
+            if (!hostError && hostData && hostData.length > 0) {
+              isHostCheck = true;
+              table = hostData[0];
+            }
+          } catch (error) {
+            // Continue as non-host user
           }
-        } catch (error) {
-          console.log('❌ Host verification error:', error);
-          // Continue as non-host user
         }
-      } else {
-        console.log('No host secret found for table:', tableCode);
-      }
 
       // Get participants
       const { data: participants, error: participantsError } = await supabase
@@ -199,7 +176,7 @@ export function useTableState(tableCode: string) {
                 (block as any).winnerName = suggestionData.participants.display_name;
               }
             } catch (err) {
-              console.warn('Failed to get winner name for block:', block.id, err);
+              // Silent fail for winner name lookup
             }
           }
         }
@@ -227,27 +204,11 @@ export function useTableState(tableCode: string) {
           error: null,
         });
 
-        console.log('Final host status debug:', {
-          isHost,
-          isHostCheck,
-          currentParticipant: currentParticipant?.display_name,
-          participantIsHost: currentParticipant?.is_host
-        });
-
-        console.log('Table data loaded successfully:', {
-          table: tableData,
-          participantsCount: participants?.length || 0,
-          round: currentRound,
-          suggestionsCount: suggestions?.length || 0,
-          votesCount: votes?.length || 0,
-          blocksCount: processedBlocks?.length || 0
-        });
 
         return; // Success, exit retry loop
 
       } catch (error: any) {
         attempt++;
-        console.error(`Table data loading error (attempt ${attempt}):`, error);
         
         if (attempt >= maxRetries) {
           const errorMessage = error.message || 'Failed to load table data';
@@ -264,12 +225,6 @@ export function useTableState(tableCode: string) {
             error: errorMessage,
           }));
 
-          console.error('Max retries reached, giving up');
-          
-          // If table not found, this could indicate a navigation issue
-          if (errorMessage.includes('not found')) {
-            console.warn('Table not found - user may be on invalid route');
-          }
         } else {
           // Wait before retrying (exponential backoff)
           await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
@@ -342,9 +297,7 @@ export function useTableState(tableCode: string) {
       if (error) throw error;
       updateBlocks(blocks || []);
     } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error('Error refreshing blocks:', error);
-      }
+      // Silent fail for blocks refresh
     }
   }, [state.table?.id, updateBlocks]);
 
@@ -375,25 +328,16 @@ export function useTableState(tableCode: string) {
       .on('postgres_changes', 
         { event: 'UPDATE', schema: 'public', table: 'tables', filter: `id=eq.${state.table.id}` },
         (payload) => {
-          if (import.meta.env.DEV) {
-            console.log('Table update received:', payload);
-          }
           const newTable = payload.new as Table;
           updateTable(newTable);
           
           // Check if table just started running - trigger immediate state refresh
           if (newTable.status === 'running' && state.table?.status !== 'running') {
-            if (import.meta.env.DEV) {
-              console.log('Table started - triggering immediate state refresh');
-            }
             debouncedRefresh.current();
           }
           
           // Check if current_round_id changed - trigger full refresh to get new round data
           if (newTable.current_round_id !== state.table?.current_round_id) {
-            if (import.meta.env.DEV) {
-              console.log('Current round changed - triggering data refresh');
-            }
             setTimeout(() => debouncedRefresh.current(), 100); // Small delay to ensure round exists
           }
         }
@@ -402,33 +346,19 @@ export function useTableState(tableCode: string) {
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'rounds', filter: `table_id=eq.${state.table.id}` },
         (payload) => {
-          if (import.meta.env.DEV) {
-            console.log('Round update received:', payload);
-          }
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const newRound = payload.new as Round;
             
             // Only update if this is the current round
             if (state.table?.current_round_id === newRound.id) {
-              if (import.meta.env.DEV) {
-                console.log('Current round updated - updating state');
-              }
               updateRound(newRound);
               
               // If round just transitioned to vote phase, add small delay for sync
               if (newRound.status === 'vote' && state.currentRound?.status !== 'vote') {
-                if (import.meta.env.DEV) {
-                  console.log('Vote phase started - ensuring UI sync');
-                }
                 setTimeout(() => {
                   updateRound(newRound);
                 }, 200);
               }
-            } else if (payload.eventType === 'INSERT') {
-              if (import.meta.env.DEV) {
-                console.log('New round created - may need to refresh if it becomes current');
-              }
-              // The table update will handle the refresh when current_round_id changes
             }
           }
         }
