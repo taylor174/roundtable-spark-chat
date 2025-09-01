@@ -43,15 +43,8 @@ export function usePhaseManager(
         const uniqueVoters = new Set(roundVotes?.map(v => v.participant_id) || []);
         const totalParticipants = participants.length;
         
-        if (import.meta.env.DEV) {
-          console.log(`Round ${currentRound.number}: ${uniqueVoters.size}/${totalParticipants} participants voted`);
-        }
-        
         // End early if everyone has voted
         if (uniqueVoters.size >= totalParticipants && totalParticipants > 0) {
-          if (import.meta.env.DEV) {
-            console.log('All participants have voted - ending round early');
-          }
           return true;
         }
       }
@@ -103,11 +96,8 @@ export function usePhaseManager(
           if (error) throw error;
           const result = data as any;
           if (result?.success) {
-            console.log('Enhanced atomic phase advancement successful:', result);
-            
             // Handle automatic round advancement for clear winners
             if (result.action === 'completed_and_advanced') {
-              console.log('Round automatically advanced to next round:', result.new_round_id);
               // Force immediate refresh to show new round
               setTimeout(() => {
                 onRefresh?.();
@@ -115,11 +105,9 @@ export function usePhaseManager(
             }
             
             return { success: true };
-          } else {
-            console.warn('Enhanced atomic advancement failed, falling back to client-side:', result?.error);
           }
         } catch (serverError) {
-          console.warn('Enhanced atomic advancement error, falling back to client-side:', serverError);
+          // Fall back to client-side logic
         }
 
         // Fallback to client-side advancement with retry logic

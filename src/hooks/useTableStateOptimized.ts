@@ -311,7 +311,7 @@ export function useTableState(tableCode: string) {
     });
   }, []);
 
-  // Set up real-time subscriptions with optimized updates
+  // Set up real-time subscriptions with immediate updates (no debouncing for critical changes)
   useEffect(() => {
     if (!state.table?.id) return;
 
@@ -320,25 +320,23 @@ export function useTableState(tableCode: string) {
       supabase.removeChannel(channelRef.current);
     }
 
-    // Setting up realtime subscriptions
-
     const channel = supabase
       .channel(`table_${state.table.id}`)
-      // Table updates - critical for detecting when table starts
+      // Table updates - CRITICAL for detecting when table starts
       .on('postgres_changes', 
         { event: 'UPDATE', schema: 'public', table: 'tables', filter: `id=eq.${state.table.id}` },
         (payload) => {
           const newTable = payload.new as Table;
           updateTable(newTable);
           
-          // Check if table just started running - trigger immediate state refresh
+          // IMMEDIATE refresh when table starts running - no debouncing!
           if (newTable.status === 'running' && state.table?.status !== 'running') {
-            debouncedRefresh.current();
+          loadTableData();
           }
           
-          // Check if current_round_id changed - trigger full refresh to get new round data
+          // IMMEDIATE refresh when round changes - no debouncing!
           if (newTable.current_round_id !== state.table?.current_round_id) {
-            setTimeout(() => debouncedRefresh.current(), 100); // Small delay to ensure round exists
+          setTimeout(() => loadTableData(), 50); // Very small delay to ensure round exists
           }
         }
       )
@@ -352,13 +350,6 @@ export function useTableState(tableCode: string) {
             // Only update if this is the current round
             if (state.table?.current_round_id === newRound.id) {
               updateRound(newRound);
-              
-              // If round just transitioned to vote phase, add small delay for sync
-              if (newRound.status === 'vote' && state.currentRound?.status !== 'vote') {
-                setTimeout(() => {
-                  updateRound(newRound);
-                }, 200);
-              }
             }
           }
         }

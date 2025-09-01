@@ -75,22 +75,18 @@ export function HostControls({
       });
 
       if (error) {
-        console.error('start_table_session RPC error:', error);
         throw error;
       }
-
-      // Table session started successfully
 
       toast({
         title: "Table Started!",
         description: "The session has begun. Participants can now submit suggestions.",
       });
 
-      // Set up fallback timeout in case realtime doesn't arrive
+      // IMMEDIATE refresh after table start
       setTimeout(() => {
-        // Fallback: refreshing state after start
         onRefresh?.();
-      }, 1500);
+      }, 100);
 
     } catch (error: any) {
       console.error('Error starting table:', error);
