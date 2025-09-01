@@ -49,11 +49,16 @@ export function useTableState(tableCode: string) {
       setState(prev => ({ ...prev, loading: true, error: null }));
 
       // Use the new secure function to get table data
-      const { data: tableData, error: tableError } = await supabase
-        .rpc('get_safe_table_data', { p_table_code: tableCode })
-        .single();
+      const { data: tableDataArray, error: tableError } = await supabase
+        .rpc('get_safe_table_data', { p_table_code: tableCode });
 
       if (tableError) throw tableError;
+      if (!tableDataArray || tableDataArray.length === 0) {
+        throw new Error(`Table with code ${tableCode} not found`);
+      }
+      
+      const tableData = tableDataArray[0];
+
       
       // Check host status (secure function doesn't return host_secret)
       // Need to get host_secret for verification if this client is host
