@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useErrorHandler } from './useErrorHandler';
 import { useRealtimeConnection } from './useRealtimeConnection';
 import { withRetry, debounce } from '@/utils/retryLogic';
+import { APP_CONFIG } from '@/constants';
 
 export function useTableState(tableCode: string) {
   const clientId = getOrCreateClientId();
@@ -382,20 +383,42 @@ export function useTableState(tableCode: string) {
         return newState;
       });
       
-    // CRITICAL: If table started, immediately fetch round data AND force state consistency
+      // CRITICAL: If table started, immediately create temporary round state to prevent race condition
       if (newTable.status === 'running' && newTable.current_round_id) {
-        console.log('🚨 [EMERGENCY] Table started - fetching round data immediately');
+        console.log('🚨 [EMERGENCY] Table started - creating temporary round state');
         
-        // IMMEDIATE fetch without debounce for critical transitions
+        // IMMEDIATE temporary round state to prevent lobby stuck condition
+        setState(prev => ({
+          ...prev,
+          currentRound: {
+            id: newTable.current_round_id,
+            table_id: newTable.id,
+            status: 'suggest', // Assume first phase
+            ends_at: new Date(Date.now() + (APP_CONFIG.DEFAULT_SUGGEST_SEC * 1000)).toISOString(),
+            started_at: new Date().toISOString(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            ended_at: '',
+            winner_suggestion_id: '',
+            number: 1
+          } as Round,
+          timeRemaining: APP_CONFIG.DEFAULT_SUGGEST_SEC,
+          suggestions: [],
+          votes: []
+        }));
+        
+        console.log('✅ [TEMPORARY] Created temporary round state for immediate transition');
+        
+        // THEN fetch real round data to replace temporary state
         setTimeout(() => {
           fetchCurrentRoundData(newTable.current_round_id).then(() => {
-            console.log('✅ [SUCCESS] Emergency round data loaded for table start');
+            console.log('✅ [SUCCESS] Real round data loaded, replacing temporary state');
           }).catch(error => {
             console.error('❌ [ERROR] Emergency round data fetch failed:', error);
             // Fallback to full refresh if targeted fetch fails
             setTimeout(() => loadTableData(), 100);
           });
-        }, 50); // Small delay to ensure table state is updated first
+        }, 0); // Immediate fetch
       }
     };
 
@@ -618,9 +641,28 @@ export function useTableState(tableCode: string) {
       syncTimeoutRef.current = setTimeout(() => {
         console.log('⚡ [EMERGENCY] Executing IMMEDIATE state synchronization');
         
-        // Try targeted round fetch first, then full refresh as fallback
+        // Create temporary round state first to prevent stuck lobby
         if (state.table?.current_round_id) {
-          console.log('🎯 [EMERGENCY] Fetching specific round:', state.table.current_round_id);
+          setState(prev => ({
+            ...prev,
+            currentRound: {
+              id: state.table.current_round_id,
+              table_id: state.table.id,
+              status: 'suggest',
+              ends_at: new Date(Date.now() + (APP_CONFIG.DEFAULT_SUGGEST_SEC * 1000)).toISOString(),
+              started_at: new Date().toISOString(),
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              ended_at: '',
+              winner_suggestion_id: '',
+              number: 1
+            } as Round,
+            timeRemaining: APP_CONFIG.DEFAULT_SUGGEST_SEC
+          }));
+          
+          console.log('✅ [EMERGENCY] Created temporary round state');
+          
+          // Then fetch real data
           fetchCurrentRoundData(state.table.current_round_id).catch(() => {
             console.log('🔄 [FALLBACK] Targeted fetch failed, doing full refresh');
             loadTableData();
@@ -717,7 +759,7 @@ export function useTableState(tableCode: string) {
     }
   }, [state.table?.status, state.currentRound?.status, state.timeRemaining, currentPhase, state.currentRound?.id]);
 
-  // EMERGENCY STATE CONSISTENCY CHECK
+  // EMERGENCY STATE CONSISTENCY CHECK - Enhanced for lobby stuck detection
   useEffect(() => {
     // If table is running but we think we're in lobby, emergency refresh
     if (state.table?.status === 'running' && currentPhase === 'lobby' && !state.loading) {
@@ -727,16 +769,22 @@ export function useTableState(tableCode: string) {
         roundStatus: state.currentRound?.status,
         timeRemaining: state.timeRemaining,
         currentPhase,
-        hasCurrentRound: !!state.currentRound
+        hasCurrentRound: !!state.currentRound,
+        tableCurrentRoundId: state.table?.current_round_id
       });
       
-      // Force immediate refresh
-      setTimeout(() => {
-        console.log('⚡ [EMERGENCY] Forcing state refresh...');
-        loadTableData();
-      }, 100);
+      // Multiple recovery strategies
+      if (state.table?.current_round_id && !state.currentRound) {
+        console.log('🎯 [RECOVERY-1] Missing round data - fetching specific round');
+        fetchCurrentRoundData(state.table.current_round_id);
+      } else {
+        console.log('🔄 [RECOVERY-2] Full state refresh');
+        setTimeout(() => {
+          loadTableData();
+        }, 50);
+      }
     }
-  }, [state.table?.status, currentPhase, state.loading, state.currentRound, state.timeRemaining, loadTableData]);
+  }, [state.table?.status, currentPhase, state.loading, state.currentRound, state.timeRemaining, state.table?.current_round_id, fetchCurrentRoundData, loadTableData]);
 
   return {
     ...state,
