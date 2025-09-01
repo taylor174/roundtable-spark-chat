@@ -368,61 +368,31 @@ export function useTableState(tableCode: string) {
       console.log('📊 [REAL-TIME] Table update received:', payload.new);
       const newTable = payload.new as Table;
       
-      // CRITICAL: Detect table status change to 'running' - handle IMMEDIATELY
-      if (newTable.status === 'running') {
-        console.log('🎯 [CRITICAL] Table started! Immediate synchronization...');
+      // IMMEDIATE STATE UPDATE - No dependencies on round data
+      setState(prev => {
+        const newState = { ...prev, table: newTable };
         
-        try {
-          // Fetch ALL data in parallel for atomic update
-          const promises = [];
-          
-          // Fetch current round data
-          if (newTable.current_round_id) {
-            promises.push(
-              supabase.from('rounds').select('*').eq('id', newTable.current_round_id).single()
-            );
-            promises.push(
-              supabase.from('suggestions').select('*').eq('round_id', newTable.current_round_id)
-            );
-            promises.push(
-              supabase.from('votes').select('*').eq('round_id', newTable.current_round_id)
-            );
-          }
-          
-          const results = await Promise.all(promises);
-          const [roundResult, suggestionsResult, votesResult] = results;
-          
-          // ATOMIC STATE UPDATE - everything at once
-          setState(prev => {
-            const newState = {
-              ...prev,
-              table: newTable,
-              currentRound: roundResult?.data || null,
-              suggestions: suggestionsResult?.data || [],
-              votes: votesResult?.data || [],
-              timeRemaining: roundResult?.data?.ends_at ? calculateTimeRemaining(roundResult.data.ends_at) : 0
-            };
-            
-            console.log('✅ [CRITICAL] ATOMIC STATE UPDATE:', {
-              table: newTable.status,
-              round: newState.currentRound?.status,
-              phase: getCurrentPhase(newTable.status, newState.currentRound?.status || null, newState.timeRemaining),
-              suggestions: newState.suggestions.length,
-              votes: newState.votes.length,
-              timeRemaining: newState.timeRemaining
-            });
-            
-            return newState;
-          });
-          
-        } catch (error) {
-          console.error('❌ [CRITICAL] Failed to sync data after table start:', error);
-          // Fallback: update table at minimum
-          setState(prev => ({ ...prev, table: newTable }));
+        console.log('🎯 [CRITICAL] IMMEDIATE table update:', {
+          oldStatus: prev.table?.status,
+          newStatus: newTable.status,
+          hasCurrentRound: !!prev.currentRound,
+          currentPhase: getCurrentPhase(newTable.status, prev.currentRound?.status || null, prev.timeRemaining)
+        });
+        
+        return newState;
+      });
+      
+      // CRITICAL: If table started, trigger emergency data refresh only if needed
+      if (newTable.status === 'running' && newTable.current_round_id) {
+        console.log('🚨 [EMERGENCY] Table started - checking if round data is missing...');
+        
+        // Check if we already have the round data
+        if (!state.currentRound || state.currentRound.id !== newTable.current_round_id) {
+          console.log('⚡ [EMERGENCY] Missing round data - triggering immediate refresh');
+          debouncedRefresh.current();
+        } else {
+          console.log('✅ [SUCCESS] Round data already present - no additional fetch needed');
         }
-      } else {
-        // Regular table update (not starting)
-        setState(prev => ({ ...prev, table: newTable }));
       }
     };
 
@@ -430,9 +400,26 @@ export function useTableState(tableCode: string) {
       console.log('⚡ [REAL-TIME] Round update received:', payload);
       if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
         const newRound = payload.new as Round;
-        console.log('✅ [REAL-TIME] Updating round state:', newRound);
         
-        // For critical phase transitions, ensure we have all associated data
+        // IMMEDIATE round state update
+        setState(prev => {
+          const newState = {
+            ...prev,
+            currentRound: newRound,
+            timeRemaining: newRound.ends_at ? calculateTimeRemaining(newRound.ends_at) : 0
+          };
+          
+          console.log('✅ [ROUND UPDATE] Immediate state update:', {
+            roundId: newRound.id,
+            roundStatus: newRound.status,
+            timeRemaining: newState.timeRemaining,
+            currentPhase: getCurrentPhase(prev.table?.status || 'waiting', newRound.status, newState.timeRemaining)
+          });
+          
+          return newState;
+        });
+        
+        // Fetch associated data asynchronously if needed
         if (newRound.status === 'suggest' || newRound.status === 'vote') {
           try {
             const [suggestionsResult, votesResult] = await Promise.all([
@@ -442,10 +429,8 @@ export function useTableState(tableCode: string) {
             
             setState(prev => ({
               ...prev,
-              currentRound: newRound,
               suggestions: suggestionsResult.data || [],
-              votes: votesResult.data || [],
-              timeRemaining: newRound.ends_at ? calculateTimeRemaining(newRound.ends_at) : 0
+              votes: votesResult.data || []
             }));
           } catch (error) {
             // Fallback to just updating the round
@@ -647,14 +632,37 @@ export function useTableState(tableCode: string) {
     loadTableData();
   }, [loadTableData]);
 
+  const currentPhase = getCurrentPhase(
+    state.table?.status || 'lobby',
+    state.currentRound?.status || null,
+    state.timeRemaining
+  );
+
+  // EMERGENCY STATE CONSISTENCY CHECK
+  useEffect(() => {
+    // If table is running but we think we're in lobby, emergency refresh
+    if (state.table?.status === 'running' && currentPhase === 'lobby' && !state.loading) {
+      console.error('🚨 [EMERGENCY] Participant out of sync - table running but showing lobby!');
+      console.log('📊 [EMERGENCY] Debug state:', {
+        tableStatus: state.table?.status,
+        roundStatus: state.currentRound?.status,
+        timeRemaining: state.timeRemaining,
+        currentPhase,
+        hasCurrentRound: !!state.currentRound
+      });
+      
+      // Force immediate refresh
+      setTimeout(() => {
+        console.log('⚡ [EMERGENCY] Forcing state refresh...');
+        loadTableData();
+      }, 100);
+    }
+  }, [state.table?.status, currentPhase, state.loading, state.currentRound, state.timeRemaining, loadTableData]);
+
   return {
     ...state,
     refresh: loadTableData,
     refreshBlocks,
-    currentPhase: getCurrentPhase(
-      state.table?.status || 'lobby',
-      state.currentRound?.status || null,
-      state.timeRemaining
-    ),
+    currentPhase,
   };
 }
