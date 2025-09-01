@@ -387,25 +387,15 @@ export function useTableState(tableCode: string) {
         console.log('🚨 [EMERGENCY] Table started - fetching round data immediately');
         
         // IMMEDIATE fetch without debounce for critical transitions
-        fetchCurrentRoundData(newTable.current_round_id).then(() => {
-          console.log('✅ [SUCCESS] Emergency round data loaded for table start');
-          
-          // FORCE immediate phase calculation validation after round data loaded
-          setState(prev => {
-            const currentPhase = getCurrentPhase(newTable.status, prev.currentRound?.status || null, prev.timeRemaining);
-            console.log('🎯 [VALIDATION] Post-fetch phase check:', {
-              tableStatus: newTable.status,
-              roundStatus: prev.currentRound?.status,
-              timeRemaining: prev.timeRemaining,
-              calculatedPhase: currentPhase
-            });
-            return prev; // No change needed, just validation
+        setTimeout(() => {
+          fetchCurrentRoundData(newTable.current_round_id).then(() => {
+            console.log('✅ [SUCCESS] Emergency round data loaded for table start');
+          }).catch(error => {
+            console.error('❌ [ERROR] Emergency round data fetch failed:', error);
+            // Fallback to full refresh if targeted fetch fails
+            setTimeout(() => loadTableData(), 100);
           });
-        }).catch(error => {
-          console.error('❌ [ERROR] Emergency round data fetch failed:', error);
-          // Fallback to full refresh if targeted fetch fails
-          loadTableData();
-        });
+        }, 50); // Small delay to ensure table state is updated first
       }
     };
 
@@ -676,6 +666,15 @@ export function useTableState(tableCode: string) {
       state.currentRound?.status || null,
       state.timeRemaining
     );
+    
+    console.log('🎯 [PHASE-VALIDATION] Current phase calculation:', {
+      tableStatus: state.table?.status,
+      roundStatus: state.currentRound?.status,
+      timeRemaining: state.timeRemaining,
+      calculatedPhase: phase,
+      hasCurrentRound: !!state.currentRound,
+      tableCurrentRoundId: state.table?.current_round_id
+    });
     
     // CRITICAL VALIDATION: Detect and immediately fix phase mismatches
     const tableStatus = state.table?.status;

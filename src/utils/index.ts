@@ -95,18 +95,32 @@ export function isValidSuggestion(text: string): boolean {
 
 /**
  * Get the current phase based on table and round status
+ * CRITICAL FIX: Handle race condition where table is 'running' but no round data exists yet
  */
 export function getCurrentPhase(
   tableStatus: string,
   roundStatus: string | null,
   timeRemaining: number
 ): 'lobby' | 'suggest' | 'vote' | 'result' {
+  console.log('🔄 [PHASE-CALC] getCurrentPhase called:', {
+    tableStatus,
+    roundStatus,
+    timeRemaining
+  });
+
   if (tableStatus === 'lobby') return 'lobby';
   if (tableStatus === 'closed') return 'result';
   
+  // CRITICAL FIX: If table is 'running' but no round data exists yet, 
+  // assume we're in the first phase (suggest) to prevent race condition
+  if (tableStatus === 'running' && !roundStatus) {
+    console.log('🚨 [RACE-CONDITION-FIX] Table running but no round - assuming suggest phase');
+    return 'suggest';
+  }
+  
   if (!roundStatus) return 'lobby';
   
-  // Only return phases based on actual database state, don't predict based on timer
+  // Return phases based on actual database state
   if (roundStatus === 'suggest') return 'suggest';
   if (roundStatus === 'vote') return 'vote';
   
