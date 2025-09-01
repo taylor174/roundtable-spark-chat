@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { TableState, Participant, Round, Suggestion, Vote, Block, Table } from '@/types';
 import { calculateTimeRemaining, getCurrentPhase } from '@/utils';
@@ -382,13 +382,25 @@ export function useTableState(tableCode: string) {
         return newState;
       });
       
-      // CRITICAL: If table started, immediately fetch round data without debounce
+    // CRITICAL: If table started, immediately fetch round data AND force state consistency
       if (newTable.status === 'running' && newTable.current_round_id) {
         console.log('🚨 [EMERGENCY] Table started - fetching round data immediately');
         
         // IMMEDIATE fetch without debounce for critical transitions
         fetchCurrentRoundData(newTable.current_round_id).then(() => {
           console.log('✅ [SUCCESS] Emergency round data loaded for table start');
+          
+          // FORCE immediate phase calculation validation after round data loaded
+          setState(prev => {
+            const currentPhase = getCurrentPhase(newTable.status, prev.currentRound?.status || null, prev.timeRemaining);
+            console.log('🎯 [VALIDATION] Post-fetch phase check:', {
+              tableStatus: newTable.status,
+              roundStatus: prev.currentRound?.status,
+              timeRemaining: prev.timeRemaining,
+              calculatedPhase: currentPhase
+            });
+            return prev; // No change needed, just validation
+          });
         }).catch(error => {
           console.error('❌ [ERROR] Emergency round data fetch failed:', error);
           // Fallback to full refresh if targeted fetch fails
@@ -612,20 +624,22 @@ export function useTableState(tableCode: string) {
         clearTimeout(syncTimeoutRef.current);
       }
       
-      // IMMEDIATE emergency sync for critical situations
+      // IMMEDIATE emergency sync for critical situations - NO DELAY
       syncTimeoutRef.current = setTimeout(() => {
-        console.log('⚡ [EMERGENCY] Executing immediate state synchronization');
+        console.log('⚡ [EMERGENCY] Executing IMMEDIATE state synchronization');
         
         // Try targeted round fetch first, then full refresh as fallback
         if (state.table?.current_round_id) {
+          console.log('🎯 [EMERGENCY] Fetching specific round:', state.table.current_round_id);
           fetchCurrentRoundData(state.table.current_round_id).catch(() => {
             console.log('🔄 [FALLBACK] Targeted fetch failed, doing full refresh');
             loadTableData();
           });
         } else {
+          console.log('🔄 [EMERGENCY] No round ID, doing full refresh');
           loadTableData();
         }
-      }, 100); // Minimal delay to avoid excessive calls
+      }, 0); // NO DELAY for critical transitions
     }
     
     return () => {
@@ -655,12 +669,40 @@ export function useTableState(tableCode: string) {
     loadTableData();
   }, [loadTableData]);
 
-  // Calculate current phase with enhanced logging for debugging
-  const currentPhase = getCurrentPhase(
-    state.table?.status || 'lobby',
-    state.currentRound?.status || null,
-    state.timeRemaining
-  );
+  // Calculate current phase with CRITICAL validation and immediate recovery
+  const currentPhase = useMemo(() => {
+    const phase = getCurrentPhase(
+      state.table?.status || 'waiting',
+      state.currentRound?.status || null,
+      state.timeRemaining
+    );
+    
+    // CRITICAL VALIDATION: Detect and immediately fix phase mismatches
+    const tableStatus = state.table?.status;
+    const roundStatus = state.currentRound?.status;
+    const hasRoundId = state.table?.current_round_id;
+    const hasRound = !!state.currentRound;
+    
+    if (tableStatus === 'running' && phase === 'lobby') {
+      console.error('🚨 [CRITICAL ERROR] Table running but phase is lobby:', {
+        tableStatus,
+        roundStatus,
+        roundId: state.currentRound?.id,
+        tableRoundId: hasRoundId,
+        timeRemaining: state.timeRemaining,
+        calculatedPhase: phase,
+        hasRound
+      });
+      
+      // IMMEDIATE recovery - trigger emergency sync with no delay
+      if (hasRoundId && !hasRound) {
+        console.log('🆘 [IMMEDIATE RECOVERY] Missing round data - fetching now');
+        fetchCurrentRoundData(hasRoundId);
+      }
+    }
+    
+    return phase;
+  }, [state.table?.status, state.currentRound?.status, state.timeRemaining, state.table?.current_round_id, state.currentRound, fetchCurrentRoundData]);
   
   // Debug phase calculation during critical transitions
   useEffect(() => {
