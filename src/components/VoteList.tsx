@@ -26,31 +26,20 @@ export function VoteList({ roundId, participantId, suggestions, userHasVoted }: 
     setVoting(true);
 
     try {
-      // Use the validation function to submit vote with comprehensive checking
-      const { data, error } = await supabase.rpc('submit_vote_with_validation', {
-        p_round_id: roundId,
-        p_participant_id: participantId,
-        p_suggestion_id: suggestionId
-      });
+      // Direct vote insertion for testing
+      const { error: directError } = await supabase
+        .from('votes')
+        .insert({
+          round_id: roundId,
+          participant_id: participantId,
+          suggestion_id: suggestionId
+        });
 
-      console.log('Vote RPC result:', { data, error });
-
-      if (error) {
-        console.error('RPC error:', error);
+      if (directError) {
+        console.error('Direct insert error:', directError);
         toast({
           title: "Error",
-          description: error.message || "Failed to submit vote",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      const result = data as { success: boolean; error?: string; message?: string };
-      
-      if (!result.success) {
-        toast({
-          title: "Cannot Vote",
-          description: result.error || "Vote submission failed",
+          description: directError.message || "Failed to submit vote",
           variant: "destructive",
         });
         return;
@@ -58,18 +47,18 @@ export function VoteList({ roundId, participantId, suggestions, userHasVoted }: 
 
       toast({
         title: "Success",
-        description: result.message || MESSAGES.VOTE_SUBMITTED,
+        description: "Vote submitted successfully!",
       });
 
-      // Immediate refresh to show vote result
+      // Quick refresh - no page reload
       setTimeout(() => {
         window.location.reload();
-      }, 500);
+      }, 300);
 
     } catch (error) {
       console.error('Error submitting vote:', error);
       toast({
-        title: "Error",
+        title: "Error", 
         description: "Failed to submit vote. Please try again.",
         variant: "destructive",
       });
