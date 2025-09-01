@@ -301,13 +301,28 @@ export function useTableState(tableCode: string) {
     }
   }, [state.table?.id, updateBlocks]);
 
-  // Update timer
+  // Update timer with better debugging and validation
   const updateTimer = useCallback(() => {
     setState(prev => {
-      if (!prev.currentRound?.ends_at) return prev;
+      if (!prev.currentRound?.ends_at) {
+        // No end time set, return 0
+        return { ...prev, timeRemaining: 0 };
+      }
       
       const remaining = calculateTimeRemaining(prev.currentRound.ends_at);
-      return { ...prev, timeRemaining: remaining };
+      
+      // Debug timer calculations
+      if (remaining <= 0 && prev.timeRemaining > 0) {
+        console.log('⏰ Timer expired for round:', {
+          roundId: prev.currentRound.id,
+          status: prev.currentRound.status,
+          endsAt: prev.currentRound.ends_at,
+          remaining,
+          previousRemaining: prev.timeRemaining
+        });
+      }
+      
+      return { ...prev, timeRemaining: Math.max(0, remaining) };
     });
   }, []);
 

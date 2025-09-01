@@ -57,15 +57,21 @@ export function usePhaseManager(
       return false;
     };
 
-    // Check if we need to advance the phase
+    // Improved timing checks with better safeguards
     const hasEndTime = !!currentRound.ends_at;
     const isExpired = hasEndTime && isTimeExpired(currentRound.ends_at);
     const shouldAdvanceTimer = timeRemaining <= 0 && hasEndTime;
     
-    // Prevent advancement if round just started (less than 10 seconds)
+    // Safety check: Prevent advancing too soon after round creation
     const roundAge = currentRound.started_at ? 
       Date.now() - new Date(currentRound.started_at).getTime() : 0;
-    const isRoundTooYoung = roundAge < 10000; // 10 seconds minimum
+    const minRoundAge = 10000; // 10 seconds minimum
+    
+    // Additional safety: Check if timer is actually expired (not just showing 0)
+    const actualTimeRemaining = hasEndTime ? 
+      Math.max(0, new Date(currentRound.ends_at!).getTime() - Date.now()) : 0;
+    const isActuallyExpired = actualTimeRemaining <= 5000; // 5 second buffer
+    const isRoundTooYoung = roundAge < minRoundAge;
     
     // Don't advance if ends_at is null or undefined (invalid state)
     if (!hasEndTime) {
@@ -94,7 +100,9 @@ export function usePhaseManager(
       
       // Check if everyone has voted (for early termination)
       const everyoneVoted = await checkVotingCompletion();
-      const shouldAdvance = shouldAdvanceTimer || everyoneVoted;
+      
+      // More robust advancement conditions
+      const shouldAdvance = (shouldAdvanceTimer && isActuallyExpired) || everyoneVoted;
       
       if (!shouldAdvance) {
         return;
@@ -190,7 +198,7 @@ export function usePhaseManager(
     const timeout = setTimeout(handlePhaseAdvancement, delay);
     return () => clearTimeout(timeout);
 
-  }, [table?.current_round_id, currentRound?.status, timeRemaining, isHost]);
+  }, [table?.current_round_id, currentRound?.status, currentRound?.id, timeRemaining, isHost, participants.length]);
 
   // Safety mechanism: Reset stuck processing state after 15 seconds
   useEffect(() => {
