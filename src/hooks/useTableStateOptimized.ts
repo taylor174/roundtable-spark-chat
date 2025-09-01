@@ -354,8 +354,11 @@ export function useTableState(tableCode: string) {
   useEffect(() => {
     if (!state.table?.id) return;
 
+    console.log('🔄 Setting up real-time subscription for table:', state.table.id);
+
     // Clean up existing channel
     if (channelRef.current) {
+      console.log('🧹 Cleaning up existing channel');
       supabase.removeChannel(channelRef.current);
     }
 
@@ -365,17 +368,20 @@ export function useTableState(tableCode: string) {
       .on('postgres_changes', 
         { event: 'UPDATE', schema: 'public', table: 'tables', filter: `id=eq.${state.table.id}` },
         (payload) => {
+          console.log('📊 Table update received:', payload.new);
           const newTable = payload.new as Table;
           updateTable(newTable);
           
           // CRITICAL: Use targeted updates - do NOT call loadTableData() or subscriptions break!
           if (newTable.status === 'running' && state.table?.status !== 'running') {
+            console.log('🎯 Table started - fetching round data');
             // Fetch current round data without destroying subscriptions
             fetchCurrentRoundData(newTable.current_round_id);
           }
           
           // When round changes, fetch new round data without destroying subscriptions
           if (newTable.current_round_id !== state.table?.current_round_id) {
+            console.log('🔄 Round changed - fetching new round data');
             setTimeout(() => fetchCurrentRoundData(newTable.current_round_id), 50);
           }
         }
@@ -384,11 +390,13 @@ export function useTableState(tableCode: string) {
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'rounds', filter: `table_id=eq.${state.table.id}` },
         (payload) => {
+          console.log('⚡ Round update received:', payload);
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const newRound = payload.new as Round;
             
             // Only update if this is the current round
             if (state.table?.current_round_id === newRound.id) {
+              console.log('✅ Updating current round:', newRound);
               updateRound(newRound);
             }
           }
@@ -486,17 +494,32 @@ export function useTableState(tableCode: string) {
           }));
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 Subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Successfully subscribed to real-time updates');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Real-time subscription error - implementing fallback');
+          // Fallback: quick refresh for critical updates
+          setTimeout(() => {
+            if (state.table?.status === 'running' || state.table?.status === 'lobby') {
+              console.log('🔄 Fallback refresh triggered');
+              loadTableData();
+            }
+          }, 1000);
+        }
+      });
 
     channelRef.current = channel;
 
     return () => {
+      console.log('🧹 Cleaning up real-time subscription');
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
     };
-  }, [state.table?.id, state.currentRound?.id, clientId, updateTable, updateRound, fetchCurrentRoundData, toast]);
+  }, [state.table?.id, clientId, updateTable, updateRound, fetchCurrentRoundData, toast, loadTableData]);
 
   // Set up timer interval
   useEffect(() => {
