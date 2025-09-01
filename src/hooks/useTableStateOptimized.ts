@@ -382,17 +382,18 @@ export function useTableState(tableCode: string) {
         return newState;
       });
       
-      // CRITICAL: If table started, trigger emergency data refresh only if needed
+      // CRITICAL: If table started, immediately fetch round data without debounce
       if (newTable.status === 'running' && newTable.current_round_id) {
-        console.log('🚨 [EMERGENCY] Table started - checking if round data is missing...');
+        console.log('🚨 [EMERGENCY] Table started - fetching round data immediately');
         
-        // Check if we already have the round data
-        if (!state.currentRound || state.currentRound.id !== newTable.current_round_id) {
-          console.log('⚡ [EMERGENCY] Missing round data - triggering immediate refresh');
-          debouncedRefresh.current();
-        } else {
-          console.log('✅ [SUCCESS] Round data already present - no additional fetch needed');
-        }
+        // IMMEDIATE fetch without debounce for critical transitions
+        fetchCurrentRoundData(newTable.current_round_id).then(() => {
+          console.log('✅ [SUCCESS] Emergency round data loaded for table start');
+        }).catch(error => {
+          console.error('❌ [ERROR] Emergency round data fetch failed:', error);
+          // Fallback to full refresh if targeted fetch fails
+          loadTableData();
+        });
       }
     };
 
@@ -401,7 +402,7 @@ export function useTableState(tableCode: string) {
       if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
         const newRound = payload.new as Round;
         
-        // IMMEDIATE round state update
+        // IMMEDIATE and ATOMIC round state update with phase calculation
         setState(prev => {
           const newState = {
             ...prev,
@@ -409,21 +410,38 @@ export function useTableState(tableCode: string) {
             timeRemaining: newRound.ends_at ? calculateTimeRemaining(newRound.ends_at) : 0
           };
           
+          const currentPhase = getCurrentPhase(
+            prev.table?.status || 'waiting', 
+            newRound.status, 
+            newState.timeRemaining
+          );
+          
           console.log('✅ [ROUND UPDATE] Immediate state update:', {
             roundId: newRound.id,
             roundStatus: newRound.status,
+            tableStatus: prev.table?.status,
             timeRemaining: newState.timeRemaining,
-            currentPhase: getCurrentPhase(prev.table?.status || 'waiting', newRound.status, newState.timeRemaining)
+            currentPhase: currentPhase
           });
           
           return newState;
         });
         
-        // Fetch associated data asynchronously if needed
+        // For INSERT events (new rounds), immediately clear old suggestions/votes
+        if (payload.eventType === 'INSERT') {
+          setState(prev => ({
+            ...prev,
+            suggestions: [],
+            votes: []
+          }));
+          console.log('🆕 [NEW ROUND] Cleared old suggestions and votes for new round');
+        }
+        
+        // Fetch associated data only for active phases
         if (newRound.status === 'suggest' || newRound.status === 'vote') {
           try {
             const [suggestionsResult, votesResult] = await Promise.all([
-              supabase.from('suggestions').select('*').eq('round_id', newRound.id),
+              supabase.from('suggestions').select('*').eq('round_id', newRound.id).order('created_at'),
               supabase.from('votes').select('*').eq('round_id', newRound.id)
             ]);
             
@@ -432,12 +450,14 @@ export function useTableState(tableCode: string) {
               suggestions: suggestionsResult.data || [],
               votes: votesResult.data || []
             }));
+            
+            console.log('📝 [ROUND DATA] Loaded suggestions and votes:', {
+              suggestions: suggestionsResult.data?.length || 0,
+              votes: votesResult.data?.length || 0
+            });
           } catch (error) {
-            // Fallback to just updating the round
-            setState(prev => ({ ...prev, currentRound: newRound }));
+            console.error('❌ [ERROR] Failed to fetch round data:', error);
           }
-        } else {
-          setState(prev => ({ ...prev, currentRound: newRound }));
         }
       }
     };
@@ -572,37 +592,40 @@ export function useTableState(tableCode: string) {
     };
   }, [state.table?.id]); // CRITICAL: Only depend on table ID - nothing else!
 
-  // Emergency state synchronization guard - ensures participants never get "stuck"
+  // Enhanced emergency state synchronization guard for critical transitions
   useEffect(() => {
-    if (!state.table || !state.currentRound) return;
+    // CRITICAL: Emergency sync for state inconsistencies during table start
+    const tableStatus = state.table?.status;
+    const hasCurrentRound = !!state.currentRound;
+    const tableId = state.table?.id;
     
-    // Clear any existing sync timeout
-    if (syncTimeoutRef.current) {
-      clearTimeout(syncTimeoutRef.current);
-    }
-    
-    // Set up periodic state validation during critical transitions
-    if (state.table.status === 'running' && state.currentRound.status === 'suggest') {
+    if (tableStatus === 'running' && !hasCurrentRound && tableId) {
+      console.log('🚨 [EMERGENCY] Critical state inconsistency detected:', {
+        tableStatus,
+        hasCurrentRound,
+        tableId,
+        currentRoundId: state.table?.current_round_id
+      });
+      
+      // Clear any existing timeout
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+      
+      // IMMEDIATE emergency sync for critical situations
       syncTimeoutRef.current = setTimeout(() => {
-        const currentPhase = getCurrentPhase(
-          state.table?.status || 'lobby',
-          state.currentRound?.status || null,
-          state.timeRemaining
-        );
+        console.log('⚡ [EMERGENCY] Executing immediate state synchronization');
         
-        console.log('🔍 [SYNC-GUARD] State validation check:', {
-          tableStatus: state.table?.status,
-          roundStatus: state.currentRound?.status,
-          currentPhase,
-          timeRemaining: state.timeRemaining
-        });
-        
-        // If participant thinks they're in lobby but table is running, force sync
-        if (currentPhase === 'lobby' && state.table?.status === 'running') {
-          console.warn('⚠️ [SYNC-GUARD] Detected sync issue - forcing immediate refresh');
+        // Try targeted round fetch first, then full refresh as fallback
+        if (state.table?.current_round_id) {
+          fetchCurrentRoundData(state.table.current_round_id).catch(() => {
+            console.log('🔄 [FALLBACK] Targeted fetch failed, doing full refresh');
+            loadTableData();
+          });
+        } else {
           loadTableData();
         }
-      }, 2000); // Check after 2 seconds
+      }, 100); // Minimal delay to avoid excessive calls
     }
     
     return () => {
@@ -610,7 +633,7 @@ export function useTableState(tableCode: string) {
         clearTimeout(syncTimeoutRef.current);
       }
     };
-  }, [state.table?.status, state.currentRound?.status, state.timeRemaining, loadTableData]);
+  }, [state.table?.status, state.currentRound?.id, state.table?.current_round_id, fetchCurrentRoundData, loadTableData]);
 
   // Set up timer interval
   useEffect(() => {
@@ -632,11 +655,26 @@ export function useTableState(tableCode: string) {
     loadTableData();
   }, [loadTableData]);
 
+  // Calculate current phase with enhanced logging for debugging
   const currentPhase = getCurrentPhase(
     state.table?.status || 'lobby',
     state.currentRound?.status || null,
     state.timeRemaining
   );
+  
+  // Debug phase calculation during critical transitions
+  useEffect(() => {
+    if (state.table?.status === 'running') {
+      console.log('🎯 [PHASE] Current phase calculation:', {
+        tableStatus: state.table.status,
+        roundStatus: state.currentRound?.status,
+        timeRemaining: state.timeRemaining,
+        calculatedPhase: currentPhase,
+        hasRound: !!state.currentRound,
+        roundId: state.currentRound?.id
+      });
+    }
+  }, [state.table?.status, state.currentRound?.status, state.timeRemaining, currentPhase, state.currentRound?.id]);
 
   // EMERGENCY STATE CONSISTENCY CHECK
   useEffect(() => {
