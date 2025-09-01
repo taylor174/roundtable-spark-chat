@@ -36,14 +36,14 @@ export function HostControls({
   const { toast } = useToast();
 
   const suggestionPresets = [
+    { label: '30 seconds', value: 30 },
+    { label: '60 seconds', value: 60 },
+    { label: '90 seconds', value: 90 },
+    { label: '2 minutes', value: 120 },
+    { label: '3 minutes', value: 180 },
     { label: '5 minutes', value: 300 },
     { label: '10 minutes', value: 600 },
     { label: '15 minutes', value: 900 },
-    { label: '20 minutes', value: 1200 },
-    { label: '25 minutes', value: 1500 },
-    { label: '30 minutes', value: 1800 },
-    { label: '45 minutes', value: 2700 },
-    { label: '60 minutes', value: 3600 },
   ];
 
   const votingPresets = [
@@ -75,18 +75,22 @@ export function HostControls({
       });
 
       if (error) {
+        console.error('start_table_session RPC error:', error);
         throw error;
       }
+
+      // Table session started successfully
 
       toast({
         title: "Table Started!",
         description: "The session has begun. Participants can now submit suggestions.",
       });
 
-      // IMMEDIATE refresh after table start
+      // Set up fallback timeout in case realtime doesn't arrive
       setTimeout(() => {
+        // Fallback: refreshing state after start
         onRefresh?.();
-      }, 100);
+      }, 1500);
 
     } catch (error: any) {
       console.error('Error starting table:', error);
@@ -190,7 +194,6 @@ export function HostControls({
         .from('tables')
         .update({ 
           status: 'closed',
-          current_round_id: null // Clear current round when ending
         })
         .eq('id', table.id);
 
@@ -198,13 +201,10 @@ export function HostControls({
 
       toast({
         title: "Success",
-        description: "Table ended successfully.",
+        description: "Table ended.",
       });
 
-      // Force immediate refresh to propagate changes
-      setTimeout(() => {
-        onRefresh?.();
-      }, 100);
+      onRefresh?.();
 
     } catch (error) {
       console.error('Error ending table:', error);

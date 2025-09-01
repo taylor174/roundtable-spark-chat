@@ -1,82 +1,74 @@
-
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { supabase } from '@/integrations/supabase/client';
 import { getOrCreateClientId } from '@/utils/clientId';
+import { ParticipantInsert } from '@/types';
+import { isValidDisplayName, isValidTableCode } from '@/utils';
 import { useToast } from '@/hooks/use-toast';
-import { Users, Clock, Play } from 'lucide-react';
+import { MESSAGES } from '@/constants';
+import { Loader2 } from 'lucide-react';
 
 const Join = () => {
   const { code } = useParams<{ code: string }>();
+  const [displayName, setDisplayName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [tableId, setTableId] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const clientId = getOrCreateClientId();
-  
-  const [displayName, setDisplayName] = useState('');
-  const [joining, setJoining] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [tableInfo, setTableInfo] = useState<any>(null);
-  const [participantCount, setParticipantCount] = useState(0);
 
-  // Load table information
+  // Load table data on mount to set up realtime subscriptions
   useEffect(() => {
-    const loadTableInfo = async () => {
-      if (!code) return;
-      
+    const loadTableData = async () => {
+      if (!code || !isValidTableCode(code)) return;
+
       try {
-        setLoading(true);
-        
-        // Get table info
-        const { data: table, error: tableError } = await supabase
-          .rpc('get_safe_table_data', { p_table_code: code })
+        const { data: table } = await supabase
+          .from('tables')
+          .select('id, status')
+          .eq('code', code)
           .single();
 
-        if (tableError) throw tableError;
-        
-        // Get participant count
-        const { count, error: countError } = await supabase
-          .from('participants')
-          .select('*', { count: 'exact', head: true })
-          .eq('table_id', table.id);
-
-        if (countError) throw countError;
-
-        setTableInfo(table);
-        setParticipantCount(count || 0);
-        
-      } catch (error: any) {
-        setError(error.message || 'Failed to load table information');
-      } finally {
-        setLoading(false);
+        if (table) {
+          setTableId(table.id);
+          
+          // If table is already running, we can optionally show a different message
+          if (table.status === 'running') {
+            toast({
+              title: "Session in Progress",
+              description: "This session is currently active. Join to participate!",
+            });
+          }
+        }
+      } catch (error) {
+        // Silently fail - table validation will happen on join
       }
     };
 
-    loadTableInfo();
-  }, [code]);
+    loadTableData();
+  }, [code, toast]);
 
-  // Auto-redirect when session starts (only if not running)
+  // Set up realtime listener to auto-redirect when session starts
   useEffect(() => {
-    if (!tableInfo || tableInfo.status === 'running') return;
+    if (!code || !tableId) return;
 
     const channel = supabase
-      .channel(`table_${tableInfo.id}`)
-      .on('postgres_changes', 
-        { event: 'UPDATE', schema: 'public', table: 'tables', filter: `id=eq.${tableInfo.id}` },
+      .channel(`join_page_${tableId}`)
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'tables', filter: `id=eq.${tableId}` },
         (payload) => {
           const newTable = payload.new as any;
+          
+          // If table status changed to running, auto-redirect immediately
           if (newTable.status === 'running') {
             toast({
               title: "Session Started!",
-              description: "The discussion session has begun. Redirecting...",
+              description: "Redirecting to the session...",
             });
-            setTimeout(() => navigate(`/t/${code}`), 1000);
+            navigate(`/t/${code}`);
           }
         }
       )
@@ -85,213 +77,176 @@ const Join = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [tableInfo, code, navigate, toast]);
+  }, [code, tableId, navigate, toast]);
 
   const handleJoin = async () => {
-    if (!displayName.trim()) {
-      setError('Please enter your name');
+    if (!code || !isValidTableCode(code)) {
+      toast({
+        title: "Error",
+        description: MESSAGES.INVALID_CODE,
+        variant: "destructive",
+      });
       return;
     }
 
-    if (!tableInfo) return;
+    if (!isValidDisplayName(displayName)) {
+      toast({
+        title: "Error", 
+        description: MESSAGES.NAME_REQUIRED,
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
-      setJoining(true);
-      setError(null);
+      setLoading(true);
+      const clientId = getOrCreateClientId();
 
-      // Check if participant already exists
+      // Check if table exists and store tableId for realtime subscriptions
+      const { data: table, error: tableError } = await supabase
+        .from('tables')
+        .select('id, status')
+        .eq('code', code)
+        .single();
+
+      if (tableError || !table) {
+        toast({
+          title: "Error",
+          description: MESSAGES.INVALID_CODE,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Store table ID for realtime subscriptions
+      setTableId(table.id);
+
+      // If table is already running, redirect immediately
+      if (table.status === 'running') {
+        navigate(`/t/${code}`);
+        return;
+      }
+
+      // Check if client already has a participant
       const { data: existingParticipant } = await supabase
         .from('participants')
-        .select('*')
-        .eq('table_id', tableInfo.id)
+        .select('id')
+        .eq('table_id', table.id)
         .eq('client_id', clientId)
         .single();
 
-      let participant = existingParticipant;
-
-      if (!participant) {
-        // Determine active_from_round based on table status
-        let activeFromRound = null;
-        
-        if (tableInfo.status === 'running' && tableInfo.current_round_id) {
-          // Get current round number to queue for next round
-          const { data: currentRound } = await supabase
-            .from('rounds')
-            .select('number')
-            .eq('id', tableInfo.current_round_id)
-            .single();
-          
-          if (currentRound) {
-            activeFromRound = currentRound.number + 1;
-          }
-        }
-
-        // Create new participant
-        const { data: newParticipant, error: participantError } = await supabase
-          .from('participants')
-          .insert({
-            table_id: tableInfo.id,
-            client_id: clientId,
-            display_name: displayName.trim(),
-            is_host: false,
-            active_from_round: activeFromRound,
-          })
-          .select()
-          .single();
-
-        if (participantError) throw participantError;
-        participant = newParticipant;
-
-        if (activeFromRound) {
-          toast({
-            title: "Joined Successfully!",
-            description: `You'll be able to participate starting from round ${activeFromRound}`,
-          });
-        } else {
-          toast({
-            title: "Joined Successfully!",
-            description: "Welcome to the discussion session",
-          });
-        }
+      if (existingParticipant) {
+        // Already joined, just navigate to table
+        navigate(`/t/${code}`);
+        return;
       }
+
+      // Check if name is already taken
+      const { data: nameExists } = await supabase
+        .from('participants')
+        .select('id')
+        .eq('table_id', table.id)
+        .eq('display_name', displayName.trim())
+        .single();
+
+      if (nameExists) {
+        toast({
+          title: "Error",
+          description: "This name is already taken. Please choose another.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Create participant
+      const participantData: ParticipantInsert = {
+        table_id: table.id,
+        display_name: displayName.trim(),
+        client_id: clientId,
+        is_host: false,
+      };
+
+      const { error: participantError } = await supabase
+        .from('participants')
+        .insert(participantData);
+
+      if (participantError) throw participantError;
+
+      toast({
+        title: "Success",
+        description: MESSAGES.JOIN_SUCCESS,
+      });
 
       // Navigate to table
       navigate(`/t/${code}`);
       
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error joining table:', error);
-      setError(error.message || 'Failed to join table');
+      toast({
+        title: "Error",
+        description: "Failed to join table. Please try again.",
+        variant: "destructive",
+      });
     } finally {
-      setJoining(false);
+      setLoading(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <Skeleton className="h-6 w-32" />
-            <Skeleton className="h-4 w-48" />
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (error && !tableInfo) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6 text-center">
-            <p className="text-muted-foreground mb-4">{error}</p>
-            <Button onClick={() => navigate('/')}>Back to Home</Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  const isRunning = tableInfo?.status === 'running';
-  const isClosed = tableInfo?.status === 'closed';
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleJoin();
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <span>Join Discussion</span>
-            {isRunning && (
-              <Badge variant="secondary" className="gap-1">
-                <Play className="h-3 w-3" />
-                In Progress
-              </Badge>
-            )}
-          </CardTitle>
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">
-              Code: <span className="font-mono font-medium">{code}</span>
-            </p>
-            {tableInfo?.title && (
-              <p className="text-sm font-medium">{tableInfo.title}</p>
-            )}
-            <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-              <span className="flex items-center space-x-1">
-                <Users className="h-4 w-4" />
-                <span>{participantCount} participants</span>
-              </span>
-              {isRunning && (
-                <Badge variant="outline" className="gap-1">
-                  <Clock className="h-3 w-3" />
-                  Session Active
-                </Badge>
-              )}
-            </div>
-          </div>
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl">Join Session</CardTitle>
+          <CardDescription>
+            Session Code: <span className="font-mono font-bold text-lg">{code}</span>
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {isClosed && (
-            <Alert>
-              <AlertDescription>
-                This discussion session has ended. You can view the summary instead.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {isRunning && (
-            <Alert>
-              <AlertDescription>
-                This session is currently in progress. You'll join and be able to participate starting from the next round.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
           <div className="space-y-2">
-            <label htmlFor="displayName" className="text-sm font-medium">
-              Your Name
-            </label>
+            <Label htmlFor="displayName">Display Name</Label>
             <Input
               id="displayName"
+              type="text"
+              placeholder="Enter your name"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Enter your name"
-              disabled={joining || isClosed}
-              onKeyPress={(e) => e.key === 'Enter' && !isClosed && handleJoin()}
+              onKeyPress={handleKeyPress}
+              maxLength={50}
+              disabled={loading}
             />
           </div>
-
-          <div className="flex space-x-2">
-            <Button
-              onClick={handleJoin}
-              disabled={joining || !displayName.trim() || isClosed}
-              className="flex-1"
+          
+          <Button 
+            onClick={handleJoin}
+            disabled={loading || !displayName.trim()}
+            className="w-full"
+            size="lg"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Joining...
+              </>
+            ) : (
+              'Join Session'
+            )}
+          </Button>
+          
+          <div className="text-center">
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate('/')}
+              disabled={loading}
             >
-              {joining ? 'Joining...' : isRunning ? 'Join Session' : 'Join & Wait'}
-            </Button>
-            <Button variant="outline" onClick={() => navigate('/')}>
-              Cancel
+              Back to Home
             </Button>
           </div>
-
-          {isClosed && (
-            <Button
-              variant="outline"
-              onClick={() => navigate(`/t/${code}/summary`)}
-              className="w-full"
-            >
-              View Summary
-            </Button>
-          )}
         </CardContent>
       </Card>
     </div>

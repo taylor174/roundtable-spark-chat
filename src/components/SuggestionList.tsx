@@ -28,9 +28,6 @@ export function SuggestionList({ suggestions }: SuggestionListProps) {
             <div className="flex justify-between items-start gap-3">
               <div className="flex-1">
                 <TruncatedText text={suggestion.text} />
-                <p className="text-xs text-muted-foreground mt-1">
-                  by {suggestion.authorName}
-                </p>
               </div>
               <Badge variant="secondary" className="shrink-0 mt-1">
                 {suggestion.voteCount} {suggestion.voteCount === 1 ? 'vote' : 'votes'}

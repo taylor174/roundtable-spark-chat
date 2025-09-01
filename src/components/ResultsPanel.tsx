@@ -78,7 +78,7 @@ export function ResultsPanel({
         })
       ]);
 
-      
+      console.log('🎯 Database operations completed:', { roundUpdate, blockUpsert });
 
       if (roundUpdate.error) throw roundUpdate.error;
       if (blockUpsert.error) throw blockUpsert.error;
@@ -101,7 +101,7 @@ export function ResultsPanel({
       setShowTieBreaker(false);
       setTieResolved(true);
       if (onWinnerSelected) {
-        
+        console.log('🎯 Calling onWinnerSelected...');
         onWinnerSelected(selectedWinner);
       }
       

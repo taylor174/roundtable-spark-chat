@@ -1,9 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Check, Loader2 } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { SuggestionWithVotes } from '@/types';
 import { MESSAGES } from '@/constants';
 import { useToast } from '@/hooks/use-toast';
@@ -13,58 +13,51 @@ interface VoteListProps {
   participantId: string;
   suggestions: SuggestionWithVotes[];
   userHasVoted: boolean;
-  onVoteSuccess?: () => void;
 }
 
-export function VoteList({ roundId, participantId, suggestions, userHasVoted, onVoteSuccess }: VoteListProps) {
-  const [voting, setVoting] = useState<string | null>(null);
+export function VoteList({ roundId, participantId, suggestions, userHasVoted }: VoteListProps) {
+  const [voting, setVoting] = useState(false);
   const { toast } = useToast();
 
-  const handleVote = useCallback(async (suggestionId: string) => {
-    if (voting || userHasVoted) return;
-    
-    setVoting(suggestionId);
-
+  const handleVote = async (suggestionId: string) => {
     try {
-      const { error } = await supabase
-        .from('votes')
-        .insert({
-          round_id: roundId,
-          participant_id: participantId,
-          suggestion_id: suggestionId
-        });
+      setVoting(true);
 
-      if (error) {
+      // Use the validation function to submit vote with comprehensive checking
+      const { data, error } = await supabase.rpc('submit_vote_with_validation', {
+        p_round_id: roundId,
+        p_participant_id: participantId,
+        p_suggestion_id: suggestionId
+      });
+
+      if (error) throw error;
+      
+      const result = data as { success: boolean; error?: string; message?: string };
+      
+      if (!result.success) {
         toast({
-          title: "Error",
-          description: error.message?.includes('duplicate') 
-            ? "You've already voted in this round!"
-            : "Failed to submit vote. Please try again.",
+          title: "Cannot Vote",
+          description: result.error || "Vote submission failed",
           variant: "destructive",
         });
         return;
       }
 
       toast({
-        title: "Vote Submitted! ✓",
-        description: "Your vote has been recorded.",
-        className: "border-emerald-200 bg-emerald-50 text-emerald-900",
+        title: "Success",
+        description: result.message || MESSAGES.VOTE_SUBMITTED,
       });
-
-      // Trigger refresh callback instead of page reload
-      onVoteSuccess?.();
-
     } catch (error) {
       console.error('Error submitting vote:', error);
       toast({
-        title: "Network Error", 
-        description: "Check your connection and try again.",
+        title: "Error",
+        description: "Failed to submit vote. Please try again.",
         variant: "destructive",
       });
     } finally {
-      setVoting(null);
+      setVoting(false);
     }
-  }, [roundId, participantId, voting, userHasVoted, toast, onVoteSuccess]);
+  };
 
   if (suggestions.length === 0) {
     return (
@@ -95,12 +88,7 @@ export function VoteList({ roundId, participantId, suggestions, userHasVoted, on
             <Card key={suggestion.id} className="relative">
               <CardContent className="pt-4">
                 <div className="flex justify-between items-start gap-3">
-                  <div className="flex-1">
-                    <p>{suggestion.text}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      by {suggestion.authorName}
-                    </p>
-                  </div>
+                  <p className="flex-1">{suggestion.text}</p>
                   <div className="flex items-center gap-2 shrink-0">
                     <Badge variant="secondary">
                       {suggestion.voteCount} {suggestion.voteCount === 1 ? 'vote' : 'votes'}
@@ -109,17 +97,9 @@ export function VoteList({ roundId, participantId, suggestions, userHasVoted, on
                       <Button
                         size="sm"
                         onClick={() => handleVote(suggestion.id)}
-                        disabled={voting !== null}
-                        className="min-w-[70px]"
+                        disabled={voting}
                       >
-                        {voting === suggestion.id ? (
-                          <>
-                            <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                            Voting...
-                          </>
-                        ) : (
-                          'Vote'
-                        )}
+                        Vote
                       </Button>
                     )}
                     {suggestion.hasUserVoted && (

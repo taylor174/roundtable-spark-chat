@@ -23,7 +23,6 @@ export type Database = {
           suggestion_id: string | null
           table_id: string
           text: string
-          updated_at: string
         }
         Insert: {
           created_at?: string
@@ -33,7 +32,6 @@ export type Database = {
           suggestion_id?: string | null
           table_id: string
           text: string
-          updated_at?: string
         }
         Update: {
           created_at?: string
@@ -43,7 +41,6 @@ export type Database = {
           suggestion_id?: string | null
           table_id?: string
           text?: string
-          updated_at?: string
         }
         Relationships: [
           {
@@ -65,6 +62,13 @@ export type Database = {
             columns: ["table_id"]
             isOneToOne: false
             referencedRelation: "tables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blocks_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "tables_public"
             referencedColumns: ["id"]
           },
         ]
@@ -98,40 +102,28 @@ export type Database = {
       }
       participants: {
         Row: {
-          active_from_round: number | null
           client_id: string
           display_name: string
           id: string
           is_host: boolean
-          is_online: boolean | null
           joined_at: string
-          last_seen_at: string | null
           table_id: string
-          updated_at: string
         }
         Insert: {
-          active_from_round?: number | null
           client_id: string
           display_name: string
           id?: string
           is_host?: boolean
-          is_online?: boolean | null
           joined_at?: string
-          last_seen_at?: string | null
           table_id: string
-          updated_at?: string
         }
         Update: {
-          active_from_round?: number | null
           client_id?: string
           display_name?: string
           id?: string
           is_host?: boolean
-          is_online?: boolean | null
           joined_at?: string
-          last_seen_at?: string | null
           table_id?: string
-          updated_at?: string
         }
         Relationships: [
           {
@@ -139,6 +131,13 @@ export type Database = {
             columns: ["table_id"]
             isOneToOne: false
             referencedRelation: "tables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "participants_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "tables_public"
             referencedColumns: ["id"]
           },
         ]
@@ -176,7 +175,6 @@ export type Database = {
           started_at: string
           status: string
           table_id: string
-          updated_at: string
           winner_suggestion_id: string | null
         }
         Insert: {
@@ -187,7 +185,6 @@ export type Database = {
           started_at?: string
           status?: string
           table_id: string
-          updated_at?: string
           winner_suggestion_id?: string | null
         }
         Update: {
@@ -198,7 +195,6 @@ export type Database = {
           started_at?: string
           status?: string
           table_id?: string
-          updated_at?: string
           winner_suggestion_id?: string | null
         }
         Relationships: [
@@ -207,6 +203,13 @@ export type Database = {
             columns: ["table_id"]
             isOneToOne: false
             referencedRelation: "tables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rounds_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "tables_public"
             referencedColumns: ["id"]
           },
           {
@@ -225,7 +228,6 @@ export type Database = {
           participant_id: string
           round_id: string
           text: string
-          updated_at: string
         }
         Insert: {
           created_at?: string
@@ -233,7 +235,6 @@ export type Database = {
           participant_id: string
           round_id: string
           text: string
-          updated_at?: string
         }
         Update: {
           created_at?: string
@@ -241,18 +242,17 @@ export type Database = {
           participant_id?: string
           round_id?: string
           text?: string
-          updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "suggestions_participant_id_fkey"
+            foreignKeyName: "proposals_participant_id_fkey"
             columns: ["participant_id"]
             isOneToOne: false
             referencedRelation: "participants"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "suggestions_round_id_fkey"
+            foreignKeyName: "proposals_round_id_fkey"
             columns: ["round_id"]
             isOneToOne: false
             referencedRelation: "rounds"
@@ -315,7 +315,6 @@ export type Database = {
           participant_id: string
           round_id: string
           suggestion_id: string
-          updated_at: string
         }
         Insert: {
           created_at?: string
@@ -323,7 +322,6 @@ export type Database = {
           participant_id: string
           round_id: string
           suggestion_id: string
-          updated_at?: string
         }
         Update: {
           created_at?: string
@@ -331,7 +329,6 @@ export type Database = {
           participant_id?: string
           round_id?: string
           suggestion_id?: string
-          updated_at?: string
         }
         Relationships: [
           {
@@ -355,18 +352,55 @@ export type Database = {
             referencedRelation: "rounds"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "votes_suggestion_id_fkey"
-            columns: ["suggestion_id"]
-            isOneToOne: false
-            referencedRelation: "suggestions"
-            referencedColumns: ["id"]
-          },
         ]
       }
     }
     Views: {
-      [_ in never]: never
+      tables_public: {
+        Row: {
+          auto_advance: boolean | null
+          code: string | null
+          created_at: string | null
+          current_round_id: string | null
+          default_suggest_sec: number | null
+          default_vote_sec: number | null
+          description: string | null
+          id: string | null
+          phase_ends_at: string | null
+          status: string | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          auto_advance?: boolean | null
+          code?: string | null
+          created_at?: string | null
+          current_round_id?: string | null
+          default_suggest_sec?: number | null
+          default_vote_sec?: number | null
+          description?: string | null
+          id?: string | null
+          phase_ends_at?: string | null
+          status?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          auto_advance?: boolean | null
+          code?: string | null
+          created_at?: string | null
+          current_round_id?: string | null
+          default_suggest_sec?: number | null
+          default_vote_sec?: number | null
+          description?: string | null
+          id?: string | null
+          phase_ends_at?: string | null
+          status?: string | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       advance_phase_atomic: {
@@ -382,25 +416,6 @@ export type Database = {
         Returns: boolean
       }
       cleanup_stale_rounds: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      create_table_secure: {
-        Args: {
-          p_code: string
-          p_default_suggest_sec: number
-          p_default_vote_sec: number
-          p_description: string
-          p_host_secret: string
-          p_title: string
-        }
-        Returns: {
-          code: string
-          id: string
-          status: string
-        }[]
-      }
-      force_cleanup_expired_rounds: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
@@ -456,24 +471,6 @@ export type Database = {
           updated_at: string
         }[]
       }
-      get_table_host_data_secure: {
-        Args: { p_host_secret: string; p_table_code: string }
-        Returns: {
-          auto_advance: boolean
-          code: string
-          created_at: string
-          current_round_id: string
-          default_suggest_sec: number
-          default_vote_sec: number
-          description: string
-          host_secret: string
-          id: string
-          phase_ends_at: string
-          status: string
-          title: string
-          updated_at: string
-        }[]
-      }
       get_table_public_data: {
         Args: { p_table_id: string }
         Returns: {
@@ -489,17 +486,6 @@ export type Database = {
           status: string
           title: string
           updated_at: string
-        }[]
-      }
-      get_table_with_round_info: {
-        Args: { p_table_code: string }
-        Returns: {
-          round_ends_at: string
-          round_id: string
-          round_status: string
-          table_code: string
-          table_id: string
-          table_status: string
         }[]
       }
       get_table_with_secrets: {
@@ -532,10 +518,6 @@ export type Database = {
         Args: { p_client_id: string; p_table_id: string }
         Returns: boolean
       }
-      mark_participant_offline: {
-        Args: { p_participant_id: string }
-        Returns: undefined
-      }
       resolve_tie: {
         Args: {
           p_round_id: string
@@ -562,10 +544,6 @@ export type Database = {
           p_suggestion_id: string
         }
         Returns: Json
-      }
-      update_participant_presence: {
-        Args: { p_client_id: string; p_table_id: string }
-        Returns: undefined
       }
       upsert_block_safe: {
         Args: {

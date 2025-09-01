@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { createLiveQA } from '@/utils/liveQAExecution';
+import { liveQA } from '@/utils/liveQAExecution';
 
 export interface QAResults {
   overall: { score: number; message: string };
@@ -26,7 +26,6 @@ export function useQualityAssurance() {
     setResults(prev => ({ ...prev, isRunning: true }));
     
     try {
-      const liveQA = createLiveQA(toast);
       const qaResults = await liveQA.executeCompleteQA();
       
       // Calculate scores from the results
@@ -87,13 +86,12 @@ export function useQualityAssurance() {
 
   const generateReport = useCallback(async () => {
     try {
-      const liveQA = createLiveQA(toast);
       return await liveQA.generateDetailedReport();
     } catch (error) {
       console.error('Report generation failed:', error);
       return null;
     }
-  }, [toast]);
+  }, []);
 
   return {
     results,

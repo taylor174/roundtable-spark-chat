@@ -23,9 +23,9 @@ export class LiveQAExecution {
   private penetration: AdvancedPenetrationTesting;
   private enterprise: EnterpriseQAFramework;
 
-  constructor(toast?: (options: any) => void) {
-    this.comprehensive = new ComprehensiveQASystem(toast);
-    this.penetration = new AdvancedPenetrationTesting(toast);
+  constructor() {
+    this.comprehensive = new ComprehensiveQASystem();
+    this.penetration = new AdvancedPenetrationTesting();
     this.enterprise = new EnterpriseQAFramework();
   }
 
@@ -211,25 +211,5 @@ export class LiveQAExecution {
   }
 }
 
-// Factory function instead of singleton to avoid hook violations
-/**
- * Factory function for creating LiveQA instances
- */
-export function createLiveQA(toast?: (options: any) => void): LiveQAExecution {
-  return new LiveQAExecution(toast);
-}
-
-/**
- * Quick test function to check if session 2C1R6J can be loaded and analyzed
- */
-export async function testSessionQA(): Promise<boolean> {
-  try {
-    const qa = createLiveQA();
-    const results = await qa.executeCompleteQA();
-    console.log('QA test results:', results);
-    return results.summary.total_tests > 0;
-  } catch (error) {
-    console.error('QA test failed:', error);
-    return false;
-  }
-}
+// Export for direct usage
+export const liveQA = new LiveQAExecution();

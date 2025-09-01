@@ -2,7 +2,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getHostSecret } from '@/utils/clientId';
 import { useTableState } from '@/hooks/useTableStateOptimized';
 import { usePhaseManager } from '@/hooks/usePhaseManager';
-import { useAutoCleanup } from '@/hooks/useAutoCleanup';
 import { Timer } from '@/components/Timer';
 import { SuggestionForm } from '@/components/SuggestionForm';
 import { SuggestionList } from '@/components/SuggestionList';
@@ -15,14 +14,11 @@ import { DiscussionContextCard } from '@/components/DiscussionContextCard';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { PhaseTransition } from '@/components/PhaseTransition';
 import { SmoothTransition } from '@/components/SmoothTransition';
-import { PhaseTransitionIndicator } from '@/components/PhaseTransitionIndicator';
-import { PendingParticipantScreen } from '@/components/PendingParticipantScreen';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { 
   getSuggestionsWithVotes, 
   getWinningSuggestions,
@@ -34,40 +30,14 @@ import {
 import { SuggestionWithVotes, WinningSuggestion } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { MESSAGES } from '@/constants';
-import { Users, Clock, List, Play, Trash2, RefreshCw } from 'lucide-react';
+import { Users, Clock, List, Play } from 'lucide-react';
 import { useEffect, useState, startTransition } from 'react';
 import { VotingStatusIndicator } from '@/components/VotingStatusIndicator';
 import { BackButton } from '@/components/BackButton';
-import { usePresenceTracking } from '@/hooks/usePresenceTracking';
-import { ResponsiveSidebar, SidebarMobileToggle } from '@/components/ResponsiveSidebar';
-import { MobileOptimizedCard } from '@/components/MobileOptimizedCard';
-import { TouchOptimizedButton } from '@/components/TouchOptimizedButton';
-import { PhaseTransitionMonitor } from '@/components/PhaseTransitionMonitor';
-import { Menu } from 'lucide-react';
 
 const Table = () => {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
-  
-  // Validate table code exists and handle invalid routes
-  useEffect(() => {
-    if (!code || code.trim() === '') {
-      navigate('/', { 
-        replace: true,
-        state: { error: 'Invalid table URL. Please check the link and try again.' }
-      });
-      return;
-    }
-    
-    // Basic validation for table code format (alphanumeric, reasonable length)
-    if (!/^[a-zA-Z0-9]{3,20}$/.test(code)) {
-      navigate('/', { 
-        replace: true,
-        state: { error: `Invalid table code format: "${code}". Table codes should be 3-20 alphanumeric characters.` }
-      });
-      return;
-    }
-  }, [code, navigate]);
   
   const {
     table,
@@ -87,22 +57,6 @@ const Table = () => {
     refreshBlocks,
   } = useTableState(code || '');
   
-  // Initialize presence tracking
-  usePresenceTracking(table?.id || null, clientId);
-
-  // Initialize auto-cleanup for expired rounds
-  const { manualCleanup } = useAutoCleanup({
-    interval: 5, // Check every 5 minutes
-    enabled: true
-  });
-
-  // Navigate to summary when table is closed and has blocks
-  useEffect(() => {
-    if (table?.status === 'closed' && blocks.length > 0) {
-      navigate(`/t/${code}/summary`);
-    }
-  }, [table?.status, blocks.length, code, navigate]);
-  
   const [suggestionsWithVotes, setSuggestionsWithVotes] = useState<SuggestionWithVotes[]>([]);
   const [winningSuggestions, setWinningSuggestions] = useState<WinningSuggestion[]>([]);
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -112,29 +66,6 @@ const Table = () => {
     toPhase: string;
   }>({ isVisible: false, fromPhase: '', toPhase: '' });
   const { toast } = useToast();
-
-  // Handle table not found or loading errors with better messaging
-  useEffect(() => {
-    if (error) {
-      
-      if (error.includes('not found')) {
-        navigate('/', { 
-          replace: true, 
-          state: { error: `Table "${code}" not found. Please check the code and try again.` } 
-        });
-      } else if (error.includes('Failed to load table data')) {
-        navigate('/', { 
-          replace: true, 
-          state: { error: `Unable to load table data. Please check your connection and try again.` } 
-        });
-      } else if (error.includes('permission') || error.includes('Access denied')) {
-        navigate('/', { 
-          replace: true, 
-          state: { error: `Access denied to table "${code}". You may not have permission to view this table.` } 
-        });
-      }
-    }
-  }, [error, code, navigate]);
 
   // Redirect non-hosts to join page if they don't have a participant record
   useEffect(() => {
@@ -149,18 +80,6 @@ const Table = () => {
 
     checkParticipant();
   }, [code, currentParticipant, loading, navigate]);
-
-  // Determine active participants (those who can currently participate)
-  const activeParticipants = participants.filter(p => 
-    !p.active_from_round || 
-    (currentRound && currentRound.number >= p.active_from_round)
-  );
-
-  // Check if current participant is pending (waiting for their turn)
-  const isCurrentParticipantPending = currentParticipant && 
-    currentParticipant.active_from_round && 
-    currentRound && 
-    currentRound.number < currentParticipant.active_from_round;
   
   // Load suggestions with votes
   useEffect(() => {
@@ -177,6 +96,7 @@ const Table = () => {
           setWinningSuggestions(getWinningSuggestions(data));
         }
       } catch (error) {
+        console.error('Error loading suggestions with votes:', error);
         setSuggestionsWithVotes([]);
       }
     };
@@ -189,8 +109,8 @@ const Table = () => {
     : false;
     
   
-  // Automatic phase management - pass active participants for accurate counts
-  const { isProcessing } = usePhaseManager(table, currentRound, suggestions, votes, timeRemaining, clientId, isHost, refresh, activeParticipants);
+  // Automatic phase management - always enabled (phase manager handles its own processing state)
+  const { isProcessing } = usePhaseManager(table, currentRound, suggestions, votes, timeRemaining, clientId, isHost, refresh, participants);
   
   // Handle phase transition animations
   useEffect(() => {
@@ -225,17 +145,17 @@ const Table = () => {
           description: "Winner selected!",
         });
         
-        // Force refresh to show winner immediately in timeline
-        setTimeout(() => {
-          refresh();
-          refreshBlocks();
-        }, 100);
+        // Force refresh blocks to show winner immediately in timeline
+        if (refreshBlocks) {
+          setTimeout(() => refreshBlocks(), 100);
+        }
         
         setTimeout(() => {
           setIsTransitioning(false);
         }, 1500);
       }
     } catch (error) {
+      console.error('Error selecting winner:', error);
       toast({
         title: "Error",
         description: "Failed to select winner. Please try again.",
@@ -251,17 +171,23 @@ const Table = () => {
   };
   
   const handleNextRound = async () => {
+    console.log('🚀 handleNextRound called!', { table: !!table, currentRound: !!currentRound, isTransitioning, isProcessing });
     if (!table || !currentRound || isTransitioning || isProcessing) {
+      console.log('🚀 handleNextRound early return due to conditions');
       return;
     }
     
     try {
+      console.log('🚀 handleNextRound starting execution...');
       setIsTransitioning(true);
       
       // Create new round in lobby mode for manual start
+      console.log('🚀 About to call advanceRound...');
       const newRound = await advanceRound(table.id, currentRound.number);
+      console.log('🚀 advanceRound completed, new round:', newRound);
       
       // Automatically start the suggestion phase for the new round
+      console.log('🚀 Starting suggestion phase for new round...');
       await startSuggestPhase(newRound.id, table.default_suggest_sec, table.id);
       
       toast({
@@ -269,23 +195,25 @@ const Table = () => {
         description: "Next round started!",
       });
       
-      // Force refresh to ensure timeline shows latest winner
-      setTimeout(() => {
-        refresh();
-        refreshBlocks();
-      }, 100);
+      // Force refresh blocks to ensure timeline shows latest winner
+      if (refreshBlocks) {
+        setTimeout(() => refreshBlocks(), 100);
+      }
       
       // Force a complete refresh to ensure UI updates with new round
+      console.log('🚀 Forcing complete refresh...');
       setTimeout(() => {
         refresh();
       }, 300);
       
       // Brief transition time for UI updates
       setTimeout(() => {
+        console.log('🚀 Clearing isTransitioning...');
         setIsTransitioning(false);
       }, 1500);
       
     } catch (error) {
+      console.error('Error starting next round:', error);
       toast({
         title: "Error",
         description: "Failed to start next round. Please try again.",
@@ -333,8 +261,6 @@ const Table = () => {
             <BackButton 
               variant="outline"
               showConfirmation={false}
-              redirectToSummary={false}
-              tableCode={code}
             />
           </div>
         </div>
@@ -344,170 +270,63 @@ const Table = () => {
 
   return (
     <div className="min-h-screen bg-background animate-fade-in">
-      {/* Show pending participant screen if waiting */}
-      {isCurrentParticipantPending && (
-        <PendingParticipantScreen
-          currentRound={currentRound}
-          activeFromRound={currentParticipant.active_from_round!}
-          participantName={currentParticipant.display_name}
-          timeRemaining={timeRemaining}
-          onRefresh={refresh}
-        />
-      )}
-
       {/* Header */}
       <header className="border-b bg-card smooth-transition">
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-4">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="smooth-transition min-w-0 flex-1">
-              <h1 className="text-lg sm:text-xl lg:text-2xl font-semibold leading-tight break-words line-clamp-2 lg:line-clamp-1">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="smooth-transition">
+              <h1 className="text-lg sm:text-xl md:text-2xl font-semibold leading-tight break-words line-clamp-2 md:line-clamp-1">
                 {currentRound && currentRound.number > 1 && blocks.length > 0 
                   ? blocks[blocks.length - 1].text 
                   : table.title || `Session ${table.code}`}
               </h1>
-               <div className="flex flex-wrap items-center gap-2 mt-1">
-                 <p className="text-xs sm:text-sm text-muted-foreground">
+               <div className="flex items-center gap-2">
+                 <p className="text-sm text-muted-foreground">
                    {currentPhase === 'lobby' ? 'Waiting to start' : 
                    currentPhase === 'suggest' ? 'Suggestion Phase' :
-                   currentPhase === 'vote' ? 'Voting Phase' : 'Results'} • {activeParticipants.length} active
-                   {participants.length > activeParticipants.length && (
-                     <span> • {participants.length - activeParticipants.length} waiting</span>
-                   )}
+                   currentPhase === 'vote' ? 'Voting Phase' : 'Results'} • {participants.length} participants
                    {currentRound && currentRound.number > 1 && (
                      <span> • Round {currentRound.number}</span>
                    )}
                  </p>
                  <ConnectionStatus />
                </div>
-           </div>
-           
-           <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2 xs:gap-3 smooth-transition flex-shrink-0">
+            </div>
+            
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4 smooth-transition">
               {/* Back Button - Always show in lobby, show with confirmation for active sessions, always show when closed */}
-               {(currentPhase === 'lobby' || table.status === 'closed') && (
-                 <BackButton 
-                   variant="ghost" 
-                   size="sm"
-                   showConfirmation={false}
-                   redirectToSummary={blocks.length > 0}
-                   tableCode={code}
-                 />
-               )}
-               
-               {table.status === 'running' && currentPhase !== 'lobby' && (
-                 <BackButton 
-                   variant="ghost" 
-                   size="sm"
-                   showConfirmation={true}
-                   confirmationTitle="Leave Active Session?"
-                   confirmationDescription="The session is currently active. Are you sure you want to leave?"
-                   redirectToSummary={blocks.length > 0}
-                   tableCode={code}
-                 />
-               )}
+              {(currentPhase === 'lobby' || table.status === 'closed') && (
+                <BackButton 
+                  variant="ghost" 
+                  size="sm"
+                  showConfirmation={false}
+                />
+              )}
               
-               <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2">
-                 <TableInfo
-                   tableCode={table.code}
-                   participantCount={participants.length}
-                   isHost={isHost}
-                 />
-                 {currentPhase !== 'lobby' && (
-                   <div className="xs:text-right">
-                     <Timer 
-                       timeRemaining={timeRemaining}
-                       phase={currentPhase}
-                       isActive={table.status === 'running'}
-                     />
-                   </div>
-                 )}
-                 
-                 {/* Mobile Sidebar Toggle */}
-                 <SidebarMobileToggle>
-                   <ResponsiveSidebar
-                     trigger={
-                       <TouchOptimizedButton 
-                         variant="outline" 
-                         size="icon" 
-                         touchSize="default"
-                         aria-label="View sidebar"
-                       >
-                         <Menu className="h-4 w-4" />
-                       </TouchOptimizedButton>
-                     }
-                    >
-                      {/* Timeline Section */}
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-3 pb-2 border-b border-border">
-                          <List className="h-5 w-5 text-primary" />
-                          <h3 className="text-lg font-semibold">Timeline</h3>
-                        </div>
-                        <div className="px-1">
-                          <Timeline 
-                            blocks={blocks} 
-                            currentRound={currentRound} 
-                            originalTitle={table.title}
-                          />
-                        </div>
-                      </div>
-                        
-                      {/* Participants Section */}
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-3 pb-2 border-b border-border">
-                          <Users className="h-5 w-5 text-primary" />
-                          <h3 className="text-lg font-semibold">
-                            Participants ({participants.length})
-                          </h3>
-                        </div>
-                        <div className="space-y-3">
-                          {participants.map((participant) => (
-                            <div 
-                              key={participant.id} 
-                              className="flex items-center justify-between p-4 rounded-lg bg-muted/30 border border-border/50"
-                            >
-                              <span className="text-base font-medium truncate">
-                                {participant.display_name}
-                              </span>
-                              <div className="flex items-center gap-2">
-                                {participant.is_host && (
-                                  <Badge variant="secondary" className="text-xs font-medium">
-                                    Host
-                                  </Badge>
-                                )}
-                                {participant.active_from_round && currentRound && 
-                                 currentRound.number < participant.active_from_round && (
-                                  <Badge variant="outline" className="text-xs">
-                                    Waiting
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                        
-                      {/* Host Controls Section */}
-                      {isHost && (
-                        <div className="space-y-4">
-                          <div className="flex items-center gap-3 pb-2 border-b border-border">
-                            <Play className="h-5 w-5 text-primary" />
-                            <h3 className="text-lg font-semibold">Host Controls</h3>
-                          </div>
-                          <div className="px-1">
-                            <HostControls
-                              table={table}
-                              canStart={true}
-                              currentPhase={currentPhase}
-                              participantCount={participants.length}
-                              participants={participants}
-                              currentParticipant={currentParticipant}
-                              onRefresh={refresh}
-                            />
-                          </div>
-                        </div>
-                      )}
-                   </ResponsiveSidebar>
-                 </SidebarMobileToggle>
-               </div>
+              {table.status === 'running' && currentPhase !== 'lobby' && (
+                <BackButton 
+                  variant="ghost" 
+                  size="sm"
+                  showConfirmation={true}
+                  confirmationTitle="Leave Active Session?"
+                  confirmationDescription="The session is currently active. Are you sure you want to leave?"
+                />
+              )}
+              
+              <TableInfo
+                tableCode={table.code}
+                participantCount={participants.length}
+                isHost={isHost}
+              />
+              {currentPhase !== 'lobby' && (
+                <div className="text-right">
+                  <Timer 
+                    timeRemaining={timeRemaining}
+                    phase={currentPhase}
+                    isActive={table.status === 'running'}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -534,22 +353,9 @@ const Table = () => {
         )}
         
         
-        <div className="responsive-grid">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-4 md:gap-6">
           {/* Main Content */}
           <div className="space-y-6 stable-layout">
-            {/* Phase Transition Indicator */}
-            {currentPhase !== 'lobby' && (
-              <PhaseTransitionIndicator
-                phase={currentPhase}
-                timeRemaining={timeRemaining}
-                isTransitioning={isProcessing}
-                participantCount={activeParticipants.length}
-                votedCount={votes.filter(vote => 
-                  activeParticipants.some(p => p.id === vote.participant_id)
-                ).length}
-              />
-            )}
-
             <SmoothTransition 
               isVisible={!isTransitioning} 
               className="phase-container"
@@ -576,25 +382,10 @@ const Table = () => {
                 </Card>
               )}
               
-              {/* Suggestion Phase - Only show form to active participants */}
+              {/* Suggestion Phase - Show to participants and hosts */}
               {currentPhase === 'suggest' && (
                 <div className="content-enter space-y-6">
-                  {/* User Guidance */}
-                  <Card className="bg-primary/5 border-primary/20">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
-                        <p className="text-sm text-muted-foreground">
-                          {currentParticipant && !isCurrentParticipantPending 
-                            ? "Share your ideas and suggestions below. All participants can see submissions in real-time."
-                            : "Other participants are sharing their suggestions. You can view them below."
-                          }
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {currentParticipant && currentRound && !isCurrentParticipantPending && (
+                  {currentParticipant && currentRound && (
                     <SuggestionForm
                       roundId={currentRound.id}
                       participantId={currentParticipant.id}
@@ -606,36 +397,15 @@ const Table = () => {
                 </div>
               )}
               
-              {/* Voting Phase - Only show voting to active participants */}
+              {/* Voting Phase - Show to participants and hosts */}
               {currentPhase === 'vote' && (
-                <div className="content-enter space-y-6">
-                  {/* User Guidance */}
-                  <Card className="bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-900/50">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-2 w-2 bg-orange-500 rounded-full animate-pulse" />
-                        <p className="text-sm text-muted-foreground">
-                          {currentParticipant && !isCurrentParticipantPending && !userHasVoted
-                            ? "Choose your favorite suggestion by clicking on it. You can only vote once."
-                            : userHasVoted 
-                              ? "Thank you for voting! Waiting for other participants to complete their votes."
-                              : "Participants are voting on their favorite suggestions."
-                          }
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {currentParticipant && currentRound && !isCurrentParticipantPending && (
+                <div className="content-enter">
+                  {currentParticipant && currentRound && (
                     <VoteList
                       suggestions={suggestionsWithVotes}
                       roundId={currentRound.id}
                       participantId={currentParticipant.id}
                       userHasVoted={userHasVoted}
-                      onVoteSuccess={() => {
-                        // Trigger immediate refresh for real-time vote count updates
-                        refresh();
-                      }}
                     />
                   )}
                 </div>
@@ -653,6 +423,7 @@ const Table = () => {
                     onWinnerSelected={handleWinnerSelected}
                     onNextRound={handleNextRound}
                     isTransitioning={isTransitioning}
+                    refreshBlocks={refreshBlocks}
                   />
                 </div>
               )}
@@ -666,8 +437,8 @@ const Table = () => {
             </SmoothTransition>
           </div>
 
-          {/* Desktop Sidebar - Show all participants with status */}
-          <div className="hidden md:block space-y-6 smooth-transition">
+          {/* Sidebar */}
+          <div className="space-y-6 smooth-transition">
             {/* Timeline */}
             <div className="smooth-transition">
               <Timeline 
@@ -688,38 +459,23 @@ const Table = () => {
                <CardContent className="p-4 sm:p-6">
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    {participants.map((participant) => {
-                      const isPending = participant.active_from_round && 
-                        currentRound && 
-                        currentRound.number < participant.active_from_round;
-                      
-                      return (
-                        <div key={participant.id} className="flex items-center justify-between smooth-transition">
-                          <span className={isPending ? 'text-muted-foreground' : ''}>
-                            {participant.display_name}
+                    {participants.map((participant) => (
+                      <div key={participant.id} className="flex items-center justify-between smooth-transition">
+                        <span>{participant.display_name}</span>
+                        {participant.is_host && (
+                          <span className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded">
+                            Host
                           </span>
-                          <div className="flex items-center space-x-1">
-                            {participant.is_host && (
-                              <Badge variant="secondary" className="text-xs">
-                                Host
-                              </Badge>
-                            )}
-                            {isPending && (
-                              <Badge variant="outline" className="text-xs">
-                                Round {participant.active_from_round}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                        )}
+                      </div>
+                    ))}
                   </div>
                   
-                  {/* Show voting status during voting phase for active participants only */}
+                  {/* Show voting status during voting phase */}
                   {currentPhase === 'vote' && isHost && currentRound && (
                     <SmoothTransition isVisible={true}>
                       <VotingStatusIndicator 
-                        participants={activeParticipants}
+                        participants={participants}
                         votes={votes}
                         currentRound={currentRound}
                       />
@@ -729,55 +485,18 @@ const Table = () => {
               </CardContent>
             </Card>
 
-            {/* Phase Transition Monitor */}
-            <PhaseTransitionMonitor
-              table={table}
-              currentRound={currentRound}
-              timeRemaining={timeRemaining}
-              clientId={clientId}
-              isHost={isHost}
-              participants={participants}
-              onRefresh={refresh}
-            />
-
             {/* Host Controls */}
             {isHost && (
-              <div className="smooth-transition space-y-4">
+              <div className="smooth-transition">
                 <HostControls
                   table={table}
                   canStart={true}
                   currentPhase={currentPhase}
-                  participantCount={activeParticipants.length}
-                  participants={activeParticipants}
+                  participantCount={participants.length}
+                  participants={participants}
                   currentParticipant={currentParticipant}
                   onRefresh={refresh}
                 />
-                
-                {/* Manual Cleanup Button */}
-                <Card className="border-muted">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <Trash2 className="h-4 w-4" />
-                      Session Maintenance
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground">
-                        Clean up expired rounds and stuck phases
-                      </p>
-                      <Button
-                        onClick={manualCleanup}
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                      >
-                        <RefreshCw className="h-3 w-3 mr-2" />
-                        Clean Up Session
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
               </div>
             )}
           </div>

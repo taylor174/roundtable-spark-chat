@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface AdvancedTestResult {
   category: string;
@@ -32,10 +33,17 @@ interface PenetrationTestResults {
 }
 
 export class AdvancedPenetrationTesting {
-  private toast: (options: any) => void;
+  private toast: any;
 
-  constructor(toast?: (options: any) => void) {
-    this.toast = toast || ((options: any) => console.log('Toast:', options));
+  constructor() {
+    // Note: useToast must be used inside React component context
+    try {
+      const { toast } = useToast();
+      this.toast = toast;
+    } catch (error) {
+      // Fallback for non-React context
+      this.toast = (options: any) => console.log('Toast:', options);
+    }
   }
 
   async runFullPenetrationTest(): Promise<PenetrationTestResults> {

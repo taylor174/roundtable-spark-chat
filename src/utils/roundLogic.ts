@@ -7,14 +7,11 @@ import { Suggestion, Vote, Round } from '@/types';
 export async function getSuggestionsWithVotes(
   roundId: string,
   participantId: string
-): Promise<Array<Suggestion & { voteCount: number; hasUserVoted: boolean; authorName: string }>> {
-  // Get suggestions with participant names
+): Promise<Array<Suggestion & { voteCount: number; hasUserVoted: boolean }>> {
+  // Get suggestions
   const { data: suggestions, error: suggestionsError } = await supabase
     .from('suggestions')
-    .select(`
-      *,
-      participants!suggestions_participant_id_fkey(display_name)
-    `)
+    .select('*')
     .eq('round_id', roundId)
     .order('created_at', { ascending: true });
 
@@ -41,7 +38,6 @@ export async function getSuggestionsWithVotes(
       ...suggestion,
       voteCount: suggestionVotes.length,
       hasUserVoted,
-      authorName: (suggestion as any).participants?.display_name || 'Unknown',
     };
   });
 }

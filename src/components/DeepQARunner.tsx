@@ -6,7 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, CheckCircle, XCircle, AlertTriangle, Shield, Activity, Zap, Users } from 'lucide-react';
-import { createLiveQA } from '@/utils/liveQAExecution';
+import { liveQA } from '@/utils/liveQAExecution';
 import { ComprehensiveQASystem } from '@/utils/comprehensiveQA';
 import { AdvancedPenetrationTesting } from '@/utils/advancedPenetrationTesting';
 import { EnterpriseQAFramework } from '@/utils/enterpriseQAFramework';
@@ -47,19 +47,18 @@ export function DeepQARunner() {
       // Phase 1: Live QA Execution (25%)
       setCurrentPhase('Running Live QA System...');
       setProgress(25);
-      const liveQA = createLiveQA(toast);
       qaResults.liveQA = await liveQA.executeCompleteQA();
 
       // Phase 2: Comprehensive QA (50%)
       setCurrentPhase('Executing Comprehensive QA...');
       setProgress(50);
-      const comprehensiveQA = new ComprehensiveQASystem(toast);
+      const comprehensiveQA = new ComprehensiveQASystem();
       qaResults.comprehensiveQA = await comprehensiveQA.runFullQA();
 
       // Phase 3: Advanced Penetration Testing (75%)
       setCurrentPhase('Running Penetration Tests...');
       setProgress(75);
-      const penetrationTesting = new AdvancedPenetrationTesting(toast);
+      const penetrationTesting = new AdvancedPenetrationTesting();
       qaResults.penetrationTesting = await penetrationTesting.runFullPenetrationTest();
 
       // Phase 4: Enterprise QA Framework (90%)

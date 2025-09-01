@@ -76,7 +76,7 @@ export function useConnectionQuality() {
       });
 
     } catch (error) {
-      // Connection quality check failed silently
+      console.warn('Connection quality check failed:', error);
       setQuality({
         level: 'disconnected',
         latency: 0,

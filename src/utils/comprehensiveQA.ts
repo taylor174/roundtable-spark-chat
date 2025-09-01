@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface TestResult {
   test: string;
@@ -23,10 +24,18 @@ interface ComprehensiveTestResults {
 }
 
 export class ComprehensiveQASystem {
-  private toast: (options: any) => void;
+  private toast: any;
 
-  constructor(toast?: (options: any) => void) {
-    this.toast = toast || ((options: any) => console.log('Toast:', options));
+  constructor() {
+    // Note: useToast must be used inside React component context
+    // For standalone usage, we'll handle toast differently
+    try {
+      const { toast } = useToast();
+      this.toast = toast;
+    } catch (error) {
+      // Fallback for non-React context
+      this.toast = (options: any) => console.log('Toast:', options);
+    }
   }
 
   async runFullQA(): Promise<ComprehensiveTestResults> {
@@ -384,30 +393,15 @@ export class ComprehensiveQASystem {
       const memory = (performance as any).memory;
       const usedMB = Math.round(memory.usedJSHeapSize / 1024 / 1024);
       
-      // Realistic thresholds for modern React applications
-      // Pass: < 150MB (reasonable for React apps)
-      // Warning: 150-250MB (still acceptable) 
-      // Fail: > 250MB (actually concerning)
-      const status = usedMB < 150 ? 'pass' : usedMB < 250 ? 'warning' : 'fail';
-      
-      let message = `Memory usage: ${usedMB}MB`;
-      if (status === 'warning') {
-        message += ' (acceptable for feature-rich app)';
-      } else if (status === 'fail') {
-        message += ' (consider optimizing components)';
-      } else {
-        message += ' (excellent)';
-      }
-      
-      return { 
-        status: status as 'pass' | 'fail' | 'warning', 
-        message 
-      };
+    return {
+      status: (usedMB < 50 ? 'pass' : usedMB < 100 ? 'warning' : 'fail') as 'pass' | 'fail' | 'warning',
+      message: `Estimated memory usage: ${usedMB}MB`
+    };
     }
     
     return {
       status: 'warning' as 'pass' | 'fail' | 'warning',
-      message: 'Memory usage monitoring not available in this environment'
+      message: 'Memory usage monitoring not available'
     };
   }
 
