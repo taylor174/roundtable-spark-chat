@@ -45,6 +45,15 @@ const Table = () => {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
   
+  // Validate table code exists
+  useEffect(() => {
+    if (!code || code.trim() === '') {
+      console.warn('No table code provided, redirecting to home');
+      navigate('/', { replace: true });
+      return;
+    }
+  }, [code, navigate]);
+  
   const {
     table,
     participants,
@@ -82,6 +91,17 @@ const Table = () => {
     toPhase: string;
   }>({ isVisible: false, fromPhase: '', toPhase: '' });
   const { toast } = useToast();
+
+  // Handle table not found or loading errors
+  useEffect(() => {
+    if (error && error.includes('not found')) {
+      console.warn('Table not found, redirecting to home with error message');
+      navigate('/', { 
+        replace: true, 
+        state: { error: `Table "${code}" not found` } 
+      });
+    }
+  }, [error, code, navigate]);
 
   // Redirect non-hosts to join page if they don't have a participant record
   useEffect(() => {

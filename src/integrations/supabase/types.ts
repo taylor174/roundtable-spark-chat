@@ -465,6 +465,17 @@ export type Database = {
           updated_at: string
         }[]
       }
+      get_table_with_round_info: {
+        Args: { p_table_code: string }
+        Returns: {
+          round_ends_at: string
+          round_id: string
+          round_status: string
+          table_code: string
+          table_id: string
+          table_status: string
+        }[]
+      }
       get_table_with_secrets: {
         Args: { p_client_id: string; p_table_id: string }
         Returns: {

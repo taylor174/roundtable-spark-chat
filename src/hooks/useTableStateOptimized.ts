@@ -45,19 +45,34 @@ export function useTableState(tableCode: string) {
 
   // Load initial data with retry logic
   const loadTableData = useCallback(async () => {
-    try {
-      setState(prev => ({ ...prev, loading: true, error: null }));
+    if (!tableCode) {
+      setState(prev => ({ ...prev, loading: false, error: 'No table code provided' }));
+      return;
+    }
 
-      // Use the new secure function to get table data
-      const { data: tableDataArray, error: tableError } = await supabase
-        .rpc('get_safe_table_data', { p_table_code: tableCode });
+    const maxRetries = 3;
+    let attempt = 0;
 
-      if (tableError) throw tableError;
-      if (!tableDataArray || tableDataArray.length === 0) {
-        throw new Error(`Table with code ${tableCode} not found`);
-      }
-      
-      const tableData = tableDataArray[0];
+    while (attempt < maxRetries) {
+      try {
+        setState(prev => ({ ...prev, loading: true, error: null }));
+        console.log(`Loading table data for: ${tableCode} (attempt ${attempt + 1})`);
+
+        // Use the new secure function to get table data
+        const { data: tableDataArray, error: tableError } = await supabase
+          .rpc('get_safe_table_data', { p_table_code: tableCode });
+
+        if (tableError) {
+          console.error('Table data error:', tableError);
+          throw new Error(`Failed to load table: ${tableError.message}`);
+        }
+
+        if (!tableDataArray || tableDataArray.length === 0) {
+          throw new Error(`Table with code "${tableCode}" not found`);
+        }
+        
+        const tableData = tableDataArray[0];
+        console.log('Table found:', tableData);
 
       
       
@@ -153,33 +168,62 @@ export function useTableState(tableCode: string) {
         winnerName: (block as any).suggestions?.participants?.display_name || undefined
       }));
 
-      setState({
-        table,
-        participants: participants || [],
-        currentRound: currentRound || null,
-        suggestions,
-        votes: votes || [],
-        blocks: processedBlocks,
-        currentParticipant,
-        clientId,
-        isHost,
-        timeRemaining: 0,
-        loading: false,
-        error: null,
-      });
+        setState({
+          table,
+          participants: participants || [],
+          currentRound: currentRound || null,
+          suggestions,
+          votes: votes || [],
+          blocks: processedBlocks,
+          currentParticipant,
+          clientId,
+          isHost,
+          timeRemaining: 0,
+          loading: false,
+          error: null,
+        });
 
-    } catch (error) {
-      handleError(error, { 
-        operation: 'load table data', 
-        component: 'useTableState',
-        userMessage: 'Failed to load table data. Please refresh the page.' 
-      });
-      
-      setState(prev => ({
-        ...prev,
-        loading: false,
-        error: 'Failed to load table data',
-      }));
+        console.log('Table data loaded successfully:', {
+          table: tableData,
+          participantsCount: participants?.length || 0,
+          round: currentRound,
+          suggestionsCount: suggestions?.length || 0,
+          votesCount: votes?.length || 0,
+          blocksCount: processedBlocks?.length || 0
+        });
+
+        return; // Success, exit retry loop
+
+      } catch (error: any) {
+        attempt++;
+        console.error(`Table data loading error (attempt ${attempt}):`, error);
+        
+        if (attempt >= maxRetries) {
+          const errorMessage = error.message || 'Failed to load table data';
+          
+          handleError(error, { 
+            operation: 'load table data', 
+            component: 'useTableState',
+            userMessage: 'Failed to load table data. Please refresh the page.' 
+          });
+          
+          setState(prev => ({
+            ...prev,
+            loading: false,
+            error: errorMessage,
+          }));
+
+          console.error('Max retries reached, giving up');
+          
+          // If table not found, this could indicate a navigation issue
+          if (errorMessage.includes('not found')) {
+            console.warn('Table not found - user may be on invalid route');
+          }
+        } else {
+          // Wait before retrying (exponential backoff)
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+        }
+      }
     }
   }, [tableCode, clientId, hostSecret, handleError]);
 
