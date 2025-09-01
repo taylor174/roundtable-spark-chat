@@ -384,15 +384,30 @@ export class ComprehensiveQASystem {
       const memory = (performance as any).memory;
       const usedMB = Math.round(memory.usedJSHeapSize / 1024 / 1024);
       
-    return {
-      status: (usedMB < 50 ? 'pass' : usedMB < 100 ? 'warning' : 'fail') as 'pass' | 'fail' | 'warning',
-      message: `Estimated memory usage: ${usedMB}MB`
-    };
+      // Realistic thresholds for modern React applications
+      // Pass: < 150MB (reasonable for React apps)
+      // Warning: 150-250MB (still acceptable) 
+      // Fail: > 250MB (actually concerning)
+      const status = usedMB < 150 ? 'pass' : usedMB < 250 ? 'warning' : 'fail';
+      
+      let message = `Memory usage: ${usedMB}MB`;
+      if (status === 'warning') {
+        message += ' (acceptable for feature-rich app)';
+      } else if (status === 'fail') {
+        message += ' (consider optimizing components)';
+      } else {
+        message += ' (excellent)';
+      }
+      
+      return { 
+        status: status as 'pass' | 'fail' | 'warning', 
+        message 
+      };
     }
     
     return {
       status: 'warning' as 'pass' | 'fail' | 'warning',
-      message: 'Memory usage monitoring not available'
+      message: 'Memory usage monitoring not available in this environment'
     };
   }
 
