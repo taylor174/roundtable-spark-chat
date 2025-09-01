@@ -3,17 +3,33 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Users, ExternalLink } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Plus, Users, ExternalLink, AlertCircle } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { TableCreationDialog } from '@/components/TableCreationDialog';
 import { QARunner } from '@/components/QARunner';
 import { isValidTableCode } from '@/utils';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function Home() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const [joinCode, setJoinCode] = useState('');
+  
+  // Handle navigation state errors (from redirected table routes)
+  useEffect(() => {
+    if (location.state?.error) {
+      toast({
+        title: "Navigation Error",
+        description: location.state.error,
+        variant: "destructive",
+      });
+      
+      // Clear the error from navigation state to prevent it showing on refresh
+      window.history.replaceState({}, '', '/');
+    }
+  }, [location.state, toast]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted">
@@ -50,6 +66,15 @@ export default function Home() {
         </div>
 
         <div className="max-w-md mx-auto space-y-4 px-4 sm:px-0">
+          {/* Show error alert if there was a navigation error */}
+          {location.state?.error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {location.state.error}
+              </AlertDescription>
+            </Alert>
+          )}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">

@@ -58,17 +58,29 @@ export function useTableState(tableCode: string) {
         setState(prev => ({ ...prev, loading: true, error: null }));
         console.log(`Loading table data for: ${tableCode} (attempt ${attempt + 1})`);
 
-        // Use the new secure function to get table data
+        // Use the new secure function to get table data with better error handling
         const { data: tableDataArray, error: tableError } = await supabase
           .rpc('get_safe_table_data', { p_table_code: tableCode });
 
         if (tableError) {
           console.error('Table data error:', tableError);
+          handleError(tableError, { 
+            operation: 'load table data', 
+            component: 'useTableState',
+            userMessage: `Failed to load table "${tableCode}". ${tableError.message.includes('permission') ? 'Access denied.' : 'Please try again.'}`
+          });
           throw new Error(`Failed to load table: ${tableError.message}`);
         }
 
         if (!tableDataArray || tableDataArray.length === 0) {
-          throw new Error(`Table with code "${tableCode}" not found`);
+          const notFoundError = new Error(`Table with code "${tableCode}" not found`);
+          console.warn('Table not found:', tableCode);
+          handleError(notFoundError, { 
+            operation: 'find table', 
+            component: 'useTableState',
+            userMessage: `Table "${tableCode}" not found. Please check the code and try again.`
+          });
+          throw notFoundError;
         }
         
         const tableData = tableDataArray[0];

@@ -45,11 +45,24 @@ const Table = () => {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
   
-  // Validate table code exists
+  // Validate table code exists and handle invalid routes
   useEffect(() => {
     if (!code || code.trim() === '') {
       console.warn('No table code provided, redirecting to home');
-      navigate('/', { replace: true });
+      navigate('/', { 
+        replace: true,
+        state: { error: 'Invalid table URL. Please check the link and try again.' }
+      });
+      return;
+    }
+    
+    // Basic validation for table code format (alphanumeric, reasonable length)
+    if (!/^[a-zA-Z0-9]{3,20}$/.test(code)) {
+      console.warn('Invalid table code format:', code);
+      navigate('/', { 
+        replace: true,
+        state: { error: `Invalid table code format: "${code}". Table codes should be 3-20 alphanumeric characters.` }
+      });
       return;
     }
   }, [code, navigate]);
@@ -92,14 +105,29 @@ const Table = () => {
   }>({ isVisible: false, fromPhase: '', toPhase: '' });
   const { toast } = useToast();
 
-  // Handle table not found or loading errors
+  // Handle table not found or loading errors with better messaging
   useEffect(() => {
-    if (error && error.includes('not found')) {
-      console.warn('Table not found, redirecting to home with error message');
-      navigate('/', { 
-        replace: true, 
-        state: { error: `Table "${code}" not found` } 
-      });
+    if (error) {
+      console.warn('Table error detected:', error);
+      
+      if (error.includes('not found')) {
+        navigate('/', { 
+          replace: true, 
+          state: { error: `Table "${code}" not found. Please check the code and try again.` } 
+        });
+      } else if (error.includes('Failed to load table data')) {
+        // This is the main error we're fixing - provide helpful message
+        console.error('Table data loading failed:', error);
+        navigate('/', { 
+          replace: true, 
+          state: { error: `Unable to load table data. Please check your connection and try again.` } 
+        });
+      } else if (error.includes('permission') || error.includes('Access denied')) {
+        navigate('/', { 
+          replace: true, 
+          state: { error: `Access denied to table "${code}". You may not have permission to view this table.` } 
+        });
+      }
     }
   }, [error, code, navigate]);
 
