@@ -363,6 +363,21 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      create_table_secure: {
+        Args: {
+          p_code: string
+          p_default_suggest_sec: number
+          p_default_vote_sec: number
+          p_description: string
+          p_host_secret: string
+          p_title: string
+        }
+        Returns: {
+          code: string
+          id: string
+          status: string
+        }[]
+      }
       get_public_table_info: {
         Args: { table_code?: string }
         Returns: {

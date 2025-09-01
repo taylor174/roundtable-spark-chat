@@ -64,23 +64,22 @@ export function TableCreationDialog({ children }: TableCreationDialogProps) {
       
       console.log('Creating table with:', { tableCode, suggestTime, voteTime, title: title.trim() });
 
-      const { data: table, error } = await supabase
-        .from('tables')
-        .insert({
-          code: tableCode,
-          host_secret: hostSecret,
-          title: title.trim(),
-          description: null,
-          default_suggest_sec: suggestTime,
-          default_vote_sec: voteTime,
-          status: 'lobby',
-        })
-        .select()
-        .single();
+      const { data: tableResults, error } = await supabase.rpc('create_table_secure', {
+        p_code: tableCode,
+        p_host_secret: hostSecret,
+        p_title: title.trim(),
+        p_description: null,
+        p_default_suggest_sec: suggestTime,
+        p_default_vote_sec: voteTime
+      });
 
-      console.log('Table creation result:', { table, error });
+      console.log('Table creation result:', { tableResults, error });
 
-      if (error) throw error;
+      if (error || !tableResults || tableResults.length === 0) {
+        throw error || new Error('Failed to create table');
+      }
+
+      const table = tableResults[0];
 
       // Store host secret
       storeHostSecret(tableCode, hostSecret);
