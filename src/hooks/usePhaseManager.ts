@@ -62,7 +62,36 @@ export function usePhaseManager(
     const isExpired = hasEndTime && isTimeExpired(currentRound.ends_at);
     const shouldAdvanceTimer = timeRemaining <= 0 && hasEndTime;
     
+    // Prevent advancement if round just started (less than 10 seconds)
+    const roundAge = currentRound.started_at ? 
+      Date.now() - new Date(currentRound.started_at).getTime() : 0;
+    const isRoundTooYoung = roundAge < 10000; // 10 seconds minimum
+    
+    // Don't advance if ends_at is null or undefined (invalid state)
+    if (!hasEndTime) {
+      console.log('⏰ Round has no end time, not advancing:', currentRound.id);
+      return;
+    }
+    
+    // Log timing information for debugging
+    console.log('⏰ Phase timing check:', {
+      roundId: currentRound.id,
+      status: currentRound.status,
+      timeRemaining,
+      isExpired,
+      shouldAdvanceTimer,
+      isRoundTooYoung,
+      roundAge: Math.floor(roundAge / 1000) + 's',
+      endsAt: currentRound.ends_at
+    });
+    
     const handlePhaseAdvancement = async () => {
+      // Don't advance if round is too young
+      if (isRoundTooYoung) {
+        console.log('⏰ Round too young to advance, waiting...', Math.floor(roundAge / 1000) + 's');
+        return;
+      }
+      
       // Check if everyone has voted (for early termination)
       const everyoneVoted = await checkVotingCompletion();
       const shouldAdvance = shouldAdvanceTimer || everyoneVoted;
@@ -73,7 +102,7 @@ export function usePhaseManager(
 
       // Prevent processing the same round multiple times
       if (lastProcessedRound === currentRound.id && retryCount === 0 && !everyoneVoted) {
-        
+        console.log('⏰ Already processed this round, skipping:', currentRound.id);
         return;
       }
 
@@ -83,6 +112,13 @@ export function usePhaseManager(
       
       try {
         // Use the enhanced atomic server-side advancement
+        console.log('🔄 Attempting phase advancement:', {
+          roundId: currentRound.id,
+          tableId: table.id,
+          currentStatus: currentRound.status,
+          reason: everyoneVoted ? 'everyone_voted' : 'timer_expired'
+        });
+        
         const { data, error } = await supabase.rpc('advance_phase_atomic_v2', {
           p_round_id: currentRound.id,
           p_table_id: table.id,
@@ -90,12 +126,12 @@ export function usePhaseManager(
         });
 
         if (error) {
-          console.error('Phase advancement RPC error:', error);
+          console.error('❌ Phase advancement RPC error:', error);
           throw error;
         }
 
         const result = data as any;
-        
+        console.log('✅ Phase advancement result:', result);
         
         if (result?.success) {
           // Reset retry count on success
@@ -104,10 +140,18 @@ export function usePhaseManager(
           // Trigger refresh after successful advancement
           setTimeout(() => {
             onRefresh?.();
-          }, 200);
+          }, 300); // Slightly longer delay for better sync
           
           return { success: true };
         } else {
+          // Log the specific error from the database function
+          console.warn('⚠️ Phase advancement blocked:', result?.error);
+          
+          // If it's a "too young" or "not expired" error, don't treat as failure
+          if (result?.error?.includes('too young') || result?.error?.includes('not expired')) {
+            return { success: true }; // Don't retry these
+          }
+          
           throw new Error(result?.error || 'Phase advancement failed');
         }
 

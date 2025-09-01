@@ -80,10 +80,31 @@ export function formatTime(seconds: number): string {
  * Calculate time remaining from server timestamp
  */
 export function calculateTimeRemaining(endTime: string | null): number {
-  if (!endTime) return 0;
+  if (!endTime || endTime === 'null' || endTime === '') {
+    console.log('⏰ calculateTimeRemaining: No valid endTime provided:', endTime);
+    return 0;
+  }
+  
   const now = new Date().getTime();
   const end = new Date(endTime).getTime();
-  const remaining = Math.floor((end - now) / 1000);
+  
+  // Validate the parsed date
+  if (isNaN(end)) {
+    console.warn('⏰ calculateTimeRemaining: Invalid endTime format:', endTime);
+    return 0;
+  }
+  
+  const remaining = Math.max(0, Math.floor((end - now) / 1000));
+  
+  if (remaining <= 0) {
+    console.log('⏰ calculateTimeRemaining: Time expired:', {
+      endTime,
+      now: new Date(now).toISOString(),
+      end: new Date(end).toISOString(),
+      remaining
+    });
+  }
+  
   return remaining;
 }
 
