@@ -42,6 +42,7 @@ import { usePresenceTracking } from '@/hooks/usePresenceTracking';
 import { ResponsiveSidebar, SidebarMobileToggle } from '@/components/ResponsiveSidebar';
 import { MobileOptimizedCard } from '@/components/MobileOptimizedCard';
 import { TouchOptimizedButton } from '@/components/TouchOptimizedButton';
+import { PhaseTransitionMonitor } from '@/components/PhaseTransitionMonitor';
 import { Menu } from 'lucide-react';
 
 const Table = () => {
@@ -727,6 +728,17 @@ const Table = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Phase Transition Monitor */}
+            <PhaseTransitionMonitor
+              table={table}
+              currentRound={currentRound}
+              timeRemaining={timeRemaining}
+              clientId={clientId}
+              isHost={isHost}
+              participants={participants}
+              onRefresh={refresh}
+            />
 
             {/* Host Controls */}
             {isHost && (

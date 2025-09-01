@@ -27,9 +27,21 @@ export function usePhaseManager(
       return;
     }
 
-    // Only process if we're the host for more reliable phase management
-    if (!isHost) {
+    // Enhanced phase management: Host has priority, but allow participants as backup
+    // Participants can act after 60 seconds if host hasn't advanced the phase
+    const currentRoundAge = currentRound.started_at ? 
+      Date.now() - new Date(currentRound.started_at).getTime() : 0;
+    const hostTimeout = 60000; // 60 seconds
+    
+    const shouldAllowParticipant = !isHost && currentRoundAge > hostTimeout && timeRemaining <= -30;
+    
+    if (!isHost && !shouldAllowParticipant) {
       return;
+    }
+    
+    // Log who is managing the phase
+    if (shouldAllowParticipant) {
+      console.log('🆘 Participant taking over phase management after host timeout');
     }
 
     // Reset retry count when round changes
@@ -166,8 +178,8 @@ export function usePhaseManager(
       } catch (error) {
         console.error(`Error advancing phase for round ${currentRound.id}:`, error);
         
-        // Implement retry logic with exponential backoff
-        const maxRetries = 2;
+        // Enhanced retry logic with exponential backoff
+        const maxRetries = isHost ? 3 : 5; // Participants get more retries as backup
         if (retryCount < maxRetries) {
           // Reset processing state to allow retry
           setLastProcessedRound(null);
