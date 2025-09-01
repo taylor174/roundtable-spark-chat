@@ -156,29 +156,46 @@ export function useTableState(tableCode: string) {
         votes = votesData || [];
       }
 
-      // Get blocks (timeline) with winner names
+      // Get blocks (timeline) - simplified approach to avoid relationship issues
       const { data: blocks, error: blocksError } = await supabase
         .from('blocks')
-        .select(`
-          *,
-          suggestions!blocks_suggestion_id_fkey(
-            participants!suggestions_participant_id_fkey(display_name)
-          )
-        `)
+        .select('*')
         .eq('table_id', table.id)
         .order('created_at', { ascending: true });
 
       if (blocksError) throw blocksError;
 
+      // Enrich blocks with winner names using separate queries
+      let enrichedBlocks = blocks || [];
+      if (blocks && blocks.length > 0) {
+        for (const block of blocks) {
+          if (block.suggestion_id) {
+            try {
+              const { data: suggestionData } = await supabase
+                .from('suggestions')
+                .select(`
+                  text,
+                  participants!suggestions_participant_id_fkey(display_name)
+                `)
+                .eq('id', block.suggestion_id)
+                .single();
+              
+              if (suggestionData?.participants) {
+                (block as any).winnerName = suggestionData.participants.display_name;
+              }
+            } catch (err) {
+              console.warn('Failed to get winner name for block:', block.id, err);
+            }
+          }
+        }
+      }
+
       // Determine current participant and host status  
       const isHost = isHostCheck;
       const currentParticipant = participants.find(p => p.client_id === clientId) || null;
 
-      // Process blocks to add winner names
-      const processedBlocks = (blocks || []).map(block => ({
-        ...block,
-        winnerName: (block as any).suggestions?.participants?.display_name || undefined
-      }));
+      // Use enriched blocks directly
+      const processedBlocks = enrichedBlocks;
 
         setState({
           table,

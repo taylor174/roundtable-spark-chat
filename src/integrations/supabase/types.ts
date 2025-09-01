@@ -233,14 +233,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "proposals_participant_id_fkey"
+            foreignKeyName: "suggestions_participant_id_fkey"
             columns: ["participant_id"]
             isOneToOne: false
             referencedRelation: "participants"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "proposals_round_id_fkey"
+            foreignKeyName: "suggestions_round_id_fkey"
             columns: ["round_id"]
             isOneToOne: false
             referencedRelation: "rounds"
@@ -338,6 +338,13 @@ export type Database = {
             columns: ["round_id"]
             isOneToOne: false
             referencedRelation: "rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "votes_suggestion_id_fkey"
+            columns: ["suggestion_id"]
+            isOneToOne: false
+            referencedRelation: "suggestions"
             referencedColumns: ["id"]
           },
         ]
