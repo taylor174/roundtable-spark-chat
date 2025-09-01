@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { TableState, Participant, Round, Suggestion, Vote, Block, Table } from '@/types';
 import { calculateTimeRemaining, getCurrentPhase } from '@/utils';
-import { getOrCreateClientId, getHostSecret } from '@/utils/clientId';
+import { getOrCreateClientId, getHostSecret, removeHostSecret } from '@/utils/clientId';
 import { useToast } from '@/hooks/use-toast';
 import { useErrorHandler } from './useErrorHandler';
 import { useRealtimeConnection } from './useRealtimeConnection';
@@ -32,6 +32,7 @@ export function useTableState(tableCode: string) {
   const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
   const channelRef = useRef<any>(null);
   const connection = useRealtimeConnection(state.table?.id || '');
+  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Debounced refresh to prevent excessive calls and flicker
   const debouncedRefresh = useRef(debounce(() => {
@@ -45,20 +46,62 @@ export function useTableState(tableCode: string) {
 
   // Load initial data with retry logic
   const loadTableData = useCallback(async () => {
-    try {
-      setState(prev => ({ ...prev, loading: true, error: null }));
+    if (!tableCode) {
+      setState(prev => ({ ...prev, loading: false, error: 'No table code provided' }));
+      return;
+    }
 
-      // Use the new secure function to get table data
-      const { data: tableData, error: tableError } = await supabase
-        .rpc('get_safe_table_data', { p_table_code: tableCode })
-        .single();
+    const maxRetries = 3;
+    let attempt = 0;
 
-      if (tableError) throw tableError;
-      
-      // Check host status (secure function doesn't return host_secret)
-      // Need to get host_secret for verification if this client is host
-      const isHostCheck = Boolean(hostSecret);
-      const table = { ...tableData, host_secret: isHostCheck ? hostSecret : '' };
+    while (attempt < maxRetries) {
+      try {
+        setState(prev => ({ ...prev, loading: true, error: null }));
+        // Use the new secure function to get table data with better error handling
+        const { data: tableDataArray, error: tableError } = await supabase
+          .rpc('get_safe_table_data', { p_table_code: tableCode });
+
+        if (tableError) {
+          handleError(tableError, { 
+            operation: 'load table data', 
+            component: 'useTableState',
+            userMessage: `Failed to load table "${tableCode}". ${tableError.message.includes('permission') ? 'Access denied.' : 'Please try again.'}`
+          });
+          throw new Error(`Failed to load table: ${tableError.message}`);
+        }
+
+        if (!tableDataArray || tableDataArray.length === 0) {
+          const notFoundError = new Error(`Table with code "${tableCode}" not found`);
+          handleError(notFoundError, { 
+            operation: 'find table', 
+            component: 'useTableState',
+            userMessage: `Table "${tableCode}" not found. Please check the code and try again.`
+          });
+          throw notFoundError;
+        }
+        
+        const tableData = tableDataArray[0];
+
+        // Check host status using secure host function if host secret provided
+        let isHostCheck = false;
+        let table = { ...tableData, host_secret: '' };
+        
+        if (hostSecret) {
+          try {
+            const { data: hostData, error: hostError } = await supabase
+              .rpc('get_table_host_data_secure', { 
+                p_table_code: tableCode, 
+                p_host_secret: hostSecret 
+              });
+            
+            if (!hostError && hostData && hostData.length > 0) {
+              isHostCheck = true;
+              table = hostData[0];
+            }
+          } catch (error) {
+            // Continue as non-host user
+          }
+        }
 
       // Get participants
       const { data: participants, error: participantsError } = await supabase
@@ -106,7 +149,7 @@ export function useTableState(tableCode: string) {
         votes = votesData || [];
       }
 
-      // Get blocks (timeline)
+      // Get blocks (timeline) - simplified approach to avoid relationship issues
       const { data: blocks, error: blocksError } = await supabase
         .from('blocks')
         .select('*')
@@ -115,37 +158,79 @@ export function useTableState(tableCode: string) {
 
       if (blocksError) throw blocksError;
 
+      // Enrich blocks with winner names using separate queries
+      let enrichedBlocks = blocks || [];
+      if (blocks && blocks.length > 0) {
+        for (const block of blocks) {
+          if (block.suggestion_id) {
+            try {
+              const { data: suggestionData } = await supabase
+                .from('suggestions')
+                .select(`
+                  text,
+                  participants!suggestions_participant_id_fkey(display_name)
+                `)
+                .eq('id', block.suggestion_id)
+                .single();
+              
+              if (suggestionData?.participants) {
+                (block as any).winnerName = suggestionData.participants.display_name;
+              }
+            } catch (err) {
+              // Silent fail for winner name lookup
+            }
+          }
+        }
+      }
+
       // Determine current participant and host status  
       const isHost = isHostCheck;
       const currentParticipant = participants.find(p => p.client_id === clientId) || null;
 
-      setState({
-        table,
-        participants: participants || [],
-        currentRound: currentRound || null,
-        suggestions,
-        votes: votes || [],
-        blocks: blocks || [],
-        currentParticipant,
-        clientId,
-        isHost,
-        timeRemaining: 0,
-        loading: false,
-        error: null,
-      });
+      // Use enriched blocks directly
+      const processedBlocks = enrichedBlocks;
 
-    } catch (error) {
-      handleError(error, { 
-        operation: 'load table data', 
-        component: 'useTableState',
-        userMessage: 'Failed to load table data. Please refresh the page.' 
-      });
-      
-      setState(prev => ({
-        ...prev,
-        loading: false,
-        error: 'Failed to load table data',
-      }));
+        setState({
+          table,
+          participants: participants || [],
+          currentRound: currentRound || null,
+          suggestions,
+          votes: votes || [],
+          blocks: processedBlocks,
+          currentParticipant,
+          clientId,
+          isHost,
+          timeRemaining: 0,
+          loading: false,
+          error: null,
+        });
+
+
+        return; // Success, exit retry loop
+
+      } catch (error: any) {
+        attempt++;
+        
+        if (attempt >= maxRetries) {
+          const errorMessage = error.message || 'Failed to load table data';
+          
+          handleError(error, { 
+            operation: 'load table data', 
+            component: 'useTableState',
+            userMessage: 'Failed to load table data. Please refresh the page.' 
+          });
+          
+          setState(prev => ({
+            ...prev,
+            loading: false,
+            error: errorMessage,
+          }));
+
+        } else {
+          // Wait before retrying (exponential backoff)
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+        }
+      }
     }
   }, [tableCode, clientId, hostSecret, handleError]);
 
@@ -161,7 +246,7 @@ export function useTableState(tableCode: string) {
     });
   }, [clientId]);
 
-  const updateRound = useCallback((newRound: Round) => {
+  const updateRound = useCallback((newRound: Round | null) => {
     setState(prev => ({ ...prev, currentRound: newRound }));
   }, []);
 
@@ -213,96 +298,183 @@ export function useTableState(tableCode: string) {
       if (error) throw error;
       updateBlocks(blocks || []);
     } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error('Error refreshing blocks:', error);
-      }
+      // Silent fail for blocks refresh
     }
   }, [state.table?.id, updateBlocks]);
 
-  // Update timer
+  // Update timer with better debugging and validation
   const updateTimer = useCallback(() => {
     setState(prev => {
-      if (!prev.currentRound?.ends_at) return prev;
+      if (!prev.currentRound?.ends_at) {
+        // No end time set, return 0
+        return { ...prev, timeRemaining: 0 };
+      }
       
       const remaining = calculateTimeRemaining(prev.currentRound.ends_at);
-      return { ...prev, timeRemaining: remaining };
+      
+      // Debug timer calculations
+      if (remaining <= 0 && prev.timeRemaining > 0) {
+        console.log('⏰ Timer expired for round:', {
+          roundId: prev.currentRound.id,
+          status: prev.currentRound.status,
+          endsAt: prev.currentRound.ends_at,
+          remaining,
+          previousRemaining: prev.timeRemaining
+        });
+      }
+      
+      return { ...prev, timeRemaining: Math.max(0, remaining) };
     });
   }, []);
 
-  // Set up real-time subscriptions with optimized updates
+  // Targeted round data fetching without destroying subscriptions
+  const fetchCurrentRoundData = useCallback(async (roundId: string | null) => {
+    if (!roundId) {
+      updateRound(null);
+      updateSuggestions([]);
+      updateVotes([]);
+      return;
+    }
+
+    try {
+      const [roundResult, suggestionsResult, votesResult] = await Promise.all([
+        supabase.from('rounds').select('*').eq('id', roundId).single(),
+        supabase.from('suggestions').select('*').eq('round_id', roundId).order('created_at'),
+        supabase.from('votes').select('*').eq('round_id', roundId)
+      ]);
+
+      if (roundResult.data) updateRound(roundResult.data);
+      if (suggestionsResult.data) updateSuggestions(suggestionsResult.data);
+      if (votesResult.data) updateVotes(votesResult.data);
+    } catch (error) {
+      console.error('Error fetching round data:', error);
+    }
+  }, [updateRound, updateSuggestions, updateVotes]);
+
+  // Set up real-time subscriptions - CRITICAL: Keep dependencies MINIMAL to prevent reconnection
   useEffect(() => {
     if (!state.table?.id) return;
 
+    console.log('🔄 [REAL-TIME] Setting up subscription for table:', state.table.id);
+
     // Clean up existing channel
     if (channelRef.current) {
+      console.log('🧹 [REAL-TIME] Cleaning up existing channel');
       supabase.removeChannel(channelRef.current);
     }
 
-    // Setting up realtime subscriptions
+    // Create stable functions to avoid recreating subscriptions
+    const handleTableUpdate = async (payload: any) => {
+      console.log('📊 [REAL-TIME] Table update received:', payload.new);
+      const newTable = payload.new as Table;
+      
+      // IMMEDIATE STATE UPDATE - No dependencies on round data
+      setState(prev => {
+        const newState = { ...prev, table: newTable };
+        
+        console.log('🎯 [CRITICAL] IMMEDIATE table update:', {
+          oldStatus: prev.table?.status,
+          newStatus: newTable.status,
+          hasCurrentRound: !!prev.currentRound,
+          currentPhase: getCurrentPhase(newTable.status, prev.currentRound?.status || null, prev.timeRemaining)
+        });
+        
+        return newState;
+      });
+      
+    // CRITICAL: If table started, immediately fetch round data AND force state consistency
+      if (newTable.status === 'running' && newTable.current_round_id) {
+        console.log('🚨 [EMERGENCY] Table started - fetching round data immediately');
+        
+        // IMMEDIATE fetch without debounce for critical transitions
+        setTimeout(() => {
+          fetchCurrentRoundData(newTable.current_round_id).then(() => {
+            console.log('✅ [SUCCESS] Emergency round data loaded for table start');
+          }).catch(error => {
+            console.error('❌ [ERROR] Emergency round data fetch failed:', error);
+            // Fallback to full refresh if targeted fetch fails
+            setTimeout(() => loadTableData(), 100);
+          });
+        }, 50); // Small delay to ensure table state is updated first
+      }
+    };
+
+    const handleRoundUpdate = async (payload: any) => {
+      console.log('⚡ [REAL-TIME] Round update received:', payload);
+      if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+        const newRound = payload.new as Round;
+        
+        // IMMEDIATE and ATOMIC round state update with phase calculation
+        setState(prev => {
+          const newState = {
+            ...prev,
+            currentRound: newRound,
+            timeRemaining: newRound.ends_at ? calculateTimeRemaining(newRound.ends_at) : 0
+          };
+          
+          const currentPhase = getCurrentPhase(
+            prev.table?.status || 'waiting', 
+            newRound.status, 
+            newState.timeRemaining
+          );
+          
+          console.log('✅ [ROUND UPDATE] Immediate state update:', {
+            roundId: newRound.id,
+            roundStatus: newRound.status,
+            tableStatus: prev.table?.status,
+            timeRemaining: newState.timeRemaining,
+            currentPhase: currentPhase
+          });
+          
+          return newState;
+        });
+        
+        // For INSERT events (new rounds), immediately clear old suggestions/votes
+        if (payload.eventType === 'INSERT') {
+          setState(prev => ({
+            ...prev,
+            suggestions: [],
+            votes: []
+          }));
+          console.log('🆕 [NEW ROUND] Cleared old suggestions and votes for new round');
+        }
+        
+        // Fetch associated data only for active phases
+        if (newRound.status === 'suggest' || newRound.status === 'vote') {
+          try {
+            const [suggestionsResult, votesResult] = await Promise.all([
+              supabase.from('suggestions').select('*').eq('round_id', newRound.id).order('created_at'),
+              supabase.from('votes').select('*').eq('round_id', newRound.id)
+            ]);
+            
+            setState(prev => ({
+              ...prev,
+              suggestions: suggestionsResult.data || [],
+              votes: votesResult.data || []
+            }));
+            
+            console.log('📝 [ROUND DATA] Loaded suggestions and votes:', {
+              suggestions: suggestionsResult.data?.length || 0,
+              votes: votesResult.data?.length || 0
+            });
+          } catch (error) {
+            console.error('❌ [ERROR] Failed to fetch round data:', error);
+          }
+        }
+      }
+    };
 
     const channel = supabase
-      .channel(`table_${state.table.id}`)
-      // Table updates - critical for detecting when table starts
+      .channel(`table_${state.table.id}_stable`)
+      // Table updates - CRITICAL for detecting when table starts
       .on('postgres_changes', 
         { event: 'UPDATE', schema: 'public', table: 'tables', filter: `id=eq.${state.table.id}` },
-        (payload) => {
-          if (import.meta.env.DEV) {
-            console.log('Table update received:', payload);
-          }
-          const newTable = payload.new as Table;
-          updateTable(newTable);
-          
-          // Check if table just started running - trigger immediate state refresh
-          if (newTable.status === 'running' && state.table?.status !== 'running') {
-            if (import.meta.env.DEV) {
-              console.log('Table started - triggering immediate state refresh');
-            }
-            debouncedRefresh.current();
-          }
-          
-          // Check if current_round_id changed - trigger full refresh to get new round data
-          if (newTable.current_round_id !== state.table?.current_round_id) {
-            if (import.meta.env.DEV) {
-              console.log('Current round changed - triggering data refresh');
-            }
-            setTimeout(() => debouncedRefresh.current(), 100); // Small delay to ensure round exists
-          }
-        }
+        handleTableUpdate
       )
-      // Round updates - critical for phase transitions (listen to ALL rounds for this table)
+      // Round updates - critical for phase transitions
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'rounds', filter: `table_id=eq.${state.table.id}` },
-        (payload) => {
-          if (import.meta.env.DEV) {
-            console.log('Round update received:', payload);
-          }
-          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            const newRound = payload.new as Round;
-            
-            // Only update if this is the current round
-            if (state.table?.current_round_id === newRound.id) {
-              if (import.meta.env.DEV) {
-                console.log('Current round updated - updating state');
-              }
-              updateRound(newRound);
-              
-              // If round just transitioned to vote phase, add small delay for sync
-              if (newRound.status === 'vote' && state.currentRound?.status !== 'vote') {
-                if (import.meta.env.DEV) {
-                  console.log('Vote phase started - ensuring UI sync');
-                }
-                setTimeout(() => {
-                  updateRound(newRound);
-                }, 200);
-              }
-            } else if (payload.eventType === 'INSERT') {
-              if (import.meta.env.DEV) {
-                console.log('New round created - may need to refresh if it becomes current');
-              }
-              // The table update will handle the refresh when current_round_id changes
-            }
-          }
-        }
+        handleRoundUpdate
       )
       // Participant changes
       .on('postgres_changes',
@@ -340,26 +512,29 @@ export function useTableState(tableCode: string) {
         { event: 'INSERT', schema: 'public', table: 'suggestions' },
         (payload) => {
           const newSuggestion = payload.new as Suggestion;
-          if (state.currentRound && newSuggestion.round_id === state.currentRound.id) {
-            setState(prev => ({
-              ...prev,
-              suggestions: [...prev.suggestions, newSuggestion]
-            }));
-          }
+          setState(prev => {
+            if (prev.currentRound && newSuggestion.round_id === prev.currentRound.id) {
+              return { ...prev, suggestions: [...prev.suggestions, newSuggestion] };
+            }
+            return prev;
+          });
         }
       )
       .on('postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'suggestions' },
         (payload) => {
           const updatedSuggestion = payload.new as Suggestion;
-          if (state.currentRound && updatedSuggestion.round_id === state.currentRound.id) {
-            setState(prev => ({
-              ...prev,
-              suggestions: prev.suggestions.map(s => 
-                s.id === updatedSuggestion.id ? updatedSuggestion : s
-              )
-            }));
-          }
+          setState(prev => {
+            if (prev.currentRound && updatedSuggestion.round_id === prev.currentRound.id) {
+              return {
+                ...prev,
+                suggestions: prev.suggestions.map(s => 
+                  s.id === updatedSuggestion.id ? updatedSuggestion : s
+                )
+              };
+            }
+            return prev;
+          });
         }
       )
       // Vote changes
@@ -367,21 +542,18 @@ export function useTableState(tableCode: string) {
         { event: 'INSERT', schema: 'public', table: 'votes' },
         (payload) => {
           const newVote = payload.new as Vote;
-          if (state.currentRound && newVote.round_id === state.currentRound.id) {
-            setState(prev => ({
-              ...prev,
-              votes: [...prev.votes, newVote]
-            }));
-          }
+          setState(prev => {
+            if (prev.currentRound && newVote.round_id === prev.currentRound.id) {
+              return { ...prev, votes: [...prev.votes, newVote] };
+            }
+            return prev;
+          });
         }
       )
       // Block changes - listen to all changes for immediate timeline updates
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'blocks', filter: `table_id=eq.${state.table.id}` },
         (payload) => {
-          if (import.meta.env.DEV) {
-            console.log('Block insert received:', payload);
-          }
           setState(prev => ({
             ...prev,
             blocks: [...prev.blocks, payload.new as Block]
@@ -391,9 +563,6 @@ export function useTableState(tableCode: string) {
       .on('postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'blocks', filter: `table_id=eq.${state.table.id}` },
         (payload) => {
-          if (import.meta.env.DEV) {
-            console.log('Block update received:', payload);
-          }
           setState(prev => ({
             ...prev,
             blocks: prev.blocks.map(b => 
@@ -402,17 +571,73 @@ export function useTableState(tableCode: string) {
           }));
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 [REAL-TIME] Subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ [REAL-TIME] Successfully subscribed to real-time updates');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('❌ [REAL-TIME] Subscription error - will retry');
+          // Don't use loadTableData here as it can cause infinite loops
+        } else if (status === 'CLOSED') {
+          console.warn('⚠️ [REAL-TIME] Subscription closed');
+        }
+      });
 
     channelRef.current = channel;
 
     return () => {
+      console.log('🧹 [REAL-TIME] Cleaning up real-time subscription');
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
     };
-  }, [state.table?.id, state.currentRound?.id, clientId, updateTable, updateRound, toast, loadTableData]);
+  }, [state.table?.id]); // CRITICAL: Only depend on table ID - nothing else!
+
+  // Enhanced emergency state synchronization guard for critical transitions
+  useEffect(() => {
+    // CRITICAL: Emergency sync for state inconsistencies during table start
+    const tableStatus = state.table?.status;
+    const hasCurrentRound = !!state.currentRound;
+    const tableId = state.table?.id;
+    
+    if (tableStatus === 'running' && !hasCurrentRound && tableId) {
+      console.log('🚨 [EMERGENCY] Critical state inconsistency detected:', {
+        tableStatus,
+        hasCurrentRound,
+        tableId,
+        currentRoundId: state.table?.current_round_id
+      });
+      
+      // Clear any existing timeout
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+      
+      // IMMEDIATE emergency sync for critical situations - NO DELAY
+      syncTimeoutRef.current = setTimeout(() => {
+        console.log('⚡ [EMERGENCY] Executing IMMEDIATE state synchronization');
+        
+        // Try targeted round fetch first, then full refresh as fallback
+        if (state.table?.current_round_id) {
+          console.log('🎯 [EMERGENCY] Fetching specific round:', state.table.current_round_id);
+          fetchCurrentRoundData(state.table.current_round_id).catch(() => {
+            console.log('🔄 [FALLBACK] Targeted fetch failed, doing full refresh');
+            loadTableData();
+          });
+        } else {
+          console.log('🔄 [EMERGENCY] No round ID, doing full refresh');
+          loadTableData();
+        }
+      }, 0); // NO DELAY for critical transitions
+    }
+    
+    return () => {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+    };
+  }, [state.table?.status, state.currentRound?.id, state.table?.current_round_id, fetchCurrentRoundData, loadTableData]);
 
   // Set up timer interval
   useEffect(() => {
@@ -434,14 +659,89 @@ export function useTableState(tableCode: string) {
     loadTableData();
   }, [loadTableData]);
 
+  // Calculate current phase with CRITICAL validation and immediate recovery
+  const currentPhase = useMemo(() => {
+    const phase = getCurrentPhase(
+      state.table?.status || 'waiting',
+      state.currentRound?.status || null,
+      state.timeRemaining
+    );
+    
+    console.log('🎯 [PHASE-VALIDATION] Current phase calculation:', {
+      tableStatus: state.table?.status,
+      roundStatus: state.currentRound?.status,
+      timeRemaining: state.timeRemaining,
+      calculatedPhase: phase,
+      hasCurrentRound: !!state.currentRound,
+      tableCurrentRoundId: state.table?.current_round_id
+    });
+    
+    // CRITICAL VALIDATION: Detect and immediately fix phase mismatches
+    const tableStatus = state.table?.status;
+    const roundStatus = state.currentRound?.status;
+    const hasRoundId = state.table?.current_round_id;
+    const hasRound = !!state.currentRound;
+    
+    if (tableStatus === 'running' && phase === 'lobby') {
+      console.error('🚨 [CRITICAL ERROR] Table running but phase is lobby:', {
+        tableStatus,
+        roundStatus,
+        roundId: state.currentRound?.id,
+        tableRoundId: hasRoundId,
+        timeRemaining: state.timeRemaining,
+        calculatedPhase: phase,
+        hasRound
+      });
+      
+      // IMMEDIATE recovery - trigger emergency sync with no delay
+      if (hasRoundId && !hasRound) {
+        console.log('🆘 [IMMEDIATE RECOVERY] Missing round data - fetching now');
+        fetchCurrentRoundData(hasRoundId);
+      }
+    }
+    
+    return phase;
+  }, [state.table?.status, state.currentRound?.status, state.timeRemaining, state.table?.current_round_id, state.currentRound, fetchCurrentRoundData]);
+  
+  // Debug phase calculation during critical transitions
+  useEffect(() => {
+    if (state.table?.status === 'running') {
+      console.log('🎯 [PHASE] Current phase calculation:', {
+        tableStatus: state.table.status,
+        roundStatus: state.currentRound?.status,
+        timeRemaining: state.timeRemaining,
+        calculatedPhase: currentPhase,
+        hasRound: !!state.currentRound,
+        roundId: state.currentRound?.id
+      });
+    }
+  }, [state.table?.status, state.currentRound?.status, state.timeRemaining, currentPhase, state.currentRound?.id]);
+
+  // EMERGENCY STATE CONSISTENCY CHECK
+  useEffect(() => {
+    // If table is running but we think we're in lobby, emergency refresh
+    if (state.table?.status === 'running' && currentPhase === 'lobby' && !state.loading) {
+      console.error('🚨 [EMERGENCY] Participant out of sync - table running but showing lobby!');
+      console.log('📊 [EMERGENCY] Debug state:', {
+        tableStatus: state.table?.status,
+        roundStatus: state.currentRound?.status,
+        timeRemaining: state.timeRemaining,
+        currentPhase,
+        hasCurrentRound: !!state.currentRound
+      });
+      
+      // Force immediate refresh
+      setTimeout(() => {
+        console.log('⚡ [EMERGENCY] Forcing state refresh...');
+        loadTableData();
+      }, 100);
+    }
+  }, [state.table?.status, currentPhase, state.loading, state.currentRound, state.timeRemaining, loadTableData]);
+
   return {
     ...state,
     refresh: loadTableData,
     refreshBlocks,
-    currentPhase: getCurrentPhase(
-      state.table?.status || 'lobby',
-      state.currentRound?.status || null,
-      state.timeRemaining
-    ),
+    currentPhase,
   };
 }

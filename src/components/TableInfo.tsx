@@ -15,7 +15,9 @@ interface TableInfoProps {
 
 export function TableInfo({ tableCode, participantCount, isHost }: TableInfoProps) {
   // Only show for hosts
-  if (!isHost) return null;
+  if (!isHost) {
+    return null;
+  }
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [copied, setCopied] = useState(false);
   
@@ -40,7 +42,7 @@ export function TableInfo({ tableCode, participantCount, isHost }: TableInfoProp
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (error) {
-      console.error('Failed to copy:', error);
+      // Silent fail - copy functionality not critical
     }
   };
 

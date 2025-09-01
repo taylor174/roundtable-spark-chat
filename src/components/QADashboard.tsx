@@ -36,11 +36,30 @@ export function QADashboard() {
   const runQA = async () => {
     setIsRunning(true);
     try {
+      // Run QA in smaller chunks to prevent memory issues
       const qaSystem = new ComprehensiveQASystem();
+      
+      // Clear any previous results first
+      setResults(null);
+      
+      // Force garbage collection hint
+      if (window.gc) {
+        window.gc();
+      }
+      
       const testResults = await qaSystem.runFullQA();
       setResults(testResults);
     } catch (error) {
       console.error('QA failed:', error);
+      // Set empty results on error to prevent infinite loading
+      setResults({
+        security: [],
+        reliability: [],
+        performance: [],
+        usability: [],
+        edge_cases: [],
+        summary: { total: 0, passed: 0, failed: 1, warnings: 0, score: 0 }
+      });
     } finally {
       setIsRunning(false);
     }

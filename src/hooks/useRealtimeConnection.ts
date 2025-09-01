@@ -68,16 +68,10 @@ export function useRealtimeConnection(tableId: string) {
               new Error(`Connection ${status.toLowerCase()}`),
               setupConnection
             ).catch((error) => {
-              handleError(error, {
-                operation: 'realtime connection',
-                component: 'useRealtimeConnection',
-                userMessage: 'Lost connection to server. Retrying connection...'
-              });
-              
               setConnectionState(prev => ({ 
                 ...prev, 
                 lastError: error,
-                reconnectAttempts: Math.min(prev.reconnectAttempts + 1, 10) // Cap at 10 attempts
+                reconnectAttempts: Math.min(prev.reconnectAttempts + 1, 5) // Reduce max attempts
               }));
             });
           }, backoffDelay);

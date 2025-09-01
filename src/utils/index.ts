@@ -35,10 +35,31 @@ export function formatTime(seconds: number): string {
  * Calculate time remaining from server timestamp
  */
 export function calculateTimeRemaining(endTime: string | null): number {
-  if (!endTime) return 0;
+  if (!endTime || endTime === 'null' || endTime === '') {
+    console.log('⏰ calculateTimeRemaining: No valid endTime provided:', endTime);
+    return 0;
+  }
+  
   const now = new Date().getTime();
   const end = new Date(endTime).getTime();
-  const remaining = Math.floor((end - now) / 1000);
+  
+  // Validate the parsed date
+  if (isNaN(end)) {
+    console.warn('⏰ calculateTimeRemaining: Invalid endTime format:', endTime);
+    return 0;
+  }
+  
+  const remaining = Math.max(0, Math.floor((end - now) / 1000));
+  
+  if (remaining <= 0) {
+    console.log('⏰ calculateTimeRemaining: Time expired:', {
+      endTime,
+      now: new Date(now).toISOString(),
+      end: new Date(end).toISOString(),
+      remaining
+    });
+  }
+  
   return remaining;
 }
 
@@ -74,18 +95,32 @@ export function isValidSuggestion(text: string): boolean {
 
 /**
  * Get the current phase based on table and round status
+ * CRITICAL FIX: Handle race condition where table is 'running' but no round data exists yet
  */
 export function getCurrentPhase(
   tableStatus: string,
   roundStatus: string | null,
   timeRemaining: number
 ): 'lobby' | 'suggest' | 'vote' | 'result' {
+  console.log('🔄 [PHASE-CALC] getCurrentPhase called:', {
+    tableStatus,
+    roundStatus,
+    timeRemaining
+  });
+
   if (tableStatus === 'lobby') return 'lobby';
   if (tableStatus === 'closed') return 'result';
   
+  // CRITICAL FIX: If table is 'running' but no round data exists yet, 
+  // assume we're in the first phase (suggest) to prevent race condition
+  if (tableStatus === 'running' && !roundStatus) {
+    console.log('🚨 [RACE-CONDITION-FIX] Table running but no round - assuming suggest phase');
+    return 'suggest';
+  }
+  
   if (!roundStatus) return 'lobby';
   
-  // Only return phases based on actual database state, don't predict based on timer
+  // Return phases based on actual database state
   if (roundStatus === 'suggest') return 'suggest';
   if (roundStatus === 'vote') return 'vote';
   

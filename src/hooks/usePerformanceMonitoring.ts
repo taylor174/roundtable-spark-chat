@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { logger } from '@/utils/logger';
 
 /**
  * Advanced performance monitoring hook
@@ -26,8 +27,8 @@ export function usePerformanceMonitor(componentName: string) {
       }));
 
       // Log performance issues in development
-      if (process.env.NODE_ENV === 'development' && renderTime > 16) {
-        console.warn(`Slow render detected in ${componentName}: ${renderTime.toFixed(2)}ms`);
+      if (renderTime > 16) {
+        logger.warn(`Slow render detected: ${renderTime.toFixed(2)}ms`, { renderTime }, componentName);
       }
     };
   });
@@ -51,8 +52,8 @@ export function useMemoryLeakDetection(componentName: string) {
     return (...args: any[]) => {
       if (mountedRef.current) {
         setter(...args);
-      } else if (process.env.NODE_ENV === 'development') {
-        console.warn(`Attempted state update on unmounted component: ${componentName}`);
+      } else {
+        logger.warn(`Attempted state update on unmounted component`, null, componentName);
       }
     };
   };
@@ -119,9 +120,7 @@ export function useBundleAnalytics() {
         domContentLoaded: performance.timing.domContentLoadedEventEnd - performance.timing.navigationStart
       };
 
-      if (import.meta.env.DEV) {
-        console.log('Bundle Analytics:', bundleInfo);
-      }
+      logger.debug('Bundle Analytics', bundleInfo);
     }
   }, []);
 }

@@ -2,23 +2,93 @@
 
 Interactive group discussion and decision-making tool for classrooms.
 
-## Quick Start
+## 🚀 Quick Deploy
 
-### Environment Setup
+**New to this project?** Check out `GIFT-SETUP.md` for a simple 30-minute setup guide!
 
-This app uses Supabase for the backend. The connection is already configured with these credentials:
+### Deploy to Production
 
-- **Supabase URL**: `https://ykhukknbkfwlmstmkcdk.supabase.co`
-- **Anon Key**: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlraHVra25ia2Z3bG1zdG1rY2RrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUxNzMxNDQsImV4cCI6MjA3MDc0OTE0NH0.JXKccfpha5Zfji8a9bykPbtkLSur2QEOqsk4pD36Yz0`
+#### Option 1: Vercel (Recommended)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/your-username/classroom-sessions&env=VITE_SUPABASE_PROJECT_ID,VITE_SUPABASE_PUBLISHABLE_KEY,VITE_SUPABASE_URL&envDescription=Supabase%20credentials%20for%20your%20project&envLink=https://supabase.com/dashboard)
 
-No additional environment variables are required.
+#### Option 2: Netlify
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/your-username/classroom-sessions)
 
-### Installation
+#### Option 3: Other Platforms
+- **Railway**: Connect your GitHub repo and deploy
+- **Render**: Static site deployment from GitHub
+- **GitHub Pages**: For static hosting (requires build setup)
+
+## 🛠️ Setup Instructions
+
+### Prerequisites
+- [Node.js](https://nodejs.org/) (version 16 or higher)
+- [Supabase account](https://supabase.com) (free tier available)
+
+### 1. Backend Setup (Supabase)
+
+1. **Create Supabase Project**
+   - Go to [supabase.com](https://supabase.com) and sign up
+   - Click "New Project"
+   - Choose your organization, project name, and region
+   - Set a strong database password
+   - Wait 2-3 minutes for setup
+
+2. **Set Up Database**
+   - Go to SQL Editor in your Supabase dashboard
+   - Copy contents of `database-schema.sql` and run it
+   - This creates all tables, policies, and functions needed
+
+3. **Get Your Credentials**
+   - Go to Settings > API in your Supabase project
+   - Copy your Project URL and Anon Key
+   - Note your Project Reference ID from Settings > General
+
+### 2. Environment Configuration
+
+1. **Copy Environment Template**
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Update Your Credentials**
+   ```env
+   VITE_SUPABASE_PROJECT_ID="your-project-reference-id"
+   VITE_SUPABASE_PUBLISHABLE_KEY="your-anon-key-here"
+   VITE_SUPABASE_URL="https://your-project-ref.supabase.co"
+   ```
+
+### 3. Local Development
 
 ```bash
 npm install
 npm run dev
 ```
+
+The app will be available at `http://localhost:8080`
+
+## 📚 Complete Setup Guide
+
+For detailed step-by-step instructions, see:
+- `GIFT-SETUP.md` - Simple 30-minute setup guide
+- `setup-database.md` - Detailed database configuration
+- `database-schema.sql` - Complete database schema
+
+## 🔧 Configuration Options
+
+### Supabase Settings
+
+**Optional Configurations:**
+- **Email Confirmation**: Disable in Auth > Settings for faster testing
+- **Email Templates**: Customize in Auth > Templates  
+- **RLS Policies**: Already configured for security
+
+### App Settings
+
+You can customize default values in `src/constants/index.ts`:
+- `DEFAULT_SUGGEST_SEC`: Suggestion phase duration (default: 120s)
+- `DEFAULT_VOTE_SEC`: Voting phase duration (default: 60s)
+- `MAX_SUGGESTION_LENGTH`: Maximum suggestion length (default: 1000 chars)
 
 ## Instructor Run-sheet
 
@@ -63,14 +133,27 @@ npm run dev
 - **End Session**: Use host controls to close the session
 - **View Timeline**: See all winning ideas from each round
 
-## Security Note
+## 🔒 Security & Production Notes
 
-This demo version uses relaxed database policies for smooth classroom participation. In a production environment, you should:
+### Current Security Model
+This app uses a guest-friendly approach optimized for classroom use:
+- **No signup required** for students (join with name only)
+- **Host controls** secured with secret tokens
+- **RLS policies** protect data access appropriately
+- **Real-time updates** work seamlessly for all users
 
-- Implement proper user authentication for instructors
-- Add stricter access controls for sensitive operations  
-- Enable email verification for accounts
-- Review and tighten Row Level Security policies
+### Production Considerations
+For large-scale deployment, consider:
+- **Rate limiting** for session creation
+- **Cleanup jobs** for old sessions (see `cleanup_stale_rounds()` function)
+- **Monitoring** through Supabase dashboard
+- **Backup strategy** for important session data
+
+### Optional Authentication
+While not required, you can add full user authentication:
+- Uncomment auth-related components in the codebase
+- Enable email verification in Supabase Auth settings
+- Add user profile management features
 
 ## Features
 
@@ -82,8 +165,103 @@ This demo version uses relaxed database policies for smooth classroom participat
 - **Mobile Friendly**: Works on phones and tablets
 - **Host Controls**: Add time, skip phases, end sessions
 
-## Technical Stack
+## 🏗️ Technical Stack
 
-- **Frontend**: React, TypeScript, Tailwind CSS
-- **Backend**: Supabase (PostgreSQL, real-time subscriptions)
-- **Hosting**: Vercel
+### Frontend
+- **React 18** with TypeScript
+- **Tailwind CSS** for styling with design system
+- **Vite** for fast development and building
+- **Shadcn/ui** for component library
+- **React Router** for navigation
+
+### Backend
+- **Supabase** for database, auth, and real-time
+- **PostgreSQL** with Row Level Security
+- **Real-time subscriptions** for live updates
+- **Edge Functions** for advanced operations
+
+### Deployment
+- **Vercel/Netlify** for frontend hosting
+- **Supabase** for backend infrastructure
+- **GitHub** for version control and CI/CD
+
+## 🚀 Deployment Guide
+
+### Step 1: Prepare for Deployment
+
+1. **Test Locally First**
+   ```bash
+   npm run build
+   npm run preview
+   ```
+
+2. **Verify Environment Variables**
+   - Ensure `.env` has correct Supabase credentials
+   - Test all major features work
+
+### Step 2: Deploy Frontend
+
+**Using Vercel:**
+1. Connect your GitHub repository to Vercel
+2. Add environment variables in Vercel dashboard
+3. Deploy automatically on every push
+
+**Using Netlify:**
+1. Connect your GitHub repository to Netlify
+2. Set build command: `npm run build`
+3. Set publish directory: `dist`
+4. Add environment variables in site settings
+
+**Manual Deployment:**
+```bash
+npm run build
+# Upload 'dist' folder to your hosting provider
+```
+
+### Step 3: Configure Domain (Optional)
+
+1. Add your custom domain in hosting platform settings
+2. Configure DNS records as instructed
+3. Enable HTTPS (usually automatic)
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+**"Failed to connect to Supabase"**
+- Check your environment variables are correct
+- Verify Supabase project is active (not paused)
+- Ensure anon key has proper permissions
+
+**"Database functions not found"**
+- Re-run `database-schema.sql` in Supabase SQL Editor
+- Check Functions section in Supabase dashboard
+
+**Real-time updates not working**
+- Verify RLS policies are properly set
+- Check Supabase real-time settings
+- Ensure network allows WebSocket connections
+
+**Build failures**
+- Clear node_modules and reinstall: `rm -rf node_modules package-lock.json && npm install`
+- Check Node.js version (requires 16+)
+- Verify all environment variables are set
+
+### Getting Help
+
+1. Check the Supabase project logs
+2. Use browser developer tools to check console errors
+3. Verify database schema matches `database-schema.sql`
+4. Test with a fresh Supabase project if issues persist
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature-name`
+3. Make your changes and test thoroughly
+4. Commit with clear messages: `git commit -m "Add feature description"`
+5. Push and create a pull request
+
+## 📄 License
+
+This project is open source and available under the MIT License.

@@ -20,14 +20,31 @@ export function Timer({ timeRemaining, phase, isActive = true, endTime }: TimerP
   const { quality } = useConnectionQuality();
 
   useEffect(() => {
-    if (endTime) {
+    if (endTime && endTime !== 'null' && endTime !== '') {
       const updateTimer = () => {
         const now = new Date();
         const end = new Date(endTime);
         
+        // Validate end time
+        if (isNaN(end.getTime())) {
+          console.warn('⏰ Invalid endTime provided:', endTime);
+          setDisplayTime(timeRemaining);
+          return;
+        }
+        
         // Account for network latency and drift
         const networkLatency = quality.latency / 2;
         const remaining = Math.max(0, Math.floor((end.getTime() - now.getTime() + driftOffset - networkLatency) / 1000));
+        
+        console.log('⏰ Timer update:', {
+          endTime,
+          remaining,
+          timeRemaining,
+          networkLatency,
+          now: now.toISOString(),
+          end: end.toISOString()
+        });
+        
         setDisplayTime(remaining);
         setLastSyncTime(Date.now());
       };
@@ -36,7 +53,8 @@ export function Timer({ timeRemaining, phase, isActive = true, endTime }: TimerP
       const interval = setInterval(updateTimer, 1000);
       return () => clearInterval(interval);
     } else {
-      setDisplayTime(timeRemaining);
+      console.log('⏰ Using timeRemaining fallback:', timeRemaining, 'endTime:', endTime);
+      setDisplayTime(Math.max(0, timeRemaining));
       setLastSyncTime(Date.now());
     }
   }, [timeRemaining, endTime, driftOffset, quality.latency]);
@@ -107,7 +125,10 @@ export function Timer({ timeRemaining, phase, isActive = true, endTime }: TimerP
             {isActive ? formatTime(displayTime) : '--:--'}
           </div>
           <div className="text-sm text-muted-foreground">
-            {phase === 'suggest' ? 'Suggesting' : 'Voting'} Time
+            {displayTime === 0 && isActive ? "Time's up!" : 
+             phase === 'suggest' ? 'Suggesting' : 
+             phase === 'vote' ? 'Voting' : 
+             phase === 'result' ? 'Results' : 'Phase'} Time
             {!isActive && ' (paused)'}
             {isDriftWarning && ' (may be inaccurate)'}
           </div>
