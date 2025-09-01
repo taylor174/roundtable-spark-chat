@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { getHostSecret } from '@/utils/clientId';
-import { useOptimizedTableState } from '@/hooks/useOptimizedTableState';
+import { useTableState } from '@/hooks/useTableStateOptimized';
 import { usePhaseManager } from '@/hooks/usePhaseManager';
 import { Timer } from '@/components/Timer';
 import { SuggestionForm } from '@/components/SuggestionForm';
@@ -80,7 +80,8 @@ const Table = () => {
     error,
     currentPhase,
     refresh,
-  } = useOptimizedTableState(code || '');
+    refreshBlocks,
+  } = useTableState(code || '');
   
   // Initialize presence tracking
   usePresenceTracking(table?.id || null, clientId);
@@ -215,7 +216,10 @@ const Table = () => {
         });
         
         // Force refresh to show winner immediately in timeline
-        setTimeout(() => refresh(), 100);
+        setTimeout(() => {
+          refresh();
+          refreshBlocks();
+        }, 100);
         
         setTimeout(() => {
           setIsTransitioning(false);
@@ -256,7 +260,10 @@ const Table = () => {
       });
       
       // Force refresh to ensure timeline shows latest winner
-      setTimeout(() => refresh(), 100);
+      setTimeout(() => {
+        refresh();
+        refreshBlocks();
+      }, 100);
       
       // Force a complete refresh to ensure UI updates with new round
       setTimeout(() => {

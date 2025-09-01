@@ -438,9 +438,6 @@ export function useTableState(tableCode: string) {
       .on('postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'blocks', filter: `table_id=eq.${state.table.id}` },
         (payload) => {
-          if (import.meta.env.DEV) {
-            console.log('Block insert received:', payload);
-          }
           setState(prev => ({
             ...prev,
             blocks: [...prev.blocks, payload.new as Block]
@@ -450,9 +447,6 @@ export function useTableState(tableCode: string) {
       .on('postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'blocks', filter: `table_id=eq.${state.table.id}` },
         (payload) => {
-          if (import.meta.env.DEV) {
-            console.log('Block update received:', payload);
-          }
           setState(prev => ({
             ...prev,
             blocks: prev.blocks.map(b => 
