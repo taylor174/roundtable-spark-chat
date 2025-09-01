@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getHostSecret } from '@/utils/clientId';
 import { useTableState } from '@/hooks/useTableStateOptimized';
 import { usePhaseManager } from '@/hooks/usePhaseManager';
+import { useAutoCleanup } from '@/hooks/useAutoCleanup';
 import { Timer } from '@/components/Timer';
 import { SuggestionForm } from '@/components/SuggestionForm';
 import { SuggestionList } from '@/components/SuggestionList';
@@ -14,12 +15,14 @@ import { DiscussionContextCard } from '@/components/DiscussionContextCard';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { PhaseTransition } from '@/components/PhaseTransition';
 import { SmoothTransition } from '@/components/SmoothTransition';
+import { PhaseTransitionIndicator } from '@/components/PhaseTransitionIndicator';
 import { PendingParticipantScreen } from '@/components/PendingParticipantScreen';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { 
   getSuggestionsWithVotes, 
   getWinningSuggestions,
@@ -31,7 +34,7 @@ import {
 import { SuggestionWithVotes, WinningSuggestion } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { MESSAGES } from '@/constants';
-import { Users, Clock, List, Play } from 'lucide-react';
+import { Users, Clock, List, Play, Trash2, RefreshCw } from 'lucide-react';
 import { useEffect, useState, startTransition } from 'react';
 import { VotingStatusIndicator } from '@/components/VotingStatusIndicator';
 import { BackButton } from '@/components/BackButton';
@@ -85,6 +88,12 @@ const Table = () => {
   
   // Initialize presence tracking
   usePresenceTracking(table?.id || null, clientId);
+
+  // Initialize auto-cleanup for expired rounds
+  const { manualCleanup } = useAutoCleanup({
+    interval: 5, // Check every 5 minutes
+    enabled: true
+  });
 
   // Navigate to summary when table is closed and has blocks
   useEffect(() => {
@@ -527,6 +536,19 @@ const Table = () => {
         <div className="responsive-grid">
           {/* Main Content */}
           <div className="space-y-6 stable-layout">
+            {/* Phase Transition Indicator */}
+            {currentPhase !== 'lobby' && (
+              <PhaseTransitionIndicator
+                phase={currentPhase}
+                timeRemaining={timeRemaining}
+                isTransitioning={isProcessing}
+                participantCount={activeParticipants.length}
+                votedCount={votes.filter(vote => 
+                  activeParticipants.some(p => p.id === vote.participant_id)
+                ).length}
+              />
+            )}
+
             <SmoothTransition 
               isVisible={!isTransitioning} 
               className="phase-container"
@@ -556,6 +578,21 @@ const Table = () => {
               {/* Suggestion Phase - Only show form to active participants */}
               {currentPhase === 'suggest' && (
                 <div className="content-enter space-y-6">
+                  {/* User Guidance */}
+                  <Card className="bg-primary/5 border-primary/20">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
+                        <p className="text-sm text-muted-foreground">
+                          {currentParticipant && !isCurrentParticipantPending 
+                            ? "Share your ideas and suggestions below. All participants can see submissions in real-time."
+                            : "Other participants are sharing their suggestions. You can view them below."
+                          }
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
                   {currentParticipant && currentRound && !isCurrentParticipantPending && (
                     <SuggestionForm
                       roundId={currentRound.id}
@@ -570,7 +607,24 @@ const Table = () => {
               
               {/* Voting Phase - Only show voting to active participants */}
               {currentPhase === 'vote' && (
-                <div className="content-enter">
+                <div className="content-enter space-y-6">
+                  {/* User Guidance */}
+                  <Card className="bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-900/50">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-2 w-2 bg-orange-500 rounded-full animate-pulse" />
+                        <p className="text-sm text-muted-foreground">
+                          {currentParticipant && !isCurrentParticipantPending && !userHasVoted
+                            ? "Choose your favorite suggestion by clicking on it. You can only vote once."
+                            : userHasVoted 
+                              ? "Thank you for voting! Waiting for other participants to complete their votes."
+                              : "Participants are voting on their favorite suggestions."
+                          }
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
                   {currentParticipant && currentRound && !isCurrentParticipantPending && (
                     <VoteList
                       suggestions={suggestionsWithVotes}
@@ -676,7 +730,7 @@ const Table = () => {
 
             {/* Host Controls */}
             {isHost && (
-              <div className="smooth-transition">
+              <div className="smooth-transition space-y-4">
                 <HostControls
                   table={table}
                   canStart={true}
@@ -686,6 +740,32 @@ const Table = () => {
                   currentParticipant={currentParticipant}
                   onRefresh={refresh}
                 />
+                
+                {/* Manual Cleanup Button */}
+                <Card className="border-muted">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Trash2 className="h-4 w-4" />
+                      Session Maintenance
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground">
+                        Clean up expired rounds and stuck phases
+                      </p>
+                      <Button
+                        onClick={manualCleanup}
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                      >
+                        <RefreshCw className="h-3 w-3 mr-2" />
+                        Clean Up Session
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             )}
           </div>
