@@ -212,6 +212,24 @@ export class LiveQAExecution {
 }
 
 // Factory function instead of singleton to avoid hook violations
-export function createLiveQA(toast?: (options: any) => void) {
+/**
+ * Factory function for creating LiveQA instances
+ */
+export function createLiveQA(toast?: (options: any) => void): LiveQAExecution {
   return new LiveQAExecution(toast);
+}
+
+/**
+ * Quick test function to check if session 2C1R6J can be loaded and analyzed
+ */
+export async function testSessionQA(): Promise<boolean> {
+  try {
+    const qa = createLiveQA();
+    const results = await qa.executeCompleteQA();
+    console.log('QA test results:', results);
+    return results.summary.total_tests > 0;
+  } catch (error) {
+    console.error('QA test failed:', error);
+    return false;
+  }
 }
