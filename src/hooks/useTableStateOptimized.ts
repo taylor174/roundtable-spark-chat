@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { TableState, Participant, Round, Suggestion, Vote, Block, Table } from '@/types';
 import { calculateTimeRemaining, getCurrentPhase } from '@/utils';
-import { getOrCreateClientId, getHostSecret } from '@/utils/clientId';
+import { getOrCreateClientId, getHostSecret, removeHostSecret } from '@/utils/clientId';
 import { useToast } from '@/hooks/use-toast';
 import { useErrorHandler } from './useErrorHandler';
 import { useRealtimeConnection } from './useRealtimeConnection';
@@ -92,22 +92,37 @@ export function useTableState(tableCode: string) {
       let isHostCheck = false;
       let table = { ...tableData, host_secret: '' };
       
+      console.log('Host verification debug:', {
+        hasHostSecret: !!hostSecret,
+        hostSecretLength: hostSecret?.length || 0,
+        tableCode,
+        localStorageValue: localStorage.getItem(`host_secret_${tableCode}`)
+      });
+      
       if (hostSecret) {
         try {
+          console.log('Attempting host verification for table:', tableCode);
           const { data: hostData, error: hostError } = await supabase
             .rpc('get_table_host_data_secure', { 
               p_table_code: tableCode, 
               p_host_secret: hostSecret 
             });
           
+          console.log('Host verification result:', { hostData, hostError });
+          
           if (!hostError && hostData && hostData.length > 0) {
             isHostCheck = true;
             table = hostData[0];
+            console.log('✅ Host verification successful');
+          } else {
+            console.log('❌ Host verification failed:', hostError?.message || 'No data');
           }
         } catch (error) {
-          console.log('Host verification failed:', error);
+          console.log('❌ Host verification error:', error);
           // Continue as non-host user
         }
+      } else {
+        console.log('No host secret found for table:', tableCode);
       }
 
       // Get participants
@@ -210,6 +225,13 @@ export function useTableState(tableCode: string) {
           timeRemaining: 0,
           loading: false,
           error: null,
+        });
+
+        console.log('Final host status debug:', {
+          isHost,
+          isHostCheck,
+          currentParticipant: currentParticipant?.display_name,
+          participantIsHost: currentParticipant?.is_host
         });
 
         console.log('Table data loaded successfully:', {

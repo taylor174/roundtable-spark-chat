@@ -82,7 +82,9 @@ export function TableCreationDialog({ children }: TableCreationDialogProps) {
       const table = tableResults[0];
 
       // Store host secret
+      console.log('Storing host secret for table:', tableCode);
       storeHostSecret(tableCode, hostSecret);
+      console.log('Host secret stored, verifying:', localStorage.getItem(`host_secret_${tableCode}`));
 
       // Automatically add host as participant
       const { getOrCreateClientId } = await import('@/utils/clientId');
