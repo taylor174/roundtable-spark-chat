@@ -23,6 +23,7 @@ export type Database = {
           suggestion_id: string | null
           table_id: string
           text: string
+          updated_at: string
         }
         Insert: {
           created_at?: string
@@ -32,6 +33,7 @@ export type Database = {
           suggestion_id?: string | null
           table_id: string
           text: string
+          updated_at?: string
         }
         Update: {
           created_at?: string
@@ -41,6 +43,7 @@ export type Database = {
           suggestion_id?: string | null
           table_id?: string
           text?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -104,6 +107,7 @@ export type Database = {
           joined_at: string
           last_seen_at: string | null
           table_id: string
+          updated_at: string
         }
         Insert: {
           active_from_round?: number | null
@@ -115,6 +119,7 @@ export type Database = {
           joined_at?: string
           last_seen_at?: string | null
           table_id: string
+          updated_at?: string
         }
         Update: {
           active_from_round?: number | null
@@ -126,6 +131,7 @@ export type Database = {
           joined_at?: string
           last_seen_at?: string | null
           table_id?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -170,6 +176,7 @@ export type Database = {
           started_at: string
           status: string
           table_id: string
+          updated_at: string
           winner_suggestion_id: string | null
         }
         Insert: {
@@ -180,6 +187,7 @@ export type Database = {
           started_at?: string
           status?: string
           table_id: string
+          updated_at?: string
           winner_suggestion_id?: string | null
         }
         Update: {
@@ -190,6 +198,7 @@ export type Database = {
           started_at?: string
           status?: string
           table_id?: string
+          updated_at?: string
           winner_suggestion_id?: string | null
         }
         Relationships: [
@@ -216,6 +225,7 @@ export type Database = {
           participant_id: string
           round_id: string
           text: string
+          updated_at: string
         }
         Insert: {
           created_at?: string
@@ -223,6 +233,7 @@ export type Database = {
           participant_id: string
           round_id: string
           text: string
+          updated_at?: string
         }
         Update: {
           created_at?: string
@@ -230,6 +241,7 @@ export type Database = {
           participant_id?: string
           round_id?: string
           text?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -303,6 +315,7 @@ export type Database = {
           participant_id: string
           round_id: string
           suggestion_id: string
+          updated_at: string
         }
         Insert: {
           created_at?: string
@@ -310,6 +323,7 @@ export type Database = {
           participant_id: string
           round_id: string
           suggestion_id: string
+          updated_at?: string
         }
         Update: {
           created_at?: string
@@ -317,6 +331,7 @@ export type Database = {
           participant_id?: string
           round_id?: string
           suggestion_id?: string
+          updated_at?: string
         }
         Relationships: [
           {
