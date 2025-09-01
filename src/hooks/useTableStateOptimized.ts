@@ -245,7 +245,7 @@ export function useTableState(tableCode: string) {
     });
   }, [clientId]);
 
-  const updateRound = useCallback((newRound: Round) => {
+  const updateRound = useCallback((newRound: Round | null) => {
     setState(prev => ({ ...prev, currentRound: newRound }));
   }, []);
 
@@ -311,6 +311,30 @@ export function useTableState(tableCode: string) {
     });
   }, []);
 
+  // Targeted round data fetching without destroying subscriptions
+  const fetchCurrentRoundData = useCallback(async (roundId: string | null) => {
+    if (!roundId) {
+      updateRound(null);
+      updateSuggestions([]);
+      updateVotes([]);
+      return;
+    }
+
+    try {
+      const [roundResult, suggestionsResult, votesResult] = await Promise.all([
+        supabase.from('rounds').select('*').eq('id', roundId).single(),
+        supabase.from('suggestions').select('*').eq('round_id', roundId).order('created_at'),
+        supabase.from('votes').select('*').eq('round_id', roundId)
+      ]);
+
+      if (roundResult.data) updateRound(roundResult.data);
+      if (suggestionsResult.data) updateSuggestions(suggestionsResult.data);
+      if (votesResult.data) updateVotes(votesResult.data);
+    } catch (error) {
+      console.error('Error fetching round data:', error);
+    }
+  }, [updateRound, updateSuggestions, updateVotes]);
+
   // Set up real-time subscriptions with immediate updates (no debouncing for critical changes)
   useEffect(() => {
     if (!state.table?.id) return;
@@ -329,14 +353,15 @@ export function useTableState(tableCode: string) {
           const newTable = payload.new as Table;
           updateTable(newTable);
           
-          // IMMEDIATE refresh when table starts running - no debouncing!
+          // CRITICAL: Use targeted updates - do NOT call loadTableData() or subscriptions break!
           if (newTable.status === 'running' && state.table?.status !== 'running') {
-          loadTableData();
+            // Fetch current round data without destroying subscriptions
+            fetchCurrentRoundData(newTable.current_round_id);
           }
           
-          // IMMEDIATE refresh when round changes - no debouncing!
+          // When round changes, fetch new round data without destroying subscriptions
           if (newTable.current_round_id !== state.table?.current_round_id) {
-          setTimeout(() => loadTableData(), 50); // Very small delay to ensure round exists
+            setTimeout(() => fetchCurrentRoundData(newTable.current_round_id), 50);
           }
         }
       )
@@ -456,7 +481,7 @@ export function useTableState(tableCode: string) {
         channelRef.current = null;
       }
     };
-  }, [state.table?.id, state.currentRound?.id, clientId, updateTable, updateRound, toast, loadTableData]);
+  }, [state.table?.id, state.currentRound?.id, clientId, updateTable, updateRound, fetchCurrentRoundData, toast]);
 
   // Set up timer interval
   useEffect(() => {

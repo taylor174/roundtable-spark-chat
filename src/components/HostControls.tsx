@@ -190,6 +190,7 @@ export function HostControls({
         .from('tables')
         .update({ 
           status: 'closed',
+          current_round_id: null // Clear current round when ending
         })
         .eq('id', table.id);
 
@@ -197,10 +198,13 @@ export function HostControls({
 
       toast({
         title: "Success",
-        description: "Table ended.",
+        description: "Table ended successfully.",
       });
 
-      onRefresh?.();
+      // Force immediate refresh to propagate changes
+      setTimeout(() => {
+        onRefresh?.();
+      }, 100);
 
     } catch (error) {
       console.error('Error ending table:', error);
