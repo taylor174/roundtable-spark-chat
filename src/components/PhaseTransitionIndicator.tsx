@@ -107,7 +107,7 @@ export function PhaseTransitionIndicator({
           
           {timeRemaining > 0 && (
             <div className="text-right">
-              <div className="text-lg font-medium font-mono">
+              <div className="text-lg font-bold font-mono">
                 {Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}
               </div>
               <div className="text-sm opacity-75">remaining</div>
