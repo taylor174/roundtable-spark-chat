@@ -48,19 +48,190 @@ export default function Summary() {
   const handleExport = () => {
     if (!data) return;
     
-    const content = `Discussion Summary: ${data.table?.title}\n\n` +
-      `Original Topic: ${data.table?.title}\n` +
-      `Total Rounds: ${data.blocks.length}\n` +
-      `Participants: ${data.participants.length}\n\n` +
-      data.blocks.map((block, index) => 
-        `Round ${index + 1}: ${block.text}\n`
-      ).join('\n');
+    const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discussion Summary: ${data.table?.title}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            line-height: 1.6; 
+            color: #1f2937; 
+            background: #f9fafb;
+            padding: 2rem;
+        }
+        .container { max-width: 4rem; margin: 0 auto; }
+        .header { margin-bottom: 2rem; }
+        .title { font-size: 2rem; font-weight: bold; margin-bottom: 0.5rem; }
+        .subtitle { color: #6b7280; font-size: 1rem; }
+        .stats-grid { 
+            display: grid; 
+            grid-template-columns: repeat(3, 1fr); 
+            gap: 1rem; 
+            margin-bottom: 2rem; 
+        }
+        .stat-card { 
+            background: white; 
+            border: 1px solid #e5e7eb; 
+            border-radius: 0.5rem; 
+            padding: 1.5rem; 
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .stat-value { font-size: 2rem; font-weight: bold; color: #3b82f6; }
+        .stat-label { font-size: 0.875rem; color: #6b7280; margin-top: 0.25rem; }
+        .timeline-card { 
+            background: white; 
+            border: 1px solid #e5e7eb; 
+            border-radius: 0.5rem; 
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .timeline-title { 
+            font-size: 1.25rem; 
+            font-weight: 600; 
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .original-topic { 
+            background: #f3f4f6; 
+            border-radius: 0.5rem; 
+            padding: 1rem; 
+            margin-bottom: 1.5rem; 
+        }
+        .round-item { 
+            display: flex; 
+            gap: 1rem; 
+            margin-bottom: 1.5rem; 
+            align-items: flex-start;
+        }
+        .round-number { 
+            background: #3b82f6; 
+            color: white; 
+            width: 2rem; 
+            height: 2rem; 
+            border-radius: 50%; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-weight: bold; 
+            font-size: 0.875rem;
+            flex-shrink: 0;
+        }
+        .round-content { flex: 1; }
+        .round-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 0.5rem; 
+        }
+        .round-meta { color: #6b7280; font-size: 0.875rem; }
+        .round-text { 
+            background: #f9fafb; 
+            padding: 0.75rem; 
+            border-radius: 0.375rem; 
+            margin-top: 0.5rem; 
+        }
+        .winner-badge { 
+            background: #fef3c7; 
+            color: #92400e; 
+            padding: 0.125rem 0.5rem; 
+            border-radius: 0.25rem; 
+            font-size: 0.75rem; 
+            font-weight: 500;
+        }
+        .summary-footer { 
+            text-align: center; 
+            padding-top: 1rem; 
+            border-top: 1px solid #e5e7eb; 
+            color: #6b7280; 
+            font-size: 0.875rem; 
+        }
+        @media print {
+            body { background: white; padding: 1rem; }
+            .container { max-width: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">Discussion Summary</h1>
+            <p class="subtitle">${data.table?.title} • ${data.blocks.length} rounds</p>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">${data.blocks.length}</div>
+                <div class="stat-label">Rounds</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${data.participants.length}</div>
+                <div class="stat-label">Participants</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${data.table?.status === 'closed' ? 'Closed' : 'Active'}</div>
+                <div class="stat-label">Status</div>
+            </div>
+        </div>
+        
+        <div class="timeline-card">
+            <div class="timeline-title">
+                <span>💬</span>
+                <span>Discussion Thread</span>
+                <span style="margin-left: auto; font-size: 0.875rem; color: #6b7280;">${data.participants.length} participants</span>
+            </div>
+            
+            ${data.table?.title ? `
+            <div class="original-topic">
+                <div style="font-weight: 600; margin-bottom: 0.5rem;">Original Topic</div>
+                <div>${data.table.title}</div>
+            </div>
+            ` : ''}
+            
+            ${data.blocks.length > 0 ? `
+            <div>
+                <div style="font-weight: 600; margin-bottom: 1rem;">Completed Rounds</div>
+                ${data.blocks.map((block, index) => {
+                  const date = new Date(block.created_at);
+                  return `
+                  <div class="round-item">
+                      <div class="round-number">${index + 1}</div>
+                      <div class="round-content">
+                          <div class="round-header">
+                              <div class="round-meta">
+                                  ${block.winnerName ? `<span class="winner-badge">Winner: ${block.winnerName}</span>` : ''}
+                              </div>
+                              <div class="round-meta">${date.toLocaleDateString()}</div>
+                          </div>
+                          <div class="round-text">${block.text}</div>
+                          <div class="round-meta" style="margin-top: 0.5rem;">
+                              ${date.toLocaleTimeString()}
+                          </div>
+                      </div>
+                  </div>`;
+                }).join('')}
+            </div>
+            ` : '<div style="text-align: center; color: #6b7280; padding: 2rem;">No rounds completed yet.</div>'}
+            
+            <div class="summary-footer">
+                Summary contains ${data.blocks.length} discussion rounds
+            </div>
+        </div>
+    </div>
+</body>
+</html>`;
 
-    const blob = new Blob([content], { type: 'text/plain' });
+    const blob = new Blob([htmlContent], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `discussion-summary-${code}.txt`;
+    a.download = `discussion-summary-${code}.html`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -68,7 +239,7 @@ export default function Summary() {
 
     toast({
       title: "Export complete",
-      description: "Discussion summary downloaded",
+      description: "Discussion summary downloaded as HTML (print to save as PDF)",
     });
   };
 
