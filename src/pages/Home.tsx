@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, Users, ExternalLink, AlertCircle } from 'lucide-react';
+import { Plus, Users, ExternalLink, AlertCircle, Play } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { TableCreationDialog } from '@/components/TableCreationDialog';
@@ -110,22 +110,38 @@ export default function Home() {
           </Card>
         </div>
 
-        {/* Feedback Button */}
+        {/* Demo and Feedback Buttons */}
         <div className="max-w-md mx-auto mt-12 text-center">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            asChild
-          >
-            <a 
-              href="https://docs.google.com/forms/d/12bGHXGWlxTrCjf5pxiAo3Es-AxdrnqO0VvVQnvqUYB0/edit" 
-              target="_blank" 
-              rel="noopener noreferrer"
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              asChild
             >
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Give Feedback
-            </a>
-          </Button>
+              <a 
+                href="https://www.youtube.com/watch?v=K4pXxufX0wk" 
+                target="_blank" 
+                rel="noopener noreferrer"
+              >
+                <Play className="h-4 w-4 mr-2" />
+                Demo
+              </a>
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              asChild
+            >
+              <a 
+                href="https://docs.google.com/forms/d/12bGHXGWlxTrCjf5pxiAo3Es-AxdrnqO0VvVQnvqUYB0/edit" 
+                target="_blank" 
+                rel="noopener noreferrer"
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Give Feedback
+              </a>
+            </Button>
+          </div>
         </div>
       </div>
     </div>
