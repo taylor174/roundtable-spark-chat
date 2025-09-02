@@ -43,6 +43,7 @@ import { ResponsiveSidebar, SidebarMobileToggle } from '@/components/ResponsiveS
 import { MobileOptimizedCard } from '@/components/MobileOptimizedCard';
 import { TouchOptimizedButton } from '@/components/TouchOptimizedButton';
 import { PhaseTransitionMonitor } from '@/components/PhaseTransitionMonitor';
+import { MobileHostActions } from '@/components/MobileHostActions';
 import { Menu } from 'lucide-react';
 
 const Table = () => {
@@ -504,7 +505,7 @@ const Table = () => {
         </div>
       </header>
 
-      <div className="max-w-5xl mx-auto px-4 md:px-6 py-4 relative">
+      <div className="max-w-5xl mx-auto px-4 md:px-6 py-4 pb-20 md:pb-4 relative">
         {/* Phase Transition Overlay */}
         <PhaseTransition 
           isVisible={phaseTransition.isVisible}
@@ -744,6 +745,17 @@ const Table = () => {
           </div>
         </div>
       </div>
+
+      {/* Mobile Host Actions - Fixed Bottom Toolbar */}
+      {isHost && (
+        <MobileHostActions
+          table={table}
+          currentPhase={currentPhase}
+          participantCount={participants.length}
+          participants={participants}
+          onRefresh={refresh}
+        />
+      )}
     </div>
   );
 };
