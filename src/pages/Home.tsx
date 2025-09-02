@@ -35,7 +35,7 @@ export default function Home() {
       <div className="container mx-auto px-4 py-6 sm:py-8">
         {/* Header */}
         <div className="text-center mb-8 sm:mb-12">
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2">Roundtable Sessions</h1>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2">Roundtable</h1>
           <p className="text-base sm:text-lg text-muted-foreground">Structured group debate and fast decisions.</p>
         </div>
 
