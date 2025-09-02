@@ -196,17 +196,6 @@ export function HostControls({
 
       if (error) throw error;
 
-      // Send email summary after successfully ending table
-      try {
-        await supabase.functions.invoke('send-discussion-summary', {
-          body: { table_id: table.id }
-        });
-        console.log('Discussion summary email sent successfully');
-      } catch (emailError) {
-        console.error('Failed to send discussion summary email:', emailError);
-        // Don't fail the table ending if email fails
-      }
-
       toast({
         title: "Success",
         description: "Table ended successfully.",
