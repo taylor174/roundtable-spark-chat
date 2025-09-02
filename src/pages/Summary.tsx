@@ -57,16 +57,16 @@ export default function Summary() {
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
             line-height: 1.6; 
-            color: #1f2937; 
-            background: #f9fafb;
+            color: hsl(222.2 84% 4.9%); 
+            background: hsl(0 0% 100%);
             padding: 2rem;
         }
-        .container { max-width: 4rem; margin: 0 auto; }
+        .container { max-width: 64rem; margin: 0 auto; }
         .header { margin-bottom: 2rem; }
-        .title { font-size: 2rem; font-weight: bold; margin-bottom: 0.5rem; }
-        .subtitle { color: #6b7280; font-size: 1rem; }
+        .title { font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; color: hsl(222.2 84% 4.9%); }
+        .subtitle { color: hsl(215.4 16.3% 46.9%); font-size: 1rem; }
         .stats-grid { 
             display: grid; 
             grid-template-columns: repeat(3, 1fr); 
@@ -74,21 +74,21 @@ export default function Summary() {
             margin-bottom: 2rem; 
         }
         .stat-card { 
-            background: white; 
-            border: 1px solid #e5e7eb; 
-            border-radius: 0.5rem; 
+            background: hsl(0 0% 100%); 
+            border: 1px solid hsl(214.3 31.8% 91.4%); 
+            border-radius: 0.75rem; 
             padding: 1.5rem; 
             text-align: center;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
         }
-        .stat-value { font-size: 2rem; font-weight: bold; color: #3b82f6; }
-        .stat-label { font-size: 0.875rem; color: #6b7280; margin-top: 0.25rem; }
+        .stat-value { font-size: 2rem; font-weight: 700; color: hsl(221.2 83.2% 53.3%); }
+        .stat-label { font-size: 0.875rem; color: hsl(215.4 16.3% 46.9%); margin-top: 0.25rem; }
         .timeline-card { 
-            background: white; 
-            border: 1px solid #e5e7eb; 
-            border-radius: 0.5rem; 
+            background: hsl(0 0% 100%); 
+            border: 1px solid hsl(214.3 31.8% 91.4%); 
+            border-radius: 0.75rem; 
             padding: 1.5rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
         }
         .timeline-title { 
             font-size: 1.25rem; 
@@ -97,9 +97,11 @@ export default function Summary() {
             display: flex;
             align-items: center;
             gap: 0.5rem;
+            color: hsl(222.2 84% 4.9%);
         }
         .original-topic { 
-            background: #f3f4f6; 
+            background: hsl(210 40% 98%); 
+            border: 1px solid hsl(214.3 31.8% 91.4%);
             border-radius: 0.5rem; 
             padding: 1rem; 
             margin-bottom: 1.5rem; 
@@ -109,9 +111,20 @@ export default function Summary() {
             gap: 1rem; 
             margin-bottom: 1.5rem; 
             align-items: flex-start;
+            position: relative;
+        }
+        .round-item:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            left: 0.875rem;
+            top: 2rem;
+            bottom: -1.5rem;
+            width: 2px;
+            background: hsl(214.3 31.8% 91.4%);
+            z-index: -1;
         }
         .round-number { 
-            background: #3b82f6; 
+            background: linear-gradient(135deg, hsl(221.2 83.2% 53.3%), hsl(262.1 83.3% 57.8%)); 
             color: white; 
             width: 2rem; 
             height: 2rem; 
@@ -119,9 +132,12 @@ export default function Summary() {
             display: flex; 
             align-items: center; 
             justify-content: center; 
-            font-weight: bold; 
+            font-weight: 600; 
             font-size: 0.875rem;
             flex-shrink: 0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            position: relative;
+            z-index: 1;
         }
         .round-content { flex: 1; }
         .round-header { 
@@ -130,26 +146,30 @@ export default function Summary() {
             align-items: center; 
             margin-bottom: 0.5rem; 
         }
-        .round-meta { color: #6b7280; font-size: 0.875rem; }
+        .round-meta { color: hsl(215.4 16.3% 46.9%); font-size: 0.875rem; }
         .round-text { 
-            background: #f9fafb; 
+            background: hsl(210 40% 98%); 
+            border: 1px solid hsl(214.3 31.8% 91.4%);
             padding: 0.75rem; 
-            border-radius: 0.375rem; 
+            border-radius: 0.5rem; 
             margin-top: 0.5rem; 
+            line-height: 1.5;
         }
         .winner-badge { 
-            background: #fef3c7; 
-            color: #92400e; 
-            padding: 0.125rem 0.5rem; 
-            border-radius: 0.25rem; 
+            background: hsl(47.9 95.8% 53.1%); 
+            color: hsl(222.2 84% 4.9%); 
+            padding: 0.25rem 0.75rem; 
+            border-radius: 9999px; 
             font-size: 0.75rem; 
             font-weight: 500;
+            display: inline-flex;
+            align-items: center;
         }
         .summary-footer { 
             text-align: center; 
             padding-top: 1rem; 
-            border-top: 1px solid #e5e7eb; 
-            color: #6b7280; 
+            border-top: 1px solid hsl(214.3 31.8% 91.4%); 
+            color: hsl(215.4 16.3% 46.9%); 
             font-size: 0.875rem; 
         }
         @media print {
