@@ -579,20 +579,6 @@ const Table = () => {
               {/* Suggestion Phase - Only show form to active participants */}
               {currentPhase === 'suggest' && (
                 <div className="content-enter space-y-6">
-                  {/* User Guidance */}
-                  <Card className="bg-primary/5 border-primary/20">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
-                        <p className="text-sm text-muted-foreground">
-                          {currentParticipant && !isCurrentParticipantPending 
-                            ? "Share your ideas and suggestions below. All participants can see submissions in real-time."
-                            : "Other participants are sharing their suggestions. You can view them below."
-                          }
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
 
                   {currentParticipant && currentRound && !isCurrentParticipantPending && (
                     <SuggestionForm
@@ -609,22 +595,6 @@ const Table = () => {
               {/* Voting Phase - Only show voting to active participants */}
               {currentPhase === 'vote' && (
                 <div className="content-enter space-y-6">
-                  {/* User Guidance */}
-                  <Card className="bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-900/50">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-2 w-2 bg-orange-500 rounded-full animate-pulse" />
-                        <p className="text-sm text-muted-foreground">
-                          {currentParticipant && !isCurrentParticipantPending && !userHasVoted
-                            ? "Choose your favorite suggestion by clicking on it. You can only vote once."
-                            : userHasVoted 
-                              ? "Thank you for voting! Waiting for other participants to complete their votes."
-                              : "Participants are voting on their favorite suggestions."
-                          }
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
 
                   {currentParticipant && currentRound && !isCurrentParticipantPending && (
                     <VoteList
