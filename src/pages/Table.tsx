@@ -357,150 +357,148 @@ const Table = () => {
 
       {/* Header */}
       <header className="border-b bg-card smooth-transition">
-         <div className="max-w-5xl mx-auto px-4 md:px-6 py-4">
-           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-             <div className="smooth-transition min-w-0 flex-1">
-               <h1 className="text-lg sm:text-xl lg:text-2xl font-semibold leading-tight break-words line-clamp-2 lg:line-clamp-1">
-                 {currentRound && currentRound.number > 1 && blocks.length > 0 
-                   ? blocks[blocks.length - 1].text 
-                   : table.title || `Session ${table.code}`}
-               </h1>
-               <div className="flex flex-wrap items-center gap-2 mt-1">
-                 <p className="text-xs sm:text-sm text-muted-foreground">
-                   {currentPhase === 'lobby' ? 'Waiting to start' : 
-                   currentPhase === 'suggest' ? 'Suggestion Phase' :
-                   currentPhase === 'vote' ? 'Voting Phase' : 'Results'} • {activeParticipants.length} active
-                   {participants.length > activeParticipants.length && (
-                     <span> • {participants.length - activeParticipants.length} waiting</span>
-                   )}
-                   {currentRound && currentRound.number > 1 && (
-                     <span> • Round {currentRound.number}</span>
-                   )}
-                 </p>
-                 <ConnectionStatus />
-               </div>
+        <div className="max-w-5xl mx-auto px-4 md:px-6 py-4">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="smooth-transition min-w-0 flex-1">
+              <h1 className="text-lg sm:text-xl lg:text-2xl font-semibold leading-tight break-words line-clamp-2 lg:line-clamp-1">
+                {currentRound && currentRound.number > 1 && blocks.length > 0 
+                  ? blocks[blocks.length - 1].text 
+                  : table.title || `Session ${table.code}`}
+              </h1>
+              <div className="flex flex-wrap items-center gap-2 mt-1">
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  {currentPhase === 'lobby' ? 'Waiting to start' : 
+                  currentPhase === 'suggest' ? 'Suggestion Phase' :
+                  currentPhase === 'vote' ? 'Voting Phase' : 'Results'} • {activeParticipants.length} active
+                  {participants.length > activeParticipants.length && (
+                    <span> • {participants.length - activeParticipants.length} waiting</span>
+                  )}
+                  {currentRound && currentRound.number > 1 && (
+                    <span> • Round {currentRound.number}</span>
+                  )}
+                </p>
+                <ConnectionStatus />
               </div>
-            
-              <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2 xs:gap-3 smooth-transition flex-shrink-0">
-               {/* Back Button - Always show in lobby, show with confirmation for active sessions, always show when closed */}
-                {(currentPhase === 'lobby' || table.status === 'closed') && (
-                  <BackButton 
-                    variant="ghost" 
-                    size="sm"
-                    showConfirmation={false}
-                    redirectToSummary={blocks.length > 0}
-                    tableCode={code}
-                  />
-                )}
-                
-                {table.status === 'running' && currentPhase !== 'lobby' && (
-                  <BackButton 
-                    variant="ghost" 
-                    size="sm"
-                    showConfirmation={true}
-                    confirmationTitle="Leave Active Session?"
-                    confirmationDescription="The session is currently active. Are you sure you want to leave?"
-                    redirectToSummary={blocks.length > 0}
-                    tableCode={code}
-                  />
-                )}
-               
-                 <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2">
-                   <TableInfo
-                     tableCode={table.code}
-                     participantCount={participants.length}
-                     isHost={isHost}
-                   />
-                 </div>
-                 
-                 {/* Mobile Sidebar Toggle */}
-                 <SidebarMobileToggle>
-                    <ResponsiveSidebar
-                      trigger={
-                        <TouchOptimizedButton 
-                          variant="outline" 
-                          size="icon" 
-                          touchSize="default"
-                          aria-label="View sidebar"
+            </div>
+          
+            <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2 xs:gap-3 smooth-transition flex-shrink-0">
+              {/* Back Button - Always show in lobby, show with confirmation for active sessions, always show when closed */}
+              {(currentPhase === 'lobby' || table.status === 'closed') && (
+                <BackButton 
+                  variant="ghost" 
+                  size="sm"
+                  showConfirmation={false}
+                  redirectToSummary={blocks.length > 0}
+                  tableCode={code}
+                />
+              )}
+              
+              {table.status === 'running' && currentPhase !== 'lobby' && (
+                <BackButton 
+                  variant="ghost" 
+                  size="sm"
+                  showConfirmation={true}
+                  confirmationTitle="Leave Active Session?"
+                  confirmationDescription="The session is currently active. Are you sure you want to leave?"
+                  redirectToSummary={blocks.length > 0}
+                  tableCode={code}
+                />
+              )}
+             
+              <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2">
+                <TableInfo
+                  tableCode={table.code}
+                  participantCount={participants.length}
+                  isHost={isHost}
+                />
+              </div>
+              
+              {/* Mobile Sidebar Toggle */}
+              <SidebarMobileToggle>
+                <ResponsiveSidebar
+                  trigger={
+                    <TouchOptimizedButton 
+                      variant="outline" 
+                      size="icon" 
+                      touchSize="default"
+                      aria-label="View sidebar"
+                    >
+                      <Menu className="h-4 w-4" />
+                    </TouchOptimizedButton>
+                  }
+                 >
+                  {/* Timeline Section */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3 pb-2 border-b border-border">
+                      <List className="h-5 w-5 text-primary" />
+                      <h3 className="text-lg font-semibold">Timeline</h3>
+                    </div>
+                    <div className="px-1">
+                      <Timeline 
+                        blocks={blocks} 
+                        currentRound={currentRound} 
+                        originalTitle={table.title}
+                      />
+                    </div>
+                  </div>
+                    
+                  {/* Participants Section */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3 pb-2 border-b border-border">
+                      <Users className="h-5 w-5 text-primary" />
+                      <h3 className="text-lg font-semibold">
+                        Participants ({participants.length})
+                      </h3>
+                    </div>
+                    <div className="space-y-3">
+                      {participants.map((participant) => (
+                        <div 
+                          key={participant.id} 
+                          className="flex items-center justify-between p-4 rounded-lg bg-muted/30 border border-border/50"
                         >
-                          <Menu className="h-4 w-4" />
-                        </TouchOptimizedButton>
-                      }
-                     >
-                      {/* Timeline Section */}
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-3 pb-2 border-b border-border">
-                          <List className="h-5 w-5 text-primary" />
-                          <h3 className="text-lg font-semibold">Timeline</h3>
-                        </div>
-                        <div className="px-1">
-                          <Timeline 
-                            blocks={blocks} 
-                            currentRound={currentRound} 
-                            originalTitle={table.title}
-                          />
-                        </div>
-                      </div>
-                        
-                      {/* Participants Section */}
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-3 pb-2 border-b border-border">
-                          <Users className="h-5 w-5 text-primary" />
-                          <h3 className="text-lg font-semibold">
-                            Participants ({participants.length})
-                          </h3>
-                        </div>
-                        <div className="space-y-3">
-                          {participants.map((participant) => (
-                            <div 
-                              key={participant.id} 
-                              className="flex items-center justify-between p-4 rounded-lg bg-muted/30 border border-border/50"
-                            >
-                              <span className="text-base font-medium truncate">
-                                {participant.display_name}
-                              </span>
-                              <div className="flex items-center gap-2">
-                                {participant.is_host && (
-                                  <Badge variant="secondary" className="text-xs font-medium">
-                                    Host
-                                  </Badge>
-                                )}
-                                {participant.active_from_round && currentRound && 
-                                 currentRound.number < participant.active_from_round && (
-                                  <Badge variant="outline" className="text-xs">
-                                    Waiting
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                        
-                      {/* Host Controls Section */}
-                      {isHost && (
-                        <div className="space-y-4">
-                          <div className="flex items-center gap-3 pb-2 border-b border-border">
-                            <Play className="h-5 w-5 text-primary" />
-                            <h3 className="text-lg font-semibold">Host Controls</h3>
-                          </div>
-                          <div className="px-1">
-                            <HostControls
-                              table={table}
-                              canStart={true}
-                              currentPhase={currentPhase}
-                              participantCount={participants.length}
-                              participants={participants}
-                              currentParticipant={currentParticipant}
-                              onRefresh={refresh}
-                            />
+                          <span className="text-base font-medium truncate">
+                            {participant.display_name}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            {participant.is_host && (
+                              <Badge variant="secondary" className="text-xs font-medium">
+                                Host
+                              </Badge>
+                            )}
+                            {participant.active_from_round && currentRound && 
+                             currentRound.number < participant.active_from_round && (
+                              <Badge variant="outline" className="text-xs">
+                                Waiting
+                              </Badge>
+                            )}
                           </div>
                         </div>
-                      )}
-                   </ResponsiveSidebar>
-                  </SidebarMobileToggle>
-                </div>
-              </div>
+                      ))}
+                    </div>
+                  </div>
+                    
+                  {/* Host Controls Section */}
+                  {isHost && (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3 pb-2 border-b border-border">
+                        <Play className="h-5 w-5 text-primary" />
+                        <h3 className="text-lg font-semibold">Host Controls</h3>
+                      </div>
+                      <div className="px-1">
+                        <HostControls
+                          table={table}
+                          canStart={true}
+                          currentPhase={currentPhase}
+                          participantCount={participants.length}
+                          participants={participants}
+                          currentParticipant={currentParticipant}
+                          onRefresh={refresh}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </ResponsiveSidebar>
+              </SidebarMobileToggle>
             </div>
           </div>
         </div>
