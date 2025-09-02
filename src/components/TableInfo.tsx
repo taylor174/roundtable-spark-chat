@@ -49,9 +49,8 @@ export function TableInfo({ tableCode, participantCount, isHost }: TableInfoProp
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <QrCode className="h-4 w-4 mr-2" />
-          Share Table
+        <Button variant="ghost" size="icon" className="h-8 w-8">
+          <QrCode className="h-4 w-4" />
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">

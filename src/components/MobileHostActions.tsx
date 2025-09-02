@@ -158,8 +158,8 @@ export function MobileHostActions({
           className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
           touchSize="large"
         >
-          <Play className="h-5 w-5 mr-2" />
-          Start Table
+          <Play className="h-4 w-4 mr-1" />
+          Start
         </TouchOptimizedButton>
       );
     }
@@ -175,10 +175,10 @@ export function MobileHostActions({
             onClick={handleAddTime}
             disabled={loading}
             variant="outline"
-            touchSize="default"
+            touchSize="large"
             className="min-w-0"
           >
-            <Clock className="h-4 w-4 mr-1" />
+            <Clock className="h-3 w-3 mr-1" />
             +15s
           </TouchOptimizedButton>
         );
@@ -186,8 +186,8 @@ export function MobileHostActions({
 
       // Main action button
       const phaseActions = {
-        suggest: { icon: Users, label: 'Start Voting', variant: 'default' as const },
-        vote: { icon: Square, label: 'End Round', variant: 'default' as const },
+        suggest: { icon: Users, label: 'Vote', variant: 'default' as const },
+        vote: { icon: Square, label: 'Results', variant: 'default' as const },
         result: { icon: SkipForward, label: 'Next Round', variant: 'default' as const }
       };
 
@@ -201,7 +201,7 @@ export function MobileHostActions({
             className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
             touchSize="large"
           >
-            <action.icon className="h-5 w-5 mr-2" />
+            <action.icon className="h-4 w-4 mr-1" />
             {action.label}
           </TouchOptimizedButton>
         );
@@ -214,10 +214,10 @@ export function MobileHostActions({
           onClick={handleEndTable}
           disabled={loading}
           variant="destructive"
-          touchSize="default"
+          touchSize="large"
           className="min-w-0"
         >
-          <Square className="h-4 w-4 mr-1" />
+          <Square className="h-3 w-3 mr-1" />
           End
         </TouchOptimizedButton>
       );
@@ -234,7 +234,7 @@ export function MobileHostActions({
   return (
     <div className={cn(
       "fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-t border-border",
-      "p-4 flex items-center gap-3 shadow-lg",
+      "p-3 flex items-center gap-2 shadow-lg",
       className
     )}>
       {Array.isArray(actionButtons) ? (

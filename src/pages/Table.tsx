@@ -358,8 +358,8 @@ const Table = () => {
 
       {/* Header */}
       <header className="border-b bg-card smooth-transition">
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-4">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="max-w-5xl mx-auto px-3 md:px-6 py-3 md:py-4">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div className="smooth-transition min-w-0 flex-1">
               <h1 className="text-lg sm:text-xl lg:text-2xl font-semibold leading-tight break-words line-clamp-2 lg:line-clamp-1">
                 {currentRound && currentRound.number > 1 && blocks.length > 0 
@@ -382,7 +382,7 @@ const Table = () => {
               </div>
             </div>
           
-            <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2 xs:gap-3 smooth-transition flex-shrink-0">
+            <div className="flex items-center gap-2 smooth-transition flex-shrink-0">
               {/* Back Button - Always show in lobby, show with confirmation for active sessions, always show when closed */}
               {(currentPhase === 'lobby' || table.status === 'closed') && (
                 <BackButton 
@@ -406,23 +406,21 @@ const Table = () => {
                 />
               )}
              
-              <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2">
-                <TableInfo
-                  tableCode={table.code}
-                  participantCount={participants.length}
-                  isHost={isHost}
-                />
-              </div>
+              <TableInfo
+                tableCode={table.code}
+                participantCount={participants.length}
+                isHost={isHost}
+              />
               
               {/* Mobile Sidebar Toggle */}
               <SidebarMobileToggle>
                 <ResponsiveSidebar
                   trigger={
                     <TouchOptimizedButton 
-                      variant="outline" 
+                      variant="ghost" 
                       size="icon" 
                       touchSize="default"
-                      aria-label="View sidebar"
+                      aria-label="View menu"
                     >
                       <Menu className="h-4 w-4" />
                     </TouchOptimizedButton>
