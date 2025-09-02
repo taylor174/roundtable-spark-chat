@@ -357,14 +357,14 @@ const Table = () => {
 
       {/* Header */}
       <header className="border-b bg-card smooth-transition">
-        <div className="max-w-5xl mx-auto px-4 md:px-6 py-4">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="smooth-transition min-w-0 flex-1">
-              <h1 className="text-lg sm:text-xl lg:text-2xl font-semibold leading-tight break-words line-clamp-2 lg:line-clamp-1">
-                {currentRound && currentRound.number > 1 && blocks.length > 0 
-                  ? blocks[blocks.length - 1].text 
-                  : table.title || `Session ${table.code}`}
-              </h1>
+         <div className="max-w-5xl mx-auto px-4 md:px-6 py-4">
+           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+             <div className="smooth-transition min-w-0 flex-1">
+               <h1 className="text-lg sm:text-xl lg:text-2xl font-semibold leading-tight break-words line-clamp-2 lg:line-clamp-1">
+                 {currentRound && currentRound.number > 1 && blocks.length > 0 
+                   ? blocks[blocks.length - 1].text 
+                   : table.title || `Session ${table.code}`}
+               </h1>
                <div className="flex flex-wrap items-center gap-2 mt-1">
                  <p className="text-xs sm:text-sm text-muted-foreground">
                    {currentPhase === 'lobby' ? 'Waiting to start' : 
@@ -379,62 +379,54 @@ const Table = () => {
                  </p>
                  <ConnectionStatus />
                </div>
-           </div>
-           
-           <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2 xs:gap-3 smooth-transition flex-shrink-0">
-              {/* Back Button - Always show in lobby, show with confirmation for active sessions, always show when closed */}
-               {(currentPhase === 'lobby' || table.status === 'closed') && (
-                 <BackButton 
-                   variant="ghost" 
-                   size="sm"
-                   showConfirmation={false}
-                   redirectToSummary={blocks.length > 0}
-                   tableCode={code}
-                 />
-               )}
+              </div>
+            
+              <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2 xs:gap-3 smooth-transition flex-shrink-0">
+               {/* Back Button - Always show in lobby, show with confirmation for active sessions, always show when closed */}
+                {(currentPhase === 'lobby' || table.status === 'closed') && (
+                  <BackButton 
+                    variant="ghost" 
+                    size="sm"
+                    showConfirmation={false}
+                    redirectToSummary={blocks.length > 0}
+                    tableCode={code}
+                  />
+                )}
+                
+                {table.status === 'running' && currentPhase !== 'lobby' && (
+                  <BackButton 
+                    variant="ghost" 
+                    size="sm"
+                    showConfirmation={true}
+                    confirmationTitle="Leave Active Session?"
+                    confirmationDescription="The session is currently active. Are you sure you want to leave?"
+                    redirectToSummary={blocks.length > 0}
+                    tableCode={code}
+                  />
+                )}
                
-               {table.status === 'running' && currentPhase !== 'lobby' && (
-                 <BackButton 
-                   variant="ghost" 
-                   size="sm"
-                   showConfirmation={true}
-                   confirmationTitle="Leave Active Session?"
-                   confirmationDescription="The session is currently active. Are you sure you want to leave?"
-                   redirectToSummary={blocks.length > 0}
-                   tableCode={code}
-                 />
-               )}
-              
-               <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2">
-                 <TableInfo
-                   tableCode={table.code}
-                   participantCount={participants.length}
-                   isHost={isHost}
-                 />
-                 {currentPhase !== 'lobby' && (
-                   <div className="xs:text-right">
-                     <Timer 
-                       timeRemaining={timeRemaining}
-                       phase={currentPhase}
-                       isActive={table.status === 'running'}
-                     />
-                   </div>
-                 )}
+                 <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2">
+                   <TableInfo
+                     tableCode={table.code}
+                     participantCount={participants.length}
+                     isHost={isHost}
+                   />
+                 </div>
                  
                  {/* Mobile Sidebar Toggle */}
                  <SidebarMobileToggle>
-                   <ResponsiveSidebar
-                     trigger={
-                       <TouchOptimizedButton 
-                         variant="outline" 
-                         size="icon" 
-                         touchSize="default"
-                         aria-label="View sidebar"
-                       >
-                         <Menu className="h-4 w-4" />
-                       </TouchOptimizedButton>
-                     }
-                    >
+                    <ResponsiveSidebar
+                      trigger={
+                        <TouchOptimizedButton 
+                          variant="outline" 
+                          size="icon" 
+                          touchSize="default"
+                          aria-label="View sidebar"
+                        >
+                          <Menu className="h-4 w-4" />
+                        </TouchOptimizedButton>
+                      }
+                     >
                       {/* Timeline Section */}
                       <div className="space-y-4">
                         <div className="flex items-center gap-3 pb-2 border-b border-border">
@@ -506,8 +498,9 @@ const Table = () => {
                         </div>
                       )}
                    </ResponsiveSidebar>
-                 </SidebarMobileToggle>
-               </div>
+                  </SidebarMobileToggle>
+                </div>
+              </div>
             </div>
           </div>
         </div>
