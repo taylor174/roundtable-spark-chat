@@ -7,7 +7,6 @@ import { Plus, Users, ExternalLink, AlertCircle } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { TableCreationDialog } from '@/components/TableCreationDialog';
-import { QARunner } from '@/components/QARunner';
 import { isValidTableCode } from '@/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -47,22 +46,6 @@ export default function Home() {
           <p className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto px-4">
             Create a table, invite people with a code, share proposals, vote, and watch consensus form in real time. Great for cabinet briefings, strategy meetings, workshops, and classrooms.
           </p>
-          <div className="mt-6">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              asChild
-            >
-              <a 
-                href="https://docs.google.com/forms/d/12bGHXGWlxTrCjf5pxiAo3Es-AxdrnqO0VvVQnvqUYB0/edit" 
-                target="_blank" 
-                rel="noopener noreferrer"
-              >
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Give Feedback
-              </a>
-            </Button>
-          </div>
         </div>
 
         <div className="max-w-md mx-auto space-y-4 px-4 sm:px-0">
@@ -127,9 +110,22 @@ export default function Home() {
           </Card>
         </div>
 
-        {/* QA Section */}
-        <div className="max-w-4xl mx-auto mt-12">
-          <QARunner />
+        {/* Feedback Button */}
+        <div className="max-w-md mx-auto mt-12 text-center">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            asChild
+          >
+            <a 
+              href="https://docs.google.com/forms/d/12bGHXGWlxTrCjf5pxiAo3Es-AxdrnqO0VvVQnvqUYB0/edit" 
+              target="_blank" 
+              rel="noopener noreferrer"
+            >
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Give Feedback
+            </a>
+          </Button>
         </div>
       </div>
     </div>
