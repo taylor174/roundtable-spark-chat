@@ -116,16 +116,10 @@ export default function Home() {
             <Button 
               variant="outline" 
               size="sm" 
-              asChild
+              onClick={() => window.open('https://www.youtube.com/watch?v=K4pXxufX0wk', '_blank', 'noopener,noreferrer')}
             >
-              <a 
-                href="https://www.youtube.com/watch?v=K4pXxufX0wk" 
-                target="_blank" 
-                rel="noopener noreferrer"
-              >
-                <Play className="h-4 w-4 mr-2" />
-                Demo
-              </a>
+              <Play className="h-4 w-4 mr-2" />
+              Demo
             </Button>
             <Button 
               variant="outline" 
