@@ -196,9 +196,20 @@ export function HostControls({
 
       if (error) throw error;
 
+      // Auto-save to GitHub after successfully ending table
+      try {
+        await supabase.functions.invoke('auto-save-to-github', {
+          body: { tableCode: table.code }
+        });
+        console.log('Discussion summary auto-saved to GitHub successfully');
+      } catch (githubError) {
+        console.error('Failed to auto-save to GitHub:', githubError);
+        // Don't fail the table ending if GitHub save fails
+      }
+
       toast({
         title: "Success",
-        description: "Table ended successfully.",
+        description: "Table ended successfully. Summary saved to GitHub.",
       });
 
       // Force immediate refresh to propagate changes
