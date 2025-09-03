@@ -26,6 +26,14 @@ export const ROUND_STATUS = {
   RESULT: 'result',
 } as const;
 
+// Admin configuration - hardcoded client IDs for admin access
+export const ADMIN_CONFIG = {
+  ADMIN_CLIENT_IDS: [
+    // Add your admin client IDs here - these will be generated on first visit
+    // You can find your client ID in browser localStorage under 'table_client_id'
+  ] as string[],
+} as const;
+
 export const MESSAGES = {
   WAITING_FOR_HOST: "Waiting for host to start the table...",
   SUGGEST_PHASE: "Share your suggestions!",

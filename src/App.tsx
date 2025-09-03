@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ComprehensiveTestSuite } from "@/components/ComprehensiveTestSuite";
 import { SystemHealthMonitor } from "@/components/SystemHealthMonitor";
+import { AdminPanel } from "@/components/AdminPanel";
 import { useSystemReliability } from "@/hooks/useSystemReliability";
 import { GlobalErrorHandler } from "@/components/GlobalErrorHandler";
 import Home from "./pages/Home";
@@ -41,6 +42,7 @@ function AppWithReliability() {
           </Routes>
         </BrowserRouter>
         <SystemHealthMonitor />
+        <AdminPanel />
       </TooltipProvider>
     </QueryClientProvider>
   );

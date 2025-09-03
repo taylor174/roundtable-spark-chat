@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAdminCheck } from '@/hooks/useAdminCheck';
 import { logger } from '@/utils/logger';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,11 +15,16 @@ interface SystemHealth {
   status: 'healthy' | 'warning' | 'critical';
 }
 
-export function SystemHealthMonitor() {
+interface SystemHealthMonitorProps {
+  isAdminPanel?: boolean;
+}
+
+export function SystemHealthMonitor({ isAdminPanel = false }: SystemHealthMonitorProps) {
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [loading, setLoading] = useState(true);
   const [cleaning, setCleaning] = useState(false);
   const { toast } = useToast();
+  const { isAdmin } = useAdminCheck();
 
   const checkSystemHealth = async () => {
     try {
@@ -103,6 +109,9 @@ export function SystemHealthMonitor() {
     return () => clearInterval(interval);
   }, []);
 
+  // Only show to admins unless it's in admin panel
+  if (!isAdminPanel && !isAdmin) return null;
+  
   if (loading) return null;
   if (!health) return null;
 
@@ -122,6 +131,48 @@ export function SystemHealthMonitor() {
     }
   };
 
+  // If in admin panel, render compact version
+  if (isAdminPanel) {
+    if (health.status === 'healthy') {
+      return (
+        <Badge variant="outline" className={getStatusColor()}>
+          {getStatusIcon()}
+          <span className="ml-1">System Healthy</span>
+        </Badge>
+      );
+    }
+
+    return (
+      <Alert className={`border ${health.status === 'critical' ? 'border-red-300' : 'border-yellow-300'}`}>
+        {getStatusIcon()}
+        <AlertTitle className="text-sm">
+          System {health.status === 'critical' ? 'Critical' : 'Warning'}
+        </AlertTitle>
+        <AlertDescription className="mt-2 space-y-2">
+          <div className="text-sm">
+            <div>Stuck tables: {health.stuckTables}</div>
+            <div>Expired rounds: {health.expiredRounds}</div>
+            {health.lastCleanup && (
+              <div className="text-xs text-muted-foreground">
+                Last cleanup: {new Date(health.lastCleanup).toLocaleTimeString()}
+              </div>
+            )}
+          </div>
+          <Button
+            size="sm"
+            onClick={runCleanup}
+            disabled={cleaning}
+            className="w-full"
+          >
+            {cleaning && <RefreshCw className="mr-2 h-3 w-3 animate-spin" />}
+            Run Cleanup
+          </Button>
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  // Fixed position version for non-admin panel
   if (health.status === 'healthy') {
     return (
       <div className="fixed bottom-4 right-4 z-50">
