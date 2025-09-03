@@ -713,31 +713,6 @@ const Table = () => {
                   onRefresh={refresh}
                 />
                 
-                {/* Manual Cleanup Button */}
-                <Card className="border-muted">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <Trash2 className="h-4 w-4" />
-                      Session Maintenance
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground">
-                        Clean up expired rounds and stuck phases
-                      </p>
-                      <Button
-                        onClick={manualCleanup}
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                      >
-                        <RefreshCw className="h-3 w-3 mr-2" />
-                        Clean Up Session
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
               </div>
             )}
           </div>
