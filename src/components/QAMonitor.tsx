@@ -38,12 +38,6 @@ export function QAMonitor() {
     return 'destructive';
   };
 
-  const toggleSection = (section: string) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
-  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -195,13 +189,10 @@ export function QAMonitor() {
             <h3 className="text-lg font-semibold">Detailed Test Results</h3>
             
             {/* Test Results by Category */}
-            {results.detailedResults.testsByCategory && Object.entries(results.detailedResults.testsByCategory).map(([category, tests]) => (
-              tests.length > 0 && (
-                <Collapsible key={category}>
-                  <CollapsibleTrigger 
-                    className="flex items-center justify-between w-full p-3 bg-muted rounded-lg hover:bg-muted/80"
-                    onClick={() => toggleSection(category)}
-                  >
+            {results.detailedResults?.testsByCategory && Object.entries(results.detailedResults.testsByCategory).map(([category, tests]) => (
+              tests && tests.length > 0 && (
+                <Collapsible key={category} open={expandedSections[category]} onOpenChange={(open) => setExpandedSections(prev => ({ ...prev, [category]: open }))}>
+                  <CollapsibleTrigger className="flex items-center justify-between w-full p-3 bg-muted rounded-lg hover:bg-muted/80">
                     <div className="flex items-center gap-2">
                       <span className="font-medium capitalize">{category.replace(/([A-Z])/g, ' $1')}</span>
                       <Badge variant="secondary">{tests.length} tests</Badge>
@@ -239,12 +230,9 @@ export function QAMonitor() {
             ))}
 
             {/* Security Penetration Testing */}
-            {results.detailedResults.penetration && (
-              <Collapsible>
-                <CollapsibleTrigger 
-                  className="flex items-center justify-between w-full p-3 bg-muted rounded-lg hover:bg-muted/80"
-                  onClick={() => toggleSection('penetration')}
-                >
+            {results.detailedResults?.penetration && (
+              <Collapsible open={expandedSections.penetration} onOpenChange={(open) => setExpandedSections(prev => ({ ...prev, penetration: open }))}>
+                <CollapsibleTrigger className="flex items-center justify-between w-full p-3 bg-muted rounded-lg hover:bg-muted/80">
                   <div className="flex items-center gap-2">
                     <Shield className="h-4 w-4 text-red-600" />
                     <span className="font-medium">Security Penetration Testing</span>
@@ -291,22 +279,19 @@ export function QAMonitor() {
             )}
 
             {/* Performance Benchmarks */}
-            {results.detailedResults.enterprise?.performance && (
-              <Collapsible>
-                <CollapsibleTrigger 
-                  className="flex items-center justify-between w-full p-3 bg-muted rounded-lg hover:bg-muted/80"
-                  onClick={() => toggleSection('performance')}
-                >
+            {results.detailedResults?.enterprise?.performance && (
+              <Collapsible open={expandedSections.performanceBenchmarks} onOpenChange={(open) => setExpandedSections(prev => ({ ...prev, performanceBenchmarks: open }))}>
+                <CollapsibleTrigger className="flex items-center justify-between w-full p-3 bg-muted rounded-lg hover:bg-muted/80">
                   <div className="flex items-center gap-2">
                     <Zap className="h-4 w-4 text-yellow-600" />
                     <span className="font-medium">Performance Benchmarks</span>
                     <Badge variant="secondary">Enterprise</Badge>
                   </div>
-                  {expandedSections.performance ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  {expandedSections.performanceBenchmarks ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                 </CollapsibleTrigger>
-                <CollapsibleContent className="mt-2">
-                  <div className="space-y-2 pl-4">
-                    {results.detailedResults.enterprise.performance.map((benchmark: any, index: number) => (
+                 <CollapsibleContent className="mt-2">
+                   <div className="space-y-2 pl-4">
+                     {results.detailedResults?.enterprise?.performance?.map((benchmark: any, index: number) => (
                       <div key={index} className="border rounded p-3">
                         <h5 className="font-medium mb-2">{benchmark.name}</h5>
                         <div className="grid grid-cols-3 gap-4 text-sm">

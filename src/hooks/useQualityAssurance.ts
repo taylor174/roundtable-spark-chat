@@ -39,6 +39,18 @@ export function useQualityAssurance() {
     reliability: { score: 0, tests: 0, passed: 0 },
     performance: { score: 0, responseTime: 0, memoryUsage: 0 },
     isRunning: false,
+    detailedResults: {
+      comprehensive: null,
+      penetration: null,
+      enterprise: null,
+      testsByCategory: {
+        security: [],
+        reliability: [],
+        performance: [],
+        usability: [],
+        edgeCases: []
+      }
+    }
   });
   
   const { toast } = useToast();
