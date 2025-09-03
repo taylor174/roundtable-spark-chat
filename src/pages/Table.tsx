@@ -527,8 +527,8 @@ const Table = () => {
         <div className="responsive-grid">
           {/* Main Content */}
           <div className="space-y-6 stable-layout">
-            {/* Phase Transition Indicator */}
-            {currentPhase !== 'lobby' && (
+            {/* Phase Transition Indicator - Hidden for result phase to prevent participants getting stuck */}
+            {currentPhase !== 'lobby' && currentPhase !== 'result' && (
               <PhaseTransitionIndicator
                 phase={currentPhase}
                 timeRemaining={timeRemaining}
