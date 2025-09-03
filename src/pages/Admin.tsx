@@ -1,19 +1,23 @@
 import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Settings, Activity, Shield, TestTube } from 'lucide-react';
-import { SystemHealthMonitor } from '@/components/SystemHealthMonitor';
+import { Shield, Database, Zap, Activity } from 'lucide-react';
+import { useAdminDashboard } from '@/hooks/useAdminDashboard';
+import { SystemOverview } from '@/components/SystemOverview';
+import { ProblematicTablesList } from '@/components/ProblematicTablesList';
+import { QuickActions } from '@/components/QuickActions';
 import { QAMonitor } from '@/components/QAMonitor';
 
 export default function AdminPage() {
+  const dashboardData = useAdminDashboard();
+
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto p-6 space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight">System Administration</h1>
           <p className="text-muted-foreground">
-            System monitoring, quality assurance, and administrative controls
+            Comprehensive system monitoring, management, and quality assurance
           </p>
         </div>
         <Badge variant="secondary" className="px-4 py-2">
@@ -22,58 +26,36 @@ export default function AdminPage() {
         </Badge>
       </div>
 
-      {/* Main Grid */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* System Health Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5" />
-              System Health
-            </CardTitle>
-            <CardDescription>
-              Monitor system performance and run cleanup operations
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <SystemHealthMonitor isAdminPanel={false} />
-          </CardContent>
-        </Card>
+      {/* System Overview */}
+      <SystemOverview 
+        data={dashboardData} 
+        onRefresh={dashboardData.refreshData} 
+      />
 
-        {/* Quality Assurance Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TestTube className="h-5 w-5" />
-              Quality Assurance
-            </CardTitle>
-            <CardDescription>
-              Run comprehensive tests and generate reports
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <QAMonitor />
-          </CardContent>
-        </Card>
+      {/* Main Content Grid */}
+      <div className="grid gap-8 lg:grid-cols-2">
+        {/* Left Column */}
+        <div className="space-y-8">
+          {/* Problematic Tables */}
+          <ProblematicTablesList 
+            tables={dashboardData.problematicTables}
+            onRefresh={dashboardData.refreshData}
+          />
+        </div>
+
+        {/* Right Column */}
+        <div className="space-y-8">
+          {/* Quick Actions */}
+          <QuickActions
+            onRefresh={dashboardData.refreshData}
+            runningTablesCount={dashboardData.tableSummary.runningTables}
+            expiredRoundsCount={dashboardData.systemStats.expiredRounds}
+          />
+          
+          {/* Quality Assurance Monitor */}
+          <QAMonitor />
+        </div>
       </div>
-
-      {/* Additional Admin Tools */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
-            Administrative Tools
-          </CardTitle>
-          <CardDescription>
-            Additional system controls and utilities
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            More admin tools can be added here as needed.
-          </p>
-        </CardContent>
-      </Card>
     </div>
   );
 }
