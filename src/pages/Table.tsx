@@ -601,8 +601,8 @@ const Table = () => {
                 </div>
               )}
               
-              {/* Results Phase - Only show to host to prevent participants getting stuck */}
-              {currentPhase === 'result' && winningSuggestions.length > 0 && isHost && (
+              {/* Results Phase */}
+              {currentPhase === 'result' && winningSuggestions.length > 0 && (
                 <div className="content-enter">
                   <ResultsPanel
                     winningSuggestions={winningSuggestions}
