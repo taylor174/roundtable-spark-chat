@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         message: `Auto-save discussion summary: ${tableData.title} (${tableCode})`,
-        content: btoa(htmlContent),
+        content: btoa(new TextEncoder().encode(htmlContent).reduce((str, byte) => str + String.fromCharCode(byte), '')),
         branch: 'main'
       })
     })

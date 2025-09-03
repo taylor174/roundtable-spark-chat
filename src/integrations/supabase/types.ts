@@ -385,6 +385,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      comprehensive_cleanup_stuck_tables: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       create_table_secure: {
         Args: {
           p_code: string
