@@ -3,11 +3,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { PlayCircle, Download, Shield, Zap, Activity, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { useQualityAssurance } from '@/hooks/useQualityAssurance';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { PlayCircle, Download, Shield, Zap, Activity, AlertTriangle, CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react';
+import { useQualityAssurance, DetailedTestResult } from '@/hooks/useQualityAssurance';
 
 export function QAMonitor() {
   const { results, runQualityAssurance, generateReport } = useQualityAssurance();
+  const [expandedSections, setExpandedSections] = React.useState<Record<string, boolean>>({});
 
   const handleDownloadReport = async () => {
     const report = await generateReport();
@@ -34,6 +36,33 @@ export function QAMonitor() {
     if (score >= 90) return 'default';
     if (score >= 80) return 'secondary';
     return 'destructive';
+  };
+
+  const toggleSection = (section: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'pass': return <CheckCircle2 className="h-4 w-4 text-green-600" />;
+      case 'fail': return <AlertTriangle className="h-4 w-4 text-red-600" />;
+      case 'warning': return <AlertTriangle className="h-4 w-4 text-yellow-600" />;
+      case 'critical': return <AlertTriangle className="h-4 w-4 text-red-700" />;
+      default: return <CheckCircle2 className="h-4 w-4 text-muted-foreground" />;
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pass': return 'default';
+      case 'fail': return 'destructive';
+      case 'warning': return 'secondary';
+      case 'critical': return 'destructive';
+      default: return 'secondary';
+    }
   };
 
   return (
@@ -159,6 +188,149 @@ export function QAMonitor() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Detailed Results Section */}
+        {results.detailedResults && results.lastRun && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Detailed Test Results</h3>
+            
+            {/* Test Results by Category */}
+            {results.detailedResults.testsByCategory && Object.entries(results.detailedResults.testsByCategory).map(([category, tests]) => (
+              tests.length > 0 && (
+                <Collapsible key={category}>
+                  <CollapsibleTrigger 
+                    className="flex items-center justify-between w-full p-3 bg-muted rounded-lg hover:bg-muted/80"
+                    onClick={() => toggleSection(category)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium capitalize">{category.replace(/([A-Z])/g, ' $1')}</span>
+                      <Badge variant="secondary">{tests.length} tests</Badge>
+                    </div>
+                    {expandedSections[category] ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-2">
+                    <div className="space-y-2 pl-4">
+                      {tests.map((test: DetailedTestResult, index: number) => (
+                        <div key={index} className="flex items-start gap-3 p-2 border rounded">
+                          {getStatusIcon(test.status)}
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-medium text-sm">{test.test}</span>
+                              <Badge variant={getStatusBadge(test.status)} className="text-xs">
+                                {test.status}
+                              </Badge>
+                              {test.severity && (
+                                <Badge variant="outline" className="text-xs">
+                                  {test.severity}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground">{test.message}</p>
+                            {test.details && (
+                              <p className="text-xs text-muted-foreground mt-1">{test.details}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              )
+            ))}
+
+            {/* Security Penetration Testing */}
+            {results.detailedResults.penetration && (
+              <Collapsible>
+                <CollapsibleTrigger 
+                  className="flex items-center justify-between w-full p-3 bg-muted rounded-lg hover:bg-muted/80"
+                  onClick={() => toggleSection('penetration')}
+                >
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-red-600" />
+                    <span className="font-medium">Security Penetration Testing</span>
+                    <Badge variant="secondary">Advanced</Badge>
+                  </div>
+                  {expandedSections.penetration ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-2">
+                  <div className="space-y-3 pl-4">
+                    {['security_penetration', 'stress_testing', 'chaos_engineering'].map(testType => {
+                      const tests = results.detailedResults?.penetration?.[testType] || [];
+                      if (tests.length === 0) return null;
+                      
+                      return (
+                        <div key={testType} className="border rounded p-3">
+                          <h5 className="font-medium mb-2 capitalize">{testType.replace('_', ' ')}</h5>
+                          <div className="space-y-2">
+                            {tests.map((test: any, index: number) => (
+                              <div key={index} className="flex items-start gap-3 p-2 border rounded">
+                                {getStatusIcon(test.status)}
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="font-medium text-sm">{test.test}</span>
+                                    <Badge variant={getStatusBadge(test.status)} className="text-xs">
+                                      {test.status}
+                                    </Badge>
+                                    {test.severity && (
+                                      <Badge variant="outline" className="text-xs">
+                                        {test.severity}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-sm text-muted-foreground">{test.message}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+
+            {/* Performance Benchmarks */}
+            {results.detailedResults.enterprise?.performance && (
+              <Collapsible>
+                <CollapsibleTrigger 
+                  className="flex items-center justify-between w-full p-3 bg-muted rounded-lg hover:bg-muted/80"
+                  onClick={() => toggleSection('performance')}
+                >
+                  <div className="flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-yellow-600" />
+                    <span className="font-medium">Performance Benchmarks</span>
+                    <Badge variant="secondary">Enterprise</Badge>
+                  </div>
+                  {expandedSections.performance ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-2">
+                  <div className="space-y-2 pl-4">
+                    {results.detailedResults.enterprise.performance.map((benchmark: any, index: number) => (
+                      <div key={index} className="border rounded p-3">
+                        <h5 className="font-medium mb-2">{benchmark.name}</h5>
+                        <div className="grid grid-cols-3 gap-4 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Average Time:</span>
+                            <p className="font-mono">{benchmark.averageTime?.toFixed(2) || 'N/A'}ms</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Success Rate:</span>
+                            <p className="font-mono">{benchmark.successRate?.toFixed(1) || 'N/A'}%</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Throughput:</span>
+                            <p className="font-mono">{benchmark.throughput?.toFixed(2) || 'N/A'} ops/sec</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

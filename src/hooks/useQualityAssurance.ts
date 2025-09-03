@@ -2,6 +2,15 @@ import { useState, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { createLiveQA } from '@/utils/liveQAExecution';
 
+export interface DetailedTestResult {
+  test: string;
+  status: 'pass' | 'fail' | 'warning' | 'critical';
+  message: string;
+  category?: string;
+  severity?: string;
+  details?: string;
+}
+
 export interface QAResults {
   overall: { score: number; message: string };
   security: { score: number; critical: number; warnings: number };
@@ -9,6 +18,18 @@ export interface QAResults {
   performance: { score: number; responseTime: number; memoryUsage: number };
   isRunning: boolean;
   lastRun?: Date;
+  detailedResults?: {
+    comprehensive?: any;
+    penetration?: any;
+    enterprise?: any;
+    testsByCategory?: {
+      security: DetailedTestResult[];
+      reliability: DetailedTestResult[];
+      performance: DetailedTestResult[];
+      usability: DetailedTestResult[];
+      edgeCases: DetailedTestResult[];
+    };
+  };
 }
 
 export function useQualityAssurance() {
@@ -61,7 +82,19 @@ export function useQualityAssurance() {
           memoryUsage: 25 // Default reasonable value
         },
         isRunning: false,
-        lastRun: new Date()
+        lastRun: new Date(),
+        detailedResults: {
+          comprehensive: qaResults.comprehensive,
+          penetration: qaResults.penetration,
+          enterprise: qaResults.enterprise,
+          testsByCategory: {
+            security: qaResults.comprehensive?.security || [],
+            reliability: qaResults.comprehensive?.reliability || [],
+            performance: qaResults.comprehensive?.performance || [],
+            usability: qaResults.comprehensive?.usability || [],
+            edgeCases: qaResults.comprehensive?.edge_cases || []
+          }
+        }
       };
 
       setResults(newResults);
