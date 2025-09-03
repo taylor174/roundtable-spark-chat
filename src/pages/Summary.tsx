@@ -387,6 +387,9 @@ export default function Summary() {
           blocks={data.blocks}
           originalTitle={data.table?.title}
           participants={data.participants}
+          rounds={data.rounds}
+          suggestions={data.suggestions}
+          votes={data.votes}
         />
       </div>
     </div>
