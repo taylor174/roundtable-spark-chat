@@ -5,8 +5,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ComprehensiveTestSuite } from "@/components/ComprehensiveTestSuite";
-import { SystemHealthMonitor } from "@/components/SystemHealthMonitor";
-import { AdminPanel } from "@/components/AdminPanel";
 import { useSystemReliability } from "@/hooks/useSystemReliability";
 import { GlobalErrorHandler } from "@/components/GlobalErrorHandler";
 import Home from "./pages/Home";
@@ -14,6 +12,7 @@ import Join from "./pages/Join";
 import Table from "./pages/Table";
 import Summary from "./pages/Summary";
 import QAPage from "./pages/QA";
+import AdminPage from "./pages/Admin";
 import { FeatureTest } from "./pages/FeatureTest";
 import NotFound from "./pages/NotFound";
 
@@ -33,6 +32,7 @@ function AppWithReliability() {
             <Route path="/" element={<Home />} />
             <Route path="/test" element={<ComprehensiveTestSuite />} />
             <Route path="/qa" element={<QAPage />} />
+            <Route path="/admin" element={<AdminPage />} />
             <Route path="/feature-test" element={<FeatureTest />} />
             <Route path="/t/:code/join" element={<Join />} />
             <Route path="/t/:code/summary" element={<Summary />} />
@@ -41,8 +41,6 @@ function AppWithReliability() {
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
-        <SystemHealthMonitor />
-        <AdminPanel />
       </TooltipProvider>
     </QueryClientProvider>
   );
