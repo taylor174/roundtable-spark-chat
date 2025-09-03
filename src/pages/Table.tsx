@@ -601,8 +601,8 @@ const Table = () => {
                 </div>
               )}
               
-              {/* Results Phase */}
-              {currentPhase === 'result' && winningSuggestions.length > 0 && (
+              {/* Results Phase - Only show for ties requiring manual resolution */}
+              {currentPhase === 'result' && winningSuggestions.length > 1 && (
                 <div className="content-enter">
                   <ResultsPanel
                     winningSuggestions={winningSuggestions}
