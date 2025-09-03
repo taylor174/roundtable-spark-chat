@@ -9,6 +9,9 @@ interface SummaryData {
   table: any;
   blocks: any[];
   participants: any[];
+  rounds: any[];
+  suggestions: any[];
+  votes: any[];
 }
 
 Deno.serve(async (req) => {
@@ -70,10 +73,50 @@ Deno.serve(async (req) => {
       throw new Error(`Failed to load participants: ${participantsError.message}`)
     }
 
+    // Get rounds
+    const { data: roundsData, error: roundsError } = await supabase
+      .from('rounds')
+      .select('*')
+      .eq('table_id', tableData.id)
+      .order('number', { ascending: true })
+
+    if (roundsError) {
+      throw new Error(`Failed to load rounds: ${roundsError.message}`)
+    }
+
+    // Get suggestions with participant names
+    const { data: suggestionsData, error: suggestionsError } = await supabase
+      .from('suggestions')
+      .select(`
+        *,
+        participants!inner(display_name)
+      `)
+      .in('round_id', (roundsData || []).map(r => r.id))
+
+    if (suggestionsError) {
+      throw new Error(`Failed to load suggestions: ${suggestionsError.message}`)
+    }
+
+    // Get votes with participant names
+    const { data: votesData, error: votesError } = await supabase
+      .from('votes')
+      .select(`
+        *,
+        participants!inner(display_name)
+      `)
+      .in('round_id', (roundsData || []).map(r => r.id))
+
+    if (votesError) {
+      throw new Error(`Failed to load votes: ${votesError.message}`)
+    }
+
     const summaryData: SummaryData = {
       table: tableData,
       blocks: blocksData || [],
       participants: participantsData || [],
+      rounds: roundsData || [],
+      suggestions: suggestionsData || [],
+      votes: votesData || [],
     }
 
     // Generate HTML content (same as export functionality)
@@ -85,9 +128,9 @@ Deno.serve(async (req) => {
       throw new Error('GitHub token not configured')
     }
 
-    // Configure these based on your setup
-    const owner = 'YOUR_USERNAME' // Replace with actual username
-    const repo = 'YOUR_REPO_NAME' // Replace with actual repo name
+    // GitHub repository configuration
+    const owner = 'taylor174'
+    const repo = 'roundtable-spark-chat'
     const path = `discussion-summaries/${sanitizeFilename(tableData.title)}-${tableCode}-${new Date().toISOString().split('T')[0]}.html`
 
     const githubResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`, {
@@ -151,7 +194,7 @@ function sanitizeFilename(filename: string): string {
 }
 
 function generateSummaryHTML(data: SummaryData): string {
-  const { table, blocks, participants } = data
+  const { table, blocks, participants, rounds, suggestions, votes } = data
   
   return `<!DOCTYPE html>
 <html lang="en">
@@ -376,17 +419,72 @@ function generateSummaryHTML(data: SummaryData): string {
             ` : ''}
             
             <div class="section">
-                <h2>Discussion Timeline</h2>
-                ${blocks.length > 0 ? `
+                <h2>Complete Discussion History</h2>
+                ${rounds.length > 0 ? `
                 <div class="timeline">
-                    ${blocks.map((block, index) => `
-                    <div class="timeline-item">
-                        <div class="round-header">Round ${index + 1}</div>
-                        <div class="round-text">${block.text}</div>
-                    </div>
-                    `).join('')}
+                    ${rounds.map((round, index) => {
+                      const roundSuggestions = suggestions.filter(s => s.round_id === round.id);
+                      const roundVotes = votes.filter(v => v.round_id === round.id);
+                      const winnerBlock = blocks.find(b => b.round_id === round.id);
+                      
+                      // Calculate vote counts for each suggestion
+                      const suggestionVotes = roundSuggestions.map(suggestion => ({
+                        ...suggestion,
+                        voteCount: roundVotes.filter(v => v.suggestion_id === suggestion.id).length,
+                        voters: roundVotes.filter(v => v.suggestion_id === suggestion.id).map(v => v.participants?.display_name || 'Unknown')
+                      }));
+                      
+                      return `
+                      <div class="timeline-item">
+                          <div class="round-header">Round ${round.number || index + 1} ${round.status === 'result' ? '(Completed)' : `(${round.status})`}</div>
+                          
+                          ${roundSuggestions.length > 0 ? `
+                          <div style="margin: 1rem 0;">
+                              <h4 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.5rem;">💡 All Suggestions (${roundSuggestions.length})</h4>
+                              ${suggestionVotes.map(suggestion => `
+                              <div style="background: #f8fafc; border-left: 3px solid ${suggestion.voteCount > 0 ? '#667eea' : '#e2e8f0'}; padding: 0.75rem; margin-bottom: 0.5rem; border-radius: 0 6px 6px 0;">
+                                  <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.25rem;">
+                                      <span style="font-weight: 500; color: #1e293b;">${suggestion.participants?.display_name || 'Unknown'}</span>
+                                      <span style="background: ${suggestion.voteCount > 0 ? '#667eea' : '#94a3b8'}; color: white; padding: 0.125rem 0.5rem; border-radius: 12px; font-size: 0.75rem;">
+                                          ${suggestion.voteCount} vote${suggestion.voteCount !== 1 ? 's' : ''}
+                                      </span>
+                                  </div>
+                                  <div style="color: #475569; line-height: 1.4;">${suggestion.text}</div>
+                                  ${suggestion.voters.length > 0 ? `
+                                  <div style="margin-top: 0.5rem; font-size: 0.75rem; color: #64748b;">
+                                      Voted by: ${suggestion.voters.join(', ')}
+                                  </div>
+                                  ` : ''}
+                              </div>
+                              `).join('')}
+                          </div>
+                          ` : '<div style="color: #64748b; font-style: italic; margin: 1rem 0;">No suggestions submitted</div>'}
+                          
+                          ${roundVotes.length > 0 ? `
+                          <div style="margin: 1rem 0;">
+                              <h4 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.5rem;">🗳️ Voting Results (${roundVotes.length} total votes)</h4>
+                              <div style="background: #f0f9ff; border: 1px solid #0ea5e9; padding: 0.75rem; border-radius: 6px; font-size: 0.875rem;">
+                                  Participants who voted: ${[...new Set(roundVotes.map(v => v.participants?.display_name || 'Unknown'))].join(', ')}
+                              </div>
+                          </div>
+                          ` : round.status === 'result' ? '<div style="color: #64748b; font-style: italic; margin: 1rem 0;">No votes cast</div>' : ''}
+                          
+                          ${winnerBlock ? `
+                          <div style="margin: 1rem 0;">
+                              <h4 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.5rem;">🏆 Final Result</h4>
+                              <div style="background: #fef3c7; border: 2px solid #f59e0b; padding: 1rem; border-radius: 8px;">
+                                  <div style="font-weight: 600; color: #92400e; margin-bottom: 0.5rem;">
+                                      ${winnerBlock.is_tie_break ? 'Tie-Breaker Result:' : 'Winner:'}
+                                  </div>
+                                  <div style="color: #451a03;">${winnerBlock.text}</div>
+                              </div>
+                          </div>
+                          ` : ''}
+                      </div>
+                      `;
+                    }).join('')}
                 </div>
-                ` : '<p>No discussion rounds completed.</p>'}
+                ` : '<p>No discussion rounds found.</p>'}
             </div>
             
             <div class="section">
@@ -394,7 +492,7 @@ function generateSummaryHTML(data: SummaryData): string {
                 <div class="participants-list">
                     ${participants.map(participant => `
                     <div class="participant">
-                        <div class="participant-name">${participant.name}</div>
+                        <div class="participant-name">${participant.display_name}</div>
                         <div class="participant-role">${participant.is_host ? 'Host' : 'Participant'}</div>
                     </div>
                     `).join('')}
