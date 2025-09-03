@@ -264,17 +264,6 @@ export function ResultsPanel({
           </Badge>
         </div>
 
-        {isHost && onNextRound && (
-          <Button 
-            onClick={onNextRound}
-            disabled={isTransitioning || processing}
-            className="w-full"
-            size="lg"
-          >
-            <CheckCircle className="mr-2 h-4 w-4" />
-            Next Round
-          </Button>
-        )}
       </CardContent>
     </Card>
   );
