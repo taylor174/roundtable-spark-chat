@@ -36,22 +36,33 @@ export function HostControls({
   const { toast } = useToast();
 
   const suggestionPresets = [
+    { label: '1 minute', value: 60 },
+    { label: '3 minutes', value: 180 },
     { label: '5 minutes', value: 300 },
     { label: '10 minutes', value: 600 },
     { label: '15 minutes', value: 900 },
     { label: '20 minutes', value: 1200 },
-    { label: '25 minutes', value: 1500 },
     { label: '30 minutes', value: 1800 },
     { label: '45 minutes', value: 2700 },
     { label: '60 minutes', value: 3600 },
+    { label: '120 minutes', value: 7200 },
+    { label: '240 minutes', value: 14400 },
+    { label: '480 minutes', value: 28800 },
   ];
 
   const votingPresets = [
-    { label: '30 seconds', value: 30 },
-    { label: '60 seconds', value: 60 },
-    { label: '90 seconds', value: 90 },
-    { label: '2 minutes', value: 120 },
+    { label: '1 minute', value: 60 },
     { label: '3 minutes', value: 180 },
+    { label: '5 minutes', value: 300 },
+    { label: '10 minutes', value: 600 },
+    { label: '15 minutes', value: 900 },
+    { label: '20 minutes', value: 1200 },
+    { label: '30 minutes', value: 1800 },
+    { label: '45 minutes', value: 2700 },
+    { label: '60 minutes', value: 3600 },
+    { label: '120 minutes', value: 7200 },
+    { label: '240 minutes', value: 14400 },
+    { label: '480 minutes', value: 28800 },
   ];
 
   const handleStartTable = async () => {
