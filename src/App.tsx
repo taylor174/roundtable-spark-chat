@@ -5,6 +5,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ComprehensiveTestSuite } from "@/components/ComprehensiveTestSuite";
+import { SystemHealthMonitor } from "@/components/SystemHealthMonitor";
+import { useSystemReliability } from "@/hooks/useSystemReliability";
+import { GlobalErrorHandler } from "@/components/GlobalErrorHandler";
 import Home from "./pages/Home";
 import Join from "./pages/Join";
 import Table from "./pages/Table";
@@ -15,10 +18,13 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <ErrorBoundary>
+function AppWithReliability() {
+  useSystemReliability();
+  
+  return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
+        <GlobalErrorHandler />
         <Toaster />
         <Sonner />
         <BrowserRouter>
@@ -34,8 +40,15 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
+        <SystemHealthMonitor />
       </TooltipProvider>
     </QueryClientProvider>
+  );
+}
+
+const App = () => (
+  <ErrorBoundary>
+    <AppWithReliability />
   </ErrorBoundary>
 );
 
