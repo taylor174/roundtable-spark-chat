@@ -27,6 +27,14 @@ export const ROUND_STATUS = {
 } as const;
 
 // Admin configuration - hardcoded client IDs for admin access
+export const SYSTEM_LIMITS = {
+  MAX_PARTICIPANTS_PER_TABLE: 50, // Database enforced
+  MAX_SIMULTANEOUS_TABLES: 500,
+  MAX_ROUNDS_PER_TABLE: 25,
+  MAX_TOTAL_SYSTEM_PARTICIPANTS: 800,
+  CAPACITY_WARNING_THRESHOLD: 0.8, // 80% capacity warning
+} as const;
+
 export const ADMIN_CONFIG = {
   ADMIN_CLIENT_IDS: [
     // Add your admin client IDs here - these will be generated on first visit
