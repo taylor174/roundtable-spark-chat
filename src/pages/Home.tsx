@@ -7,6 +7,7 @@ import { Plus, Users, ExternalLink, AlertCircle, Play } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { TableCreationDialog } from '@/components/TableCreationDialog';
+import { UserMenu } from '@/components/UserMenu';
 import { isValidTableCode } from '@/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -33,10 +34,15 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted">
       <div className="container mx-auto px-4 py-6 sm:py-8">
-        {/* Header */}
-        <div className="text-center mb-8 sm:mb-12">
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2">Roundtable</h1>
-          <p className="text-base sm:text-lg text-muted-foreground">A new way to have big conversations</p>
+        {/* Header with User Menu */}
+        <div className="flex justify-between items-center mb-8 sm:mb-12">
+          <div className="text-center flex-1">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2">Roundtable</h1>
+            <p className="text-base sm:text-lg text-muted-foreground">A new way to have big conversations</p>
+          </div>
+          <div className="absolute top-4 right-4 sm:top-8 sm:right-8">
+            <UserMenu />
+          </div>
         </div>
 
         <div className="text-center mb-8 sm:mb-12">

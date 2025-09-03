@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/utils/logger';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface TableSummary {
   totalTables: number;
@@ -40,6 +41,7 @@ export interface AdminDashboardData {
 }
 
 export function useAdminDashboard() {
+  const { isAdmin, isLoading: authLoading } = useAuth();
   const [data, setData] = useState<AdminDashboardData>({
     tableSummary: {
       totalTables: 0,
@@ -60,22 +62,43 @@ export function useAdminDashboard() {
   });
 
   const fetchDashboardData = useCallback(async () => {
+    if (!isAdmin || authLoading) {
+      setData(prev => ({ ...prev, isLoading: false }));
+      return;
+    }
+
     try {
       setData(prev => ({ ...prev, isLoading: true }));
 
-      // Fetch table summary
+      // Use admin-secured function for system stats
+      const { data: adminStatsData, error: adminStatsError } = await supabase.rpc('get_admin_system_stats');
+      
+      if (adminStatsError) {
+        logger.error('Failed to fetch admin system stats', adminStatsError, 'AdminDashboard');
+        throw adminStatsError;
+      }
+
+      // Parse the system stats
+      const systemData = adminStatsData as any;
+      const tableSummary: TableSummary = {
+        totalTables: systemData.total_tables || 0,
+        runningTables: systemData.running_tables || 0,
+        lobbyTables: 0, // Will calculate separately
+        closedTables: 0, // Will calculate separately
+      };
+
+      // Fetch table breakdown (public data only - no host_secret)
       const { data: tableCountData } = await supabase
         .from('tables')
         .select('status', { count: 'exact' });
 
-      const tableSummary: TableSummary = {
-        totalTables: tableCountData?.length || 0,
-        lobbyTables: tableCountData?.filter(t => t.status === 'lobby').length || 0,
-        runningTables: tableCountData?.filter(t => t.status === 'running').length || 0,
-        closedTables: tableCountData?.filter(t => t.status === 'closed').length || 0,
-      };
+      if (tableCountData) {
+        tableSummary.lobbyTables = tableCountData.filter(t => t.status === 'lobby').length;
+        tableSummary.closedTables = tableCountData.filter(t => t.status === 'closed').length;
+        tableSummary.totalTables = tableCountData.length;
+      }
 
-      // Fetch problematic tables (running tables with details)
+      // Fetch problematic tables (only public data - no host_secret)
       const { data: problematicTablesData } = await supabase
         .from('tables')
         .select(`
@@ -116,22 +139,6 @@ export function useAdminDashboard() {
         };
       });
 
-      // Fetch system statistics
-      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-      const { data: activeParticipantsData } = await supabase
-        .from('participants')
-        .select('id', { count: 'exact' })
-        .gte('last_seen_at', tenMinutesAgo)
-        .eq('is_online', true);
-
-      const { data: expiredRoundsData } = await supabase
-        .from('rounds')
-        .select('id', { count: 'exact' })
-        .in('status', ['suggest', 'vote'])
-        .lt('ends_at', new Date().toISOString());
-
-      const activeParticipants = activeParticipantsData?.length || 0;
-      const expiredRounds = expiredRoundsData?.length || 0;
       const stuckTables = problematicTables.filter(t => {
         const lastActivity = new Date(t.lastActivity || t.updated_at);
         const hoursSinceActivity = (Date.now() - lastActivity.getTime()) / (1000 * 60 * 60);
@@ -139,15 +146,15 @@ export function useAdminDashboard() {
       }).length;
 
       let systemHealth: SystemStats['systemHealth'] = 'healthy';
-      if (stuckTables > 10 || expiredRounds > 20) {
+      if (stuckTables > 10 || systemData.expired_rounds > 20) {
         systemHealth = 'critical';
-      } else if (stuckTables > 5 || expiredRounds > 10) {
+      } else if (stuckTables > 5 || systemData.expired_rounds > 10) {
         systemHealth = 'warning';
       }
 
       const systemStats: SystemStats = {
-        activeParticipants,
-        expiredRounds,
+        activeParticipants: systemData.active_participants || 0,
+        expiredRounds: systemData.expired_rounds || 0,
         stuckTables,
         averageSessionDuration: 0, // TODO: Calculate based on session data
         systemHealth,
@@ -171,16 +178,20 @@ export function useAdminDashboard() {
       logger.error('Failed to fetch admin dashboard data', error, 'AdminDashboard');
       setData(prev => ({ ...prev, isLoading: false }));
     }
-  }, []);
+  }, [isAdmin, authLoading]);
 
   useEffect(() => {
     fetchDashboardData();
     
-    // Refresh every 2 minutes
-    const interval = setInterval(fetchDashboardData, 120000);
+    // Refresh every 2 minutes, but only if user is admin
+    const interval = setInterval(() => {
+      if (isAdmin && !authLoading) {
+        fetchDashboardData();
+      }
+    }, 120000);
     
     return () => clearInterval(interval);
-  }, [fetchDashboardData]);
+  }, [fetchDashboardData, isAdmin, authLoading]);
 
   return {
     ...data,
