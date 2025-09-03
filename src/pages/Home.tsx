@@ -7,6 +7,7 @@ import { Plus, Users, ExternalLink, AlertCircle, Play } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { TableCreationDialog } from '@/components/TableCreationDialog';
+import { SystemLimitsMonitor } from '@/components/SystemLimitsMonitor';
 import { isValidTableCode } from '@/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -49,6 +50,9 @@ export default function Home() {
         </div>
 
         <div className="max-w-md mx-auto space-y-4 px-4 sm:px-0">
+          {/* System Status */}
+          <SystemLimitsMonitor compact />
+          
           {/* Show error alert if there was a navigation error */}
           {location.state?.error && (
             <Alert variant="destructive">

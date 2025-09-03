@@ -148,21 +148,27 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           display_name: string
+          email: string | null
           id: string
+          is_admin: boolean
           updated_at: string
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string
           display_name: string
+          email?: string | null
           id: string
+          is_admin?: boolean
           updated_at?: string
         }
         Update: {
           avatar_url?: string | null
           created_at?: string
           display_name?: string
+          email?: string | null
           id?: string
+          is_admin?: boolean
           updated_at?: string
         }
         Relationships: []
@@ -381,6 +387,10 @@ export type Database = {
         Args: { table_id: string }
         Returns: boolean
       }
+      check_system_capacity: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       cleanup_stale_rounds: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -404,9 +414,24 @@ export type Database = {
           status: string
         }[]
       }
+      create_table_secure_with_limits: {
+        Args: {
+          p_code: string
+          p_default_suggest_sec: number
+          p_default_vote_sec: number
+          p_description: string
+          p_host_secret: string
+          p_title: string
+        }
+        Returns: Json
+      }
       force_cleanup_expired_rounds: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      get_admin_system_stats: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
       }
       get_public_table_info: {
         Args: { table_code?: string }
@@ -441,6 +466,10 @@ export type Database = {
           title: string
           updated_at: string
         }[]
+      }
+      get_system_limits_status: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
       }
       get_table_host_data: {
         Args: { p_client_id: string; p_table_id: string }
@@ -523,6 +552,10 @@ export type Database = {
           title: string
           updated_at: string
         }[]
+      }
+      is_current_user_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
       }
       is_current_user_host: {
         Args: { table_id: string }

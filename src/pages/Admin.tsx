@@ -6,6 +6,7 @@ import { SystemOverview } from '@/components/SystemOverview';
 import { ProblematicTablesList } from '@/components/ProblematicTablesList';
 import { QuickActions } from '@/components/QuickActions';
 import { QAMonitor } from '@/components/QAMonitor';
+import { SystemLimitsMonitor } from '@/components/SystemLimitsMonitor';
 
 export default function AdminPage() {
   const dashboardData = useAdminDashboard();
@@ -31,6 +32,9 @@ export default function AdminPage() {
         data={dashboardData} 
         onRefresh={dashboardData.refreshData} 
       />
+
+      {/* System Limits Monitor */}
+      <SystemLimitsMonitor />
 
       {/* Main Content Grid */}
       <div className="grid gap-8 lg:grid-cols-2">

@@ -75,7 +75,7 @@ export function TableCreationDialog({ children }: TableCreationDialogProps) {
       
       
 
-      const { data: tableResults, error } = await supabase.rpc('create_table_secure', {
+      const { data: createResult, error } = await supabase.rpc('create_table_secure_with_limits', {
         p_code: tableCode,
         p_host_secret: hostSecret,
         p_title: title.trim(),
@@ -84,13 +84,26 @@ export function TableCreationDialog({ children }: TableCreationDialogProps) {
         p_default_vote_sec: voteTime
       });
 
-      
-
-      if (error || !tableResults || tableResults.length === 0) {
-        throw error || new Error('Failed to create table');
+      if (error) {
+        throw error;
       }
 
-      const table = tableResults[0];
+      const result = createResult as any;
+
+      if (!result.success) {
+        // Handle capacity limits gracefully
+        if (result.error === 'System at capacity') {
+          toast({
+            title: "System at capacity",
+            description: "The system is currently at full capacity. Please try again later.",
+            variant: "destructive",
+          });
+          return;
+        }
+        throw new Error(result.error || 'Failed to create table');
+      }
+
+      const table = result.table;
 
       // Store host secret
       console.log('Storing host secret for table:', tableCode);
